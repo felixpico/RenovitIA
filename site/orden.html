@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Renovitia · Orden de estudios</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <style>
+    :root { --brand:#2f6b58; --accent:#c7803a; --text:#1c2521; --muted:#5d6b64; --border:#d9dfd9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #eceee9; color: var(--text); font-family: "Inter", Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.45; }
+    .bar { max-width: 816px; margin: 16px auto 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 16px; }
+    .bar button, .bar a { font: inherit; border-radius: 10px; padding: 9px 14px; border: 1px solid var(--border); background: #fff; color: var(--text); text-decoration: none; cursor: pointer; font-weight: 600; }
+    .bar button.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+    .sheet { position: relative; max-width: 816px; min-height: 1056px; margin: 12px auto 32px; background: #fff; padding: 48px 56px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+    header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--brand); padding-bottom: 14px; }
+    header img { height: 58px; }
+    .folio { text-align: right; font-size: 12px; color: var(--muted); }
+    .folio b { display: block; font-size: 16px; color: var(--text); letter-spacing: .03em; }
+    h1 { font-size: 20px; margin: 22px 0 4px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; margin: 14px 0 18px; }
+    .grid div span { color: var(--muted); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+    h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--brand); margin: 22px 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+    ul.studies { columns: 2; column-gap: 32px; padding-left: 18px; margin: 0; }
+    ul.studies li { break-inside: avoid; margin-bottom: 3px; }
+    .cat { font-weight: 700; color: var(--muted); font-size: 12px; margin: 10px 0 2px; list-style: none; margin-left: -18px; }
+    .ind { white-space: pre-wrap; background: #f6f7f4; border-radius: 8px; padding: 12px 14px; }
+    .sign { margin-top: 56px; display: flex; justify-content: flex-end; }
+    .sign div { width: 300px; text-align: center; border-top: 1px solid var(--text); padding-top: 6px; font-size: 13px; }
+    .sign small { display: block; color: var(--muted); }
+    footer { position: absolute; left: 56px; right: 56px; bottom: 32px; font-size: 10.5px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 8px; }
+    .watermark { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font-size: 88px; font-weight: 800; color: rgba(179,38,30,.12); transform: rotate(-24deg); }
+    .msg { max-width: 600px; margin: 60px auto; background: #fff; padding: 24px; border-radius: 12px; }
+    @media print {
+      body { background: #fff; }
+      .bar { display: none; }
+      .sheet { box-shadow: none; margin: 0; max-width: none; min-height: auto; padding: 0; }
+      footer { position: static; margin-top: 40px; }
+      @page { size: letter; margin: 16mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <a id="back" href="index.html">← Volver</a>
+    <button id="print" class="primary" type="button">Imprimir / guardar PDF</button>
+  </div>
+  <main id="root"><div class="msg">Cargando orden…</div></main>
+  <script type="module" src="assets/js/orden.js"></script>
+</body>
+</html>

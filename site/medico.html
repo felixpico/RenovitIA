@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f6b58">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Renovitia · Panel médico</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/brand/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/medico.css">
+</head>
+<body class="panel">
+  <div id="demo-banner" class="demo-banner hidden">Vista previa con pacientes ficticios: nada se guarda.</div>
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <a class="brand" href="medico.html" aria-label="Renovitia, panel médico"><picture><source srcset="assets/brand/logo-header-oscuro.svg" media="(prefers-color-scheme: dark)"><img class="brand-logo" src="assets/brand/logo-header.svg" alt="Renovitia" width="150" height="32"></picture></a>
+      <nav id="nav" class="panel-nav hidden" aria-label="Secciones">
+        <a href="#/alertas" data-route="alertas">Alertas <span id="nav-alert-count" class="count hidden"></span></a>
+        <a href="#/pacientes" data-route="pacientes">Pacientes</a>
+      </nav>
+      <div class="who">
+        <span id="who-name" class="muted small"></span>
+        <button id="btn-logout" class="btn-link hidden" type="button">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container wide">
+    <div id="loading" class="spinner" aria-label="Cargando"></div>
+    <div id="error" class="notice danger hidden" role="alert"></div>
+
+    <!-- Login del equipo clínico -->
+    <section id="view-login" class="hidden narrow stack">
+      <div class="hero">
+        <div class="eyebrow">Equipo clínico</div>
+        <h1>Panel médico</h1>
+        <p class="muted">Acceso sólo para médicos y administradores del programa.</p>
+      </div>
+      <form id="form-login" class="card stack" novalidate>
+        <label class="field">
+          <span class="field-label">Correo institucional</span>
+          <input id="login-email" class="input" type="email" autocomplete="email" required placeholder="doctor@correo.com">
+        </label>
+        <button id="btn-login" class="btn btn-primary btn-block" type="submit">Enviarme el enlace de acceso</button>
+        <div id="login-msg" class="notice hidden" role="status"></div>
+      </form>
+      <p class="muted small">¿Sólo quieres ver cómo funciona? <a href="medico.html?demo=1">Abrir vista previa con pacientes ficticios</a>.</p>
+    </section>
+
+    <section id="view-denied" class="hidden narrow card stack">
+      <h2 style="margin:0">Sin acceso al panel</h2>
+      <p>Tu cuenta (<strong id="denied-email"></strong>) no tiene rol de médico ni de administrador.</p>
+      <p class="muted">Un administrador debe asignarte el rol en Supabase (<code>user_roles</code>).</p>
+    </section>
+
+    <section id="view-app" class="hidden"></section>
+  </main>
+
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="card stack">
+      <h3 id="modal-title" style="color:var(--text)"></h3>
+      <div id="modal-body"></div>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn btn-ghost" type="button">Cancelar</button>
+        <button id="modal-ok" class="btn btn-primary" type="button">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="assets/js/medico.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "Renovitia",
+  "short_name": "Renovitia",
+  "description": "Regenera – Reconstruye – Renace",
+  "lang": "es-MX",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#f6f7f4",
+  "theme_color": "#2f6b58",
+  "icons": [
+    { "src": "assets/brand/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/brand/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/brand/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

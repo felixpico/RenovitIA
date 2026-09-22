@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f6b58">
+  <title>{APP} · Inicio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/brand/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html" aria-label="Renovitia, inicio"><picture><source srcset="assets/brand/logo-header-oscuro.svg" media="(prefers-color-scheme: dark)"><img class="brand-logo" src="assets/brand/logo-header.svg" alt="Renovitia" width="150" height="32"></picture></a>
+      <button id="btn-logout" class="btn-link hidden" type="button">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container stack">
+    <div id="loading" class="spinner" aria-label="Cargando"></div>
+
+    <!-- Vista: sin sesión -->
+    <section id="view-login" class="hidden stack">
+      <div class="hero">
+        <div class="eyebrow">Programa piloto</div>
+        <h1>Tu salud, medida y ajustada con criterio médico</h1>
+        <p class="muted">Empezamos por conocerte a fondo. Con tu historia clínica, estudios de laboratorio y composición corporal, un médico diseña y firma tu protocolo de 12 semanas.</p>
+      </div>
+
+      <ol class="steps">
+        <li><span class="step-n">1</span><div><strong>Historia clínica funcional</strong><span class="muted small">12–15 minutos. Se guarda solo y puedes continuar después.</span></div></li>
+        <li><span class="step-n">2</span><div><strong>Estudios de laboratorio y DEXA</strong><span class="muted small">Tu médico emite las órdenes; tú agendas la toma.</span></div></li>
+        <li><span class="step-n">3</span><div><strong>Resultados</strong><span id="results-status" class="muted small">Aparecen aquí cuando tu médico los revise contigo.</span></div></li><li><span class="step-n">4</span><div><strong>Protocolo firmado por tu médico</strong><span class="muted small">Alimentación, ejercicio, suplementación, sueño y estrés.</span></div></li>
+      </ol>
+
+      <form id="form-login" class="card stack" novalidate>
+        <div>
+          <h2 style="margin:0 0 4px;font-size:1.2rem">Entrar</h2>
+          <p class="muted small" style="margin:0">Usa el correo con el que te invitó tu médico. Te enviaremos un enlace de acceso, sin contraseña.</p>
+        </div>
+        <label class="field">
+          <span class="field-label">Correo electrónico</span>
+          <input id="login-email" class="input" type="email" autocomplete="email" inputmode="email" required placeholder="tu@correo.com">
+        </label>
+        <button id="btn-login" class="btn btn-primary btn-block" type="submit">Enviarme el enlace</button>
+        <div id="login-msg" class="notice hidden" role="status"></div>
+      </form>
+
+      <p class="muted small">¿Sólo quieres ver cómo es el formulario? <a href="formulario.html?demo=1">Abrir vista previa</a> (no guarda datos).</p>
+    </section>
+
+    <!-- Vista: sesión sin invitación -->
+    <section id="view-no-invite" class="hidden card stack">
+      <h2 style="margin:0">No encontramos tu invitación</h2>
+      <p>Iniciaste sesión como <strong id="no-invite-email"></strong>, pero ese correo no está registrado en el programa.</p>
+      <p class="muted">Pide a tu médico que confirme el correo con el que te dio de alta, o cierra sesión e intenta con otro.</p>
+      <button class="btn btn-ghost" type="button" data-logout>Usar otro correo</button>
+    </section>
+
+    <!-- Vista: paciente -->
+    <section id="view-patient" class="hidden stack">
+      <div class="hero">
+        <div class="eyebrow">Bienvenido</div>
+        <h1 id="welcome-name">Hola</h1>
+      </div>
+
+      <div class="card stack">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div>
+            <strong>Historia clínica funcional</strong>
+            <div id="intake-status" class="muted small">Sin iniciar</div>
+          </div>
+          <span id="intake-pct" style="font-weight:700;color:var(--brand)">0%</span>
+        </div>
+        <div class="progress"><span id="intake-bar"></span></div>
+        <a id="btn-intake" class="btn btn-primary btn-block" href="formulario.html">Comenzar</a>
+      </div>
+
+      <div class="card stack">
+        <strong>Siguientes pasos</strong>
+        <ol class="steps" style="margin:0">
+          <li><span class="step-n">2</span><div><strong>Órdenes de estudios</strong><span id="orders-status" class="muted small">Disponibles cuando tu médico revise tu historia clínica.</span><div id="orders-list" class="stack" style="margin-top:8px"></div></div></li>
+          <li><span class="step-n">3</span><div><strong>Tu protocolo</strong><span class="muted small">Lo verás aquí cuando tu médico lo firme y lo entregue.</span></div></li>
+        </ol>
+      </div>
+
+      <div class="notice small">Si tienes una emergencia médica llama al <strong>911</strong>. Si estás pensando en hacerte daño, llama a la Línea de la Vida <strong>800 911 2000</strong> (24 h).</div>
+    </section>
+  </main>
+
+  <script type="module" src="assets/js/inicio.js"></script>
+</body>
+</html>

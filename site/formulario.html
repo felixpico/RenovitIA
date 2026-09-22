@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f6b58">
+  <title>{APP} · Historia clínica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/brand/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div id="demo-banner" class="demo-banner hidden">Vista previa: las respuestas no se guardan.</div>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html" aria-label="Renovitia, inicio"><picture><source srcset="assets/brand/logo-header-oscuro.svg" media="(prefers-color-scheme: dark)"><img class="brand-logo" src="assets/brand/logo-header.svg" alt="Renovitia" width="150" height="32"></picture></a>
+      <a class="btn-link" href="index.html">Guardar y salir</a>
+    </div>
+  </header>
+
+  <main class="container stack">
+    <div id="loading" class="spinner" aria-label="Cargando"></div>
+    <div id="error" class="notice danger hidden" role="alert"></div>
+
+    <section id="wizard" class="hidden stack">
+      <div>
+        <div class="progress" aria-hidden="true"><span id="bar"></span></div>
+        <div class="progress-meta"><span id="step-label"></span><span id="pct-label"></span></div>
+      </div>
+      <div class="card">
+        <div class="section-head">
+          <div class="eyebrow" id="section-code"></div>
+          <h2 id="section-title"></h2>
+          <p id="section-intro" class="muted"></p>
+        </div>
+        <div id="questions"></div>
+      </div>
+    </section>
+
+    <section id="done" class="hidden card stack">
+      <div class="eyebrow">Historia clínica enviada</div>
+      <h2 style="margin:0">Gracias, la recibimos</h2>
+      <p>Tu médico revisará tus respuestas y te avisará cuando tus órdenes de laboratorio y DEXA estén listas.</p>
+      <a class="btn btn-primary" href="index.html">Volver al inicio</a>
+    </section>
+  </main>
+
+  <nav id="savebar" class="savebar hidden">
+    <div class="savebar-inner">
+      <button id="btn-prev" class="btn btn-ghost" type="button">Anterior</button>
+      <span id="save-status" class="save-status" aria-live="polite"></span>
+      <button id="btn-next" class="btn btn-primary" type="button">Siguiente</button>
+    </div>
+  </nav>
+
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="card stack">
+      <h3 id="modal-title"></h3>
+      <div id="modal-body"></div>
+      <button id="modal-close" class="btn btn-primary btn-block" type="button">Entendido</button>
+    </div>
+  </div>
+
+  <script type="module" src="assets/js/formulario.js"></script>
+</body>
+</html>
