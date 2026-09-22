@@ -293,34 +293,6 @@
    "question_code": "A5"
   },
   {
-   "id": "q-A6",
-   "prompt": "Ciudad / colonia",
-   "options": {
-    "hint": "Texto"
-   },
-   "instrument": null,
-   "section_id": "sec-A",
-   "sort_order": 5,
-   "answer_type": "text",
-   "is_required": true,
-   "logic_notes": "Logística de toma a domicilio y DEXA",
-   "question_code": "A6"
-  },
-  {
-   "id": "q-A7",
-   "prompt": "Ocupación",
-   "options": {
-    "hint": "Texto + tipo: sedentaria / de pie / física pesada"
-   },
-   "instrument": null,
-   "section_id": "sec-A",
-   "sort_order": 6,
-   "answer_type": "text",
-   "is_required": true,
-   "logic_notes": null,
-   "question_code": "A7"
-  },
-  {
    "id": "q-A8",
    "prompt": "¿Trabaja turnos nocturnos o rotativos?",
    "options": {
@@ -370,57 +342,6 @@
    "question_code": "B1"
   },
   {
-   "id": "q-B2",
-   "prompt": "¿Qué tan motivado está para hacer cambios en los próximos 3 meses?",
-   "options": {
-    "ui": "slider",
-    "hint": "Escala 1–10"
-   },
-   "instrument": null,
-   "section_id": "sec-B",
-   "sort_order": 1,
-   "answer_type": "scale",
-   "is_required": false,
-   "logic_notes": "≤ 5 → protocolo mínimo (3 cambios), no completo",
-   "question_code": "B2"
-  },
-  {
-   "id": "q-B3",
-   "prompt": "¿Qué ha intentado antes y por qué no funcionó?",
-   "options": {
-    "hint": "Texto libre",
-    "skippable": true
-   },
-   "instrument": null,
-   "section_id": "sec-B",
-   "sort_order": 2,
-   "answer_type": "long_text",
-   "is_required": false,
-   "logic_notes": "Contexto para el médico",
-   "question_code": "B3"
-  },
-  {
-   "id": "q-B4",
-   "prompt": "¿Cuánto tiempo real tiene al día para salud (ejercicio, cocinar, etc.)?",
-   "options": {
-    "ui": "cards",
-    "hint": "< 30 min / 30–60 / 60–90 / > 90",
-    "icons": {
-     "> 90": "🕒",
-     "30–60": "🕐",
-     "60–90": "🕑",
-     "< 30 min": "⏱️"
-    }
-   },
-   "instrument": null,
-   "section_id": "sec-B",
-   "sort_order": 3,
-   "answer_type": "single_choice",
-   "is_required": false,
-   "logic_notes": "Limita tamaño del protocolo",
-   "question_code": "B4"
-  },
-  {
    "id": "q-C1",
    "prompt": "Peso actual (kg) y estatura (cm)",
    "options": {
@@ -453,21 +374,6 @@
    "is_required": false,
    "logic_notes": "Pérdida NO intencional > 5% en 6 meses → consulta antes de protocolo",
    "question_code": "C3"
-  },
-  {
-   "id": "q-C4",
-   "prompt": "Última presión arterial conocida",
-   "options": {
-    "hint": "Sistólica/diastólica + fecha, o \"no sé\"",
-    "skippable": true
-   },
-   "instrument": null,
-   "section_id": "sec-C",
-   "sort_order": 3,
-   "answer_type": "text",
-   "is_required": false,
-   "logic_notes": "≥ 180/110 → urgente. ≥ 140/90 → consulta prioritaria",
-   "question_code": "C4"
   },
   {
    "id": "q-D1",
@@ -1254,7 +1160,7 @@
   },
   {
    "id": "q-L1",
-   "prompt": "Cuestionario ADAM (10 preguntas Sí/No): libido, falta de energía, fuerza/resistencia, estatura, disfrute de la vida, tristeza/irritabilidad, erecciones, rendimiento deportivo, sueño después de comer, desempeño laboral",
+   "prompt": "Energía, ánimo y función sexual (5 preguntas)",
    "options": {
     "ui": "stepper",
     "hint": "10 × Sí/No"
@@ -1310,21 +1216,6 @@
    "is_required": false,
    "logic_notes": "Sí → contraindica iniciar testosterona exógena; considerar alternativas",
    "question_code": "L4"
-  },
-  {
-   "id": "q-L5",
-   "prompt": "Último PSA / revisión prostática",
-   "options": {
-    "hint": "Fecha y valor o nunca",
-    "skippable": true
-   },
-   "instrument": null,
-   "section_id": "sec-L",
-   "sort_order": 4,
-   "answer_type": "date",
-   "is_required": false,
-   "logic_notes": null,
-   "question_code": "L5"
   },
   {
    "id": "q-M1",
@@ -1390,27 +1281,6 @@
    "is_required": false,
    "logic_notes": "Síntomas hipoglucémicos → CGM opcional",
    "question_code": "M5"
-  },
-  {
-   "id": "q-M6",
-   "prompt": "Frío y calor",
-   "options": {
-    "ui": "symptoms",
-    "hint": "0–3 c/u",
-    "items": [
-     "frío en manos/pies",
-     "intolerancia al calor",
-     "sudoración nocturna"
-    ],
-    "skippable": true
-   },
-   "instrument": null,
-   "section_id": "sec-M",
-   "sort_order": 5,
-   "answer_type": "scale",
-   "is_required": false,
-   "logic_notes": null,
-   "question_code": "M6"
   },
   {
    "id": "q-M7",
@@ -1499,19 +1369,18 @@
   },
   {
    "id": "q-M11",
-   "prompt": "¿Has tenido alguno de estos síntomas en el último mes?",
+   "prompt": "¿Has tenido algo de esto en el último mes?",
    "options": {
-    "ui": "alarm",
-    "hint": "Sí/No por cada una",
-    "items": [
-     "Dolor u opresión en el pecho con esfuerzo",
-     "Desmayo",
-     "Sangre en heces u orina",
-     "Vómito con sangre",
-     "Falta de aire en reposo",
-     "Fiebre o sudoración nocturna sin causa",
-     "Un bulto nuevo"
-    ]
+    "ui": "cards",
+    "hint": "Dolor u opresión en el pecho al hacer esfuerzo · Desmayo o pérdida del conocimiento · Sangre en heces, orina o vómito · Falta de aire estando en reposo · Un bulto nuevo, o fiebre y sudoración nocturna sin causa · Ninguno de estos",
+    "icons": {
+     "Ninguno de estos": "✅",
+     "Falta de aire estando en reposo": "🫁",
+     "Sangre en heces, orina o vómito": "🩸",
+     "Desmayo o pérdida del conocimiento": "😵",
+     "Dolor u opresión en el pecho al hacer esfuerzo": "💥",
+     "Un bulto nuevo, o fiebre y sudoración nocturna sin causa": "🔎"
+    }
    },
    "instrument": null,
    "section_id": "sec-M",
@@ -1538,74 +1407,54 @@
   },
   {
    "id": "q-N2",
-   "prompt": "Ejercicio intenso en los últimos 7 días",
+   "prompt": "¿Haces ejercicio de forma regular?",
    "options": {
-    "hint": "Días + minutos"
+    "ui": "cards",
+    "hint": "No hago ejercicio / 1–2 días por semana / 3–4 días por semana / 5–6 días por semana / Todos los días",
+    "icons": {
+     "Todos los días": "🔥",
+     "No hago ejercicio": "🛋️",
+     "1–2 días por semana": "🚶",
+     "3–4 días por semana": "🏃",
+     "5–6 días por semana": "💪"
+    }
    },
-   "instrument": "IPAQ",
+   "instrument": null,
    "section_id": "sec-N",
    "sort_order": 1,
-   "answer_type": "instrument",
+   "answer_type": "single_choice",
    "is_required": false,
    "logic_notes": "Calcular MET-min/semana (vigorosa × 8)",
    "question_code": "N2"
   },
   {
    "id": "q-N3",
-   "prompt": "Ejercicio moderado en los últimos 7 días",
+   "prompt": "¿Qué tipo de ejercicio haces?",
    "options": {
-    "hint": "Días + minutos"
-   },
-   "instrument": "IPAQ",
-   "section_id": "sec-N",
-   "sort_order": 2,
-   "answer_type": "instrument",
-   "is_required": false,
-   "logic_notes": "× 4 MET",
-   "question_code": "N3"
-  },
-  {
-   "id": "q-N4",
-   "prompt": "Caminata en los últimos 7 días",
-   "options": {
-    "hint": "Días + minutos"
-   },
-   "instrument": "IPAQ",
-   "section_id": "sec-N",
-   "sort_order": 3,
-   "answer_type": "instrument",
-   "is_required": false,
-   "logic_notes": "× 3.3 MET. Clasificación: baja / moderada (≥ 600) / alta (≥ 3000)",
-   "question_code": "N4"
-  },
-  {
-   "id": "q-N5",
-   "prompt": "Horas sentado en un día normal",
-   "options": {
-    "hint": "Horas"
-   },
-   "instrument": "IPAQ",
-   "section_id": "sec-N",
-   "sort_order": 4,
-   "answer_type": "instrument",
-   "is_required": false,
-   "logic_notes": "≥ 8 h → pausas activas en protocolo",
-   "question_code": "N5"
-  },
-  {
-   "id": "q-N6",
-   "prompt": "Entrenamiento de fuerza: días/semana, tipo (pesas, máquinas, calistenia, clases), años de experiencia",
-   "options": {
-    "hint": "Número + checklist + años",
+    "ui": "cards",
+    "hint": "Pesas o gimnasio · Correr · Caminar · Bicicleta · Natación · Crossfit o funcional · Yoga o pilates · Tenis, pádel o squash · Fútbol, básquet u otro de equipo · Artes marciales · Ninguno por ahora",
+    "icons": {
+     "Correr": "🏃",
+     "Caminar": "🚶",
+     "Bicicleta": "🚴",
+     "Natación": "🏊",
+     "Yoga o pilates": "🧘",
+     "Artes marciales": "🥋",
+     "Pesas o gimnasio": "🏋️",
+     "Ninguno por ahora": "🚫",
+     "Crossfit o funcional": "🤸",
+     "Tenis, pádel o squash": "🎾",
+     "Fútbol, básquet u otro de equipo": "⚽"
+    },
     "skippable": true
    },
    "instrument": null,
    "section_id": "sec-N",
-   "sort_order": 5,
-   "answer_type": "number",
+   "sort_order": 2,
+   "answer_type": "multi_choice",
    "is_required": false,
-   "logic_notes": "Define nivel: principiante / intermedio / avanzado",
-   "question_code": "N6"
+   "logic_notes": "× 4 MET",
+   "question_code": "N3"
   },
   {
    "id": "q-N9",
@@ -1662,14 +1511,13 @@
    "id": "q-O1",
    "prompt": "Hora habitual de acostarse y levantarse — entre semana",
    "options": {
-    "hint": "Horas",
-    "skippable": true
+    "hint": "Horas"
    },
    "instrument": null,
    "section_id": "sec-O",
    "sort_order": 0,
    "answer_type": "time",
-   "is_required": false,
+   "is_required": true,
    "logic_notes": "Calcular duración y punto medio del sueño",
    "question_code": "O1"
   },
@@ -1677,14 +1525,13 @@
    "id": "q-O2",
    "prompt": "Hora habitual de acostarse y levantarse — fin de semana",
    "options": {
-    "hint": "Horas",
-    "skippable": true
+    "hint": "Horas"
    },
    "instrument": null,
    "section_id": "sec-O",
    "sort_order": 1,
    "answer_type": "time",
-   "is_required": false,
+   "is_required": true,
    "logic_notes": "Diferencia > 2 h → \"jet lag social\"",
    "question_code": "O2"
   },
@@ -1692,14 +1539,13 @@
    "id": "q-O3",
    "prompt": "Minutos que tarda en dormirse",
    "options": {
-    "hint": "Número",
-    "skippable": true
+    "hint": "Número"
    },
    "instrument": null,
    "section_id": "sec-O",
    "sort_order": 2,
    "answer_type": "number",
-   "is_required": false,
+   "is_required": true,
    "logic_notes": "> 30 min frecuente → insomnio de inicio",
    "question_code": "O3"
   },
@@ -1714,14 +1560,13 @@
      "Buena": "🙂",
      "Muy mala": "😖",
      "Muy buena": "😀"
-    },
-    "skippable": true
+    }
    },
    "instrument": null,
    "section_id": "sec-O",
    "sort_order": 4,
    "answer_type": "single_choice",
-   "is_required": false,
+   "is_required": true,
    "logic_notes": null,
    "question_code": "O5"
   },
@@ -1729,14 +1574,13 @@
    "id": "q-O8",
    "prompt": "Cafeína: tazas al día y hora de la última",
    "options": {
-    "hint": "Número + hora",
-    "skippable": true
+    "hint": "Número + hora"
    },
    "instrument": null,
    "section_id": "sec-O",
    "sort_order": 7,
    "answer_type": "number",
-   "is_required": false,
+   "is_required": true,
    "logic_notes": "Última después de 14:00 → ajustar",
    "question_code": "O8"
   },
@@ -1744,14 +1588,13 @@
    "id": "q-O9",
    "prompt": "Pantallas en la cama / 1 h antes de dormir",
    "options": {
-    "hint": "Sí/No",
-    "skippable": true
+    "hint": "Sí/No"
    },
    "instrument": null,
    "section_id": "sec-O",
    "sort_order": 8,
    "answer_type": "boolean",
-   "is_required": false,
+   "is_required": true,
    "logic_notes": null,
    "question_code": "O9"
   },
@@ -1759,20 +1602,19 @@
    "id": "q-O10",
    "prompt": "Uso de medicamentos o suplementos para dormir (melatonina, zolpidem, clonazepam, antihistamínicos)",
    "options": {
-    "hint": "Lista",
-    "skippable": true
+    "hint": "Lista"
    },
    "instrument": null,
    "section_id": "sec-O",
    "sort_order": 9,
    "answer_type": "list",
-   "is_required": false,
+   "is_required": true,
    "logic_notes": "Benzodiacepinas → revisión médica",
    "question_code": "O10"
   },
   {
    "id": "q-O11",
-   "prompt": "STOP-BANG: ronca fuerte · cansancio diurno · le han observado dejar de respirar · presión alta · IMC > 35 · edad > 50 · cuello > 40 cm · sexo masculino",
+   "prompt": "Ronquido y respiración al dormir (3 preguntas)",
    "options": {
     "ui": "stepper",
     "hint": "8 × Sí/No (IMC, edad y sexo se autocompletan)"
@@ -1781,7 +1623,7 @@
    "section_id": "sec-O",
    "sort_order": 10,
    "answer_type": "instrument",
-   "is_required": false,
+   "is_required": true,
    "logic_notes": "0–2 bajo · 3–4 intermedio · 5–8 alto → alto: derivar a estudio de sueño (poligrafía) antes de optimizar sueño",
    "question_code": "O11"
   },
@@ -1790,20 +1632,19 @@
    "prompt": "¿Monitorea su sueño? ¿Con qué? (conectar para traer duración, fases, HRV nocturna)",
    "options": {
     "ui": "cards",
-    "hint": "Selección",
-    "skippable": true
+    "hint": "Selección"
    },
    "instrument": null,
    "section_id": "sec-O",
    "sort_order": 11,
    "answer_type": "single_choice",
-   "is_required": false,
+   "is_required": true,
    "logic_notes": null,
    "question_code": "O12"
   },
   {
    "id": "q-P1",
-   "prompt": "Cómo te has sentido este mes",
+   "prompt": "Estrés en el último mes (4 preguntas)",
    "options": {
     "ui": "stepper",
     "hint": "0–4 por reactivo (4, 5, 7 y 8 se invierten)",
@@ -1819,7 +1660,7 @@
   },
   {
    "id": "q-P2",
-   "prompt": "PHQ-9 — Síntomas depresivos (últimas 2 semanas)",
+   "prompt": "Estado de ánimo (2 preguntas)",
    "options": {
     "ui": "stepper",
     "hint": "0–3 por reactivo"
@@ -1833,23 +1674,8 @@
    "question_code": "P2"
   },
   {
-   "id": "q-P3",
-   "prompt": "PHQ-9 reactivo 9: pensamientos de que estaría mejor muerto o de hacerse daño",
-   "options": {
-    "ui": "stepper",
-    "hint": "0–3"
-   },
-   "instrument": "PHQ9",
-   "section_id": "sec-P",
-   "sort_order": 2,
-   "answer_type": "instrument",
-   "is_required": true,
-   "logic_notes": "Cualquier valor > 0 → mostrar recursos de crisis de inmediato + alerta al médico el mismo día",
-   "question_code": "P3"
-  },
-  {
    "id": "q-P4",
-   "prompt": "GAD-7 — Ansiedad (últimas 2 semanas)",
+   "prompt": "Ansiedad (2 preguntas)",
    "options": {
     "ui": "stepper",
     "hint": "0–3 por reactivo"
@@ -1909,18 +1735,20 @@
   },
   {
    "id": "q-Q1",
-   "prompt": "Patrón de alimentación",
+   "prompt": "¿Cómo comes normalmente?",
    "options": {
     "ui": "cards",
-    "hint": "Omnívoro · Vegetariano · Vegano · Pescetariano · Keto/low-carb · Carnívoro · Otro",
+    "hint": "Un poco de todo · Cuido porciones y calorías · Bajo en carbohidratos o keto · Alta en proteína · Vegetariano · Vegano · Pescetariano · Carnívoro · Otro",
     "icons": {
      "Otro": "➕",
      "Vegano": "🌱",
-     "Omnívoro": "🍽️",
-     "Carnívoro": "🥩",
+     "Carnívoro": "🍖",
      "Vegetariano": "🥗",
      "Pescetariano": "🐟",
-     "Keto/low-carb": "🥑"
+     "Un poco de todo": "🍽️",
+     "Alta en proteína": "🥩",
+     "Cuido porciones y calorías": "⚖️",
+     "Bajo en carbohidratos o keto": "🥑"
     }
    },
    "instrument": null,
@@ -1930,21 +1758,6 @@
    "is_required": false,
    "logic_notes": null,
    "question_code": "Q1"
-  },
-  {
-   "id": "q-Q2",
-   "prompt": "Comidas al día, hora de la primera y la última",
-   "options": {
-    "hint": "Número + horas",
-    "skippable": true
-   },
-   "instrument": null,
-   "section_id": "sec-Q",
-   "sort_order": 1,
-   "answer_type": "number",
-   "is_required": false,
-   "logic_notes": "Ventana de alimentación actual",
-   "question_code": "Q2"
   },
   {
    "id": "q-Q3",
@@ -1976,21 +1789,6 @@
    "is_required": false,
    "logic_notes": "Positivo: ≥ 4 hombres / ≥ 3 mujeres → módulo de alcohol en protocolo. ≥ 8 → consulta",
    "question_code": "Q8"
-  },
-  {
-   "id": "q-Q9",
-   "prompt": "SCOFF (5 Sí/No): se provoca vómito por sentirse lleno · siente que perdió control de cuánto come · perdió > 6 kg en 3 meses · se cree gordo cuando otros dicen que está delgado · la comida domina su vida",
-   "options": {
-    "ui": "stepper",
-    "hint": "5 × Sí/No"
-   },
-   "instrument": "SCOFF",
-   "section_id": "sec-Q",
-   "sort_order": 8,
-   "answer_type": "instrument",
-   "is_required": true,
-   "logic_notes": "≥ 2 → posible TCA: sin conteo de calorías, sin ayuno, sin metas de peso; consulta médica",
-   "question_code": "Q9"
   },
   {
    "id": "q-Q10",
@@ -2128,34 +1926,24 @@
    "question_code": "T1"
   },
   {
-   "id": "q-T2",
-   "prompt": "Presupuesto mensual para suplementos",
+   "id": "q-T7",
+   "prompt": "¿A qué hora prefieres entrenar?",
    "options": {
-    "hint": "< $500 · $500–1,000 · $1,000–2,000 · > $2,000 MXN",
-    "skippable": true
+    "ui": "cards",
+    "hint": "En la mañana (AM) / En la tarde o noche (PM) / Me da igual",
+    "icons": {
+     "Me da igual": "🤷",
+     "En la mañana (AM)": "🌅",
+     "En la tarde o noche (PM)": "🌙"
+    }
    },
    "instrument": null,
    "section_id": "sec-T",
    "sort_order": 1,
    "answer_type": "single_choice",
    "is_required": false,
-   "logic_notes": "Limita número de suplementos (priorizar por evidencia)",
-   "question_code": "T2"
-  },
-  {
-   "id": "q-T5",
-   "prompt": "Mejor horario y canal para seguimiento",
-   "options": {
-    "hint": "WhatsApp / app / llamada + horario",
-    "skippable": true
-   },
-   "instrument": null,
-   "section_id": "sec-T",
-   "sort_order": 4,
-   "answer_type": "single_choice",
-   "is_required": false,
    "logic_notes": null,
-   "question_code": "T5"
+   "question_code": "T7"
   },
   {
    "id": "q-T6",

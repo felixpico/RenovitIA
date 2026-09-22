@@ -20,56 +20,36 @@ const PHQ_ITEMS = [
 ];
 
 export const INSTRUMENTS = {
-  PHQ9_A: { // P2: reactivos 1–8
+  PHQ2: { // P2 · versión ultrabreve validada (reactivos 1 y 2 del PHQ-9)
     intro: 'Durante las últimas 2 semanas, ¿con qué frecuencia le han molestado los siguientes problemas?',
-    scale: F_2W, items: PHQ_ITEMS,
+    scale: F_2W, items: PHQ_ITEMS.slice(0, 2),
   },
-  PHQ9_B: { // P3: reactivo 9 (seguridad)
-    intro: 'Durante las últimas 2 semanas, ¿con qué frecuencia ha tenido…',
-    scale: F_2W, items: ['Pensamientos de que estaría mejor muerto(a) o de lastimarse de alguna manera'],
-  },
-  GAD7: {
+  GAD2: { // P4 · versión ultrabreve validada (reactivos 1 y 2 del GAD-7)
     intro: 'Durante las últimas 2 semanas, ¿con qué frecuencia le han molestado los siguientes problemas?',
     scale: F_2W,
     items: [
       'Se ha sentido nervioso(a), ansioso(a) o con los nervios de punta',
       'No ha podido dejar de preocuparse o controlar la preocupación',
-      'Se ha preocupado demasiado por diferentes cosas',
-      'Ha tenido dificultad para relajarse',
-      'Se ha sentido tan inquieto(a) que no ha podido quedarse quieto(a)',
-      'Se ha molestado o irritado fácilmente',
-      'Ha sentido miedo de que algo terrible fuera a pasar',
     ],
   },
-  PSS10: {
+  PSS4: { // P1 · PSS-4 (reactivos 2, 4, 5 y 10 del PSS-10)
     intro: 'En el último mes, ¿con qué frecuencia…',
     scale: PSS,
-    reverse: [3, 4, 6, 7], // índices base 0 de los reactivos 4, 5, 7 y 8
+    reverse: [1, 2],
     items: [
-      '…ha estado afectado(a) por algo que ocurrió inesperadamente?',
       '…se ha sentido incapaz de controlar las cosas importantes de su vida?',
-      '…se ha sentido nervioso(a) o estresado(a)?',
       '…ha estado seguro(a) de su capacidad para manejar sus problemas personales?',
       '…ha sentido que las cosas le van bien?',
-      '…ha sentido que no podía afrontar todas las cosas que tenía que hacer?',
-      '…ha podido controlar las dificultades de su vida?',
-      '…ha sentido que tenía todo bajo control?',
-      '…ha estado enojado(a) porque las cosas que le ocurrieron estaban fuera de su control?',
       '…ha sentido que las dificultades se acumulaban tanto que no podía superarlas?',
     ],
   },
-  STOPBANG: {
+  STOPBANG: { // Sólo la parte STOP; BANG se calcula con IMC, edad y sexo
     intro: 'Responda Sí o No.',
     scale: YN,
     items: [
       '¿Ronca fuerte (se escucha a través de una puerta cerrada)?',
       '¿Se siente cansado(a) o somnoliento(a) durante el día con frecuencia?',
       '¿Alguien ha observado que deja de respirar mientras duerme?',
-      '¿Tiene o está en tratamiento por presión arterial alta?',
-      '¿Su índice de masa corporal es mayor a 35? (si no sabe, lo calculamos con su peso y estatura)',
-      '¿Tiene más de 50 años?',
-      '¿Su cuello mide más de 40 cm?',
-      '¿Es hombre?',
     ],
   },
   AUDITC: {
@@ -91,20 +71,15 @@ export const INSTRUMENTS = {
       '¿Diría que la comida domina su vida?',
     ],
   },
-  ADAM: {
+  ADAM: { // Tamiz breve: 5 reactivos (libido y erecciones son los que pesan)
     intro: 'Responda Sí o No.',
     scale: YN,
     items: [
       '¿Ha notado disminución en su deseo sexual?',
       '¿Siente falta de energía?',
       '¿Ha notado disminución de fuerza o resistencia?',
-      '¿Ha perdido estatura?',
-      '¿Ha notado que disfruta menos de la vida?',
-      '¿Se siente triste o de mal humor?',
       '¿Sus erecciones son menos firmes?',
-      '¿Ha notado una disminución reciente en su capacidad para hacer deporte?',
-      '¿Se queda dormido(a) después de cenar?',
-      '¿Ha disminuido recientemente su desempeño en el trabajo?',
+      '¿Ha notado que disfruta menos de la vida?',
     ],
   },
   MRS: {
@@ -132,8 +107,9 @@ export const INSTRUMENTS = {
 };
 
 export function instrumentKey(q) {
-  if (q.question_code === 'P2') return 'PHQ9_A';
-  if (q.question_code === 'P3') return 'PHQ9_B';
+  if (q.question_code === 'P2') return 'PHQ2';
+  if (q.question_code === 'P4') return 'GAD2';
+  if (q.question_code === 'P1') return 'PSS4';
   return q.instrument;
 }
 
@@ -143,7 +119,7 @@ export function scoreInstrument(key, items) {
   if (!def) return null;
   const n = def.perItemScale ? def.perItemScale.length : def.items.length;
   if (vals.filter((v) => v !== null).length < n) return null;
-  if (key === 'PSS10') {
+  if (key === 'PSS4') {
     return vals.reduce((a, v, i) => a + (def.reverse.includes(i) ? 4 - v : v), 0);
   }
   return vals.reduce((a, v) => a + v, 0);

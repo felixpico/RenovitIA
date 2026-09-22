@@ -178,22 +178,11 @@ const unskip = (q) => { state.answers.delete(q.id); queueSave(q); };
 // Aviso inmediato al paciente. La alerta al médico la genera el backend al evaluar reglas (pendiente).
 function checkSafety(q, v) {
   const code = q.question_code;
-  if (code === 'P3' && v?.items?.[0] > 0) {
-    showAlert('P3', 'Queremos que estés a salvo',
-      `<p>Nos dijiste que has tenido pensamientos de hacerte daño. No estás solo(a).</p>
-       <p>Llama ahora a la <strong>Línea de la Vida</strong> (gratuita, 24 h):</p>
-       <p class="phone"><a href="tel:${CONFIG.CRISIS_LINE.replace(/\s/g, '')}">${CONFIG.CRISIS_LINE}</a></p>
-       <p>Si estás en peligro inmediato llama al <a href="tel:${CONFIG.EMERGENCY}">${CONFIG.EMERGENCY}</a> o acude a urgencias. Tu médico del programa revisará tu caso.</p>`);
-  }
-  if (code === 'M11' && v?.items && Object.values(v.items).includes('Sí')) {
-    showAlert('M11', 'Busca atención médica hoy',
-      `<p>Uno o más de los síntomas que marcaste requieren valoración médica el mismo día.</p>
-       <p>Si es intenso o empeora, llama al <a href="tel:${CONFIG.EMERGENCY}"><strong>${CONFIG.EMERGENCY}</strong></a> o acude a urgencias.</p>`);
-  }
-  if (code === 'C4' && v && (Number(v.sistolica) >= 180 || Number(v.diastolica) >= 110)) {
-    showAlert('C4', 'Presión arterial muy alta',
-      `<p>Una presión de ${v.sistolica || '?'}/${v.diastolica || '?'} requiere valoración médica pronto.</p>
-       <p>Si tienes dolor de cabeza intenso, dolor en el pecho, falta de aire o cambios en la visión, llama al <a href="tel:${CONFIG.EMERGENCY}"><strong>${CONFIG.EMERGENCY}</strong></a>.</p>`);
+  if (code === 'M11' && Array.isArray(v?.selected) && v.selected.some((x) => !/^ninguno/i.test(x))) {
+    showAlert('M11', 'Busca atención médica pronto',
+      `<p>Lo que marcaste necesita que un médico te revise, no esperes a terminar el programa.</p>
+       <p>Si es intenso o va empeorando, llama al <a href="tel:${CONFIG.EMERGENCY}"><strong>${CONFIG.EMERGENCY}</strong></a> o acude a urgencias.</p>
+       <p>Tu médico del programa también verá esta respuesta.</p>`);
   }
 }
 function showAlert(key, title, html) {
@@ -605,11 +594,9 @@ function hintText(q) {
 }
 
 const INSTRUMENT_TITLES = {
-  P1: 'Estrés en el último mes', P2: 'Estado de ánimo', P3: 'Una pregunta más sobre tu ánimo', P4: 'Ansiedad',
-  N1: 'Seguridad para hacer ejercicio', N2: 'Actividad vigorosa (últimos 7 días)', N3: 'Actividad moderada (últimos 7 días)',
-  N4: 'Caminata de 10 minutos o más (últimos 7 días)', N5: 'Tiempo sentado en un día hábil', O11: 'Ronquido y respiración al dormir',
-  O13: 'Calidad de sueño (cuestionario completo)', Q8: 'Consumo de alcohol', Q9: 'Relación con la comida',
-  L1: 'Energía, ánimo y función sexual', K9: 'Síntomas de climaterio',
+  P1: 'Estrés en el último mes', P2: 'Estado de ánimo', P4: 'Ansiedad',
+  N1: 'Seguridad para hacer ejercicio', O11: 'Ronquido y respiración al dormir',
+  Q8: 'Consumo de alcohol', L1: 'Energía, ánimo y función sexual', K9: 'Síntomas de climaterio',
 };
 
 function cleanPrompt(q) {

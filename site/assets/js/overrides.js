@@ -35,7 +35,6 @@ export const OVERRIDES = {
   K10: { type: 'fields', fields: [{ k: 'mastografia', l: 'Última mastografía', t: 'month' }, { k: 'papanicolaou', l: 'Último Papanicolaou / VPH', t: 'month' }] },
   L5: { type: 'fields', fields: [{ k: 'fecha', l: 'Fecha', t: 'month' }, { k: 'valor', l: 'Valor (ng/mL)', t: 'number', step: '0.01' }] },
 
-  M11: { type: 'yesno_list', items: ['Dolor u opresión en el pecho con esfuerzo', 'Desmayo', 'Sangre en heces u orina', 'Vómito con sangre', 'Falta de aire en reposo', 'Fiebre o sudoración nocturna sin causa', 'Un bulto nuevo'] },
 
   N2: { type: 'fields', fields: [{ k: 'dias', l: 'Días', t: 'number', min: 0, max: 7 }, { k: 'minutos', l: 'Minutos por día', t: 'number' }] },
   N3: { type: 'fields', fields: [{ k: 'dias', l: 'Días', t: 'number', min: 0, max: 7 }, { k: 'minutos', l: 'Minutos por día', t: 'number' }] },
