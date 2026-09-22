@@ -1,0 +1,44 @@
+name: Publicar Renovitia
+on:
+  push:
+    paths:
+      - 'renovitia-deploy-*.zip'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Buscar el zip más reciente
+        id: z
+        run: |
+          zip=$(ls renovitia-deploy-*.zip 2>/dev/null | sort -V | tail -1)
+          if [ -z "$zip" ]; then
+            echo "No hay ningún renovitia-deploy-*.zip en la raíz."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "zip=$zip" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Desempacar en site/
+        if: steps.z.outputs.skip != '1'
+        run: |
+          set -e
+          tmp=$(mktemp -d)
+          unzip -q "${{ steps.z.outputs.zip }}" -d "$tmp"
+          if [ ! -f "$tmp/index.html" ]; then
+            echo "::error::El zip no trae index.html en la raíz."
+            exit 1
+          fi
+          rm -rf site && mkdir -p site
+          cp -R "$tmp"/. site/
+          rm -f renovitia-deploy-*.zip
+          [ -f netlify.toml ] || printf '[build]\n  publish = "site"\n' > netlify.toml
+      - name: Guardar cambios
+        if: steps.z.outputs.skip != '1'
+        run: |
+          git config user.name "Renovitia bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || { git commit -m "Publica ${{ steps.z.outputs.zip }}"; git push; }
