@@ -1761,10 +1761,17 @@
   },
   {
    "id": "q-Q3",
-   "prompt": "¿Practica ayuno? Tipo y frecuencia",
+   "prompt": "¿Practicas ayuno intermitente?",
    "options": {
     "ui": "cards",
-    "hint": "No / 16:8 / OMAD / prolongado + frecuencia",
+    "hint": "No ayuno · 12 horas (12:12) · 16 horas (16:8) · Una comida al día · Ayunos largos de más de 24 horas",
+    "icons": {
+     "No ayuno": "🍽️",
+     "16 horas (16:8)": "🕓",
+     "12 horas (12:12)": "🕛",
+     "Una comida al día": "1️⃣",
+     "Ayunos largos de más de 24 horas": "⏳"
+    },
     "skippable": true
    },
    "instrument": null,
