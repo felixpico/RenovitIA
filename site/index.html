@@ -38,20 +38,32 @@
         <li><span class="step-n">3</span><div><strong>Resultados</strong><span id="results-status" class="muted small">Aparecen aquí cuando tu médico los revise contigo.</span></div></li><li><span class="step-n">4</span><div><strong>Protocolo firmado por tu médico</strong><span class="muted small">Alimentación, ejercicio, suplementación, sueño y estrés.</span></div></li>
       </ol>
 
-      <form id="form-login" class="card stack" novalidate>
+      <form id="form-start" class="card stack" novalidate>
         <div>
-          <h2 style="margin:0 0 4px;font-size:1.2rem">Entrar</h2>
-          <p class="muted small" style="margin:0">Usa el correo con el que te invitó tu médico. Te enviaremos un enlace de acceso, sin contraseña.</p>
+          <h2 style="margin:0 0 4px;font-size:1.2rem">Empecemos</h2>
+          <p class="muted small" style="margin:0">Escribe tu nombre y tu correo para abrir tu historia clínica. Se guarda sola en este dispositivo y puedes continuar después.</p>
         </div>
         <label class="field">
-          <span class="field-label">Correo electrónico</span>
-          <input id="login-email" class="input" type="email" autocomplete="email" inputmode="email" required placeholder="tu@correo.com">
+          <span class="field-label">Nombre completo</span>
+          <input id="start-name" class="input" type="text" autocomplete="name" required placeholder="Nombre y apellidos">
         </label>
-        <button id="btn-login" class="btn btn-primary btn-block" type="submit">Enviarme el enlace</button>
-        <div id="login-msg" class="notice hidden" role="status"></div>
+        <label class="field">
+          <span class="field-label">Correo electrónico</span>
+          <input id="start-email" class="input" type="email" autocomplete="email" inputmode="email" required placeholder="tu@correo.com">
+        </label>
+        <button id="btn-start" class="btn btn-primary btn-block" type="submit">Comenzar mi historia clínica</button>
+        <div id="start-msg" class="notice hidden" role="status"></div>
+        <p class="muted small" style="margin:0">Al continuar aceptas que tus respuestas se compartan con el médico del programa. En el primer paso verás el aviso de privacidad completo.</p>
       </form>
 
+      <div id="resume-box" class="card stack hidden">
+        <strong>Ya tienes un cuestionario empezado en este dispositivo</strong>
+        <a class="btn btn-primary btn-block" href="formulario.html">Continuar donde me quedé</a>
+        <button id="btn-forget" class="btn-link" type="button">Empezar de nuevo con otro correo</button>
+      </div>
+
       <p class="muted small">¿Sólo quieres ver cómo es el formulario? <a href="formulario.html?demo=1">Abrir vista previa</a> (no guarda datos).</p>
+      <p class="muted small" style="margin-top:4px">¿Eres del equipo médico? <a href="medico.html">Entrar al panel</a>.</p>
     </section>
 
     <!-- Vista: sesión sin invitación -->

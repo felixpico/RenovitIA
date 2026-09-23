@@ -8,6 +8,13 @@ applyBranding();
 const $ = (id) => document.getElementById(id);
 const DEMO = isDemo();
 
+/* Acceso sin enlace por correo: el token vive en este navegador */
+const TOKEN_KEY = 'renovitia.token';
+const tokenUrl = new URLSearchParams(location.search).get('t');
+if (tokenUrl) { try { localStorage.setItem(TOKEN_KEY, tokenUrl); } catch { /* modo privado */ } }
+const TOKEN = tokenUrl || (() => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } })();
+const PUBLICO = !DEMO && !!TOKEN;
+
 const state = {
   patient: null,
   intake: null,
@@ -61,6 +68,23 @@ async function loadDemo() {
   state.sections = data.sections;
   state.questions = data.questions;
   $('demo-banner').classList.remove('hidden');
+}
+
+async function loadPublico() {
+  const { data, error } = await supabase.rpc('public_intake_state', { p_token: TOKEN });
+  if (error || !data?.intake) { location.href = 'index.html'; return false; }
+  state.patient = data.patient;
+  state.intake = data.intake;
+  const [secRes, qRes] = await Promise.all([
+    supabase.from('form_sections').select('*').eq('template_id', data.intake.template_id).order('sort_order'),
+    supabase.from('form_questions').select('*').eq('template_id', data.intake.template_id).order('sort_order'),
+  ]);
+  if (secRes.error) throw secRes.error;
+  if (qRes.error) throw qRes.error;
+  state.sections = secRes.data;
+  state.questions = qRes.data;
+  (data.answers || []).forEach((a) => state.answers.set(a.question_id, a.value));
+  return true;
 }
 
 async function loadLive() {
@@ -126,10 +150,12 @@ async function saveNow(q) {
   state.timers.delete(q.id);
   state.pending++;
   const value = state.answers.get(q.id);
-  const { error } = await supabase.from('intake_answers').upsert(
-    { intake_id: state.intake.id, question_id: q.id, value: value ?? null, updated_at: new Date().toISOString() },
-    { onConflict: 'intake_id,question_id' },
-  );
+  const { error } = PUBLICO
+    ? await supabase.rpc('public_save_answer', { p_token: TOKEN, p_question: q.id, p_value: value ?? null })
+    : await supabase.from('intake_answers').upsert(
+      { intake_id: state.intake.id, question_id: q.id, value: value ?? null, updated_at: new Date().toISOString() },
+      { onConflict: 'intake_id,question_id' },
+    );
   state.pending--;
   if (error) {
     console.error(error);
@@ -398,6 +424,9 @@ function renderList(q) {
 }
 
 function renderFile(q) {
+  if (PUBLICO) {
+    return h('p', { class: 'notice small', text: 'Si ya tienes estudios, llévalos a tu consulta o mándalos por WhatsApp a tu médico: desde aquí todavía no se pueden subir.' });
+  }
   const v = clone(state.answers.get(q.id)) || [];
   const listEl = h('ul', { class: 'small' });
   const draw = () => { listEl.innerHTML = ''; v.forEach((f) => listEl.append(h('li', { text: f.name }))); };
@@ -831,6 +860,21 @@ async function recordConsents() {
     $('modal').classList.remove('hidden');
     return false;
   }
+  if (PUBLICO) {
+    const sigP = answerOf('0.2');
+    const { error } = await supabase.rpc('public_record_consents', {
+      p_token: TOKEN,
+      p_privacy: answerOf('0.1') === true,
+      p_consent: !!sigP?.accepted,
+      p_sharing: answerOf('0.3') === 'Sí',
+      p_signature: sigP?.name || '',
+      p_privacy_version: CONFIG.PRIVACY_NOTICE_VERSION,
+      p_consent_version: CONFIG.CONSENT_VERSION,
+      p_user_agent: navigator.userAgent.slice(0, 250),
+    });
+    if (error) { $('save-status').textContent = `No se pudo registrar el consentimiento: ${error.message}`; return false; }
+    return true;
+  }
   const { data: existing } = await supabase.from('consents').select('consent_type').eq('patient_id', state.patient.id).is('revoked_at', null);
   const have = new Set((existing || []).map((c) => c.consent_type));
   const sig = answerOf('0.2');
@@ -896,8 +940,11 @@ async function submitIntake() {
   if (!confirm('¿Enviar tu historia clínica? Después ya no podrás editarla; tu médico la revisará.')) return;
   if (DEMO) { showDone(); return; }
   await flushSaves();
-  const { error } = await supabase.from('intakes').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', state.intake.id);
+  const { error } = PUBLICO
+    ? await supabase.rpc('public_submit_intake', { p_token: TOKEN })
+    : await supabase.from('intakes').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', state.intake.id);
   if (error) { $('save-status').textContent = `No se pudo enviar: ${error.message}`; return; }
+  try { localStorage.removeItem(TOKEN_KEY); } catch { /* nada */ }
   showDone();
 }
 
@@ -923,6 +970,7 @@ window.addEventListener('beforeunload', (e) => { if (state.timers.size) { e.prev
 (async function init() {
   try {
     if (DEMO) await loadDemo();
+    else if (PUBLICO) { if (!(await loadPublico())) return; }
     else if (!(await loadLive())) return;
     indexQuestions();
     $('loading').classList.add('hidden');

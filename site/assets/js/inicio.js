@@ -14,28 +14,31 @@ async function logout() {
 $('btn-logout').addEventListener('click', logout);
 document.querySelectorAll('[data-logout]').forEach((b) => b.addEventListener('click', logout));
 
-$('form-login').addEventListener('submit', async (e) => {
+const TOKEN_KEY = 'renovitia.token';
+const leerToken = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
+
+$('form-start').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const email = $('login-email').value.trim().toLowerCase();
-  const msg = $('login-msg');
+  const nombre = $('start-name').value.trim();
+  const email = $('start-email').value.trim().toLowerCase();
+  const msg = $('start-msg');
   msg.className = 'notice';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    msg.classList.add('danger');
-    msg.textContent = 'Escribe un correo válido.';
-    return;
-  }
-  $('btn-login').disabled = true;
-  const redirect = new URL('index.html', location.href).href;
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirect, shouldCreateUser: true } });
-  $('btn-login').disabled = false;
-  if (error) {
-    msg.classList.add('danger');
-    msg.textContent = error.status === 429
-      ? 'Se enviaron demasiados correos. Espera unos minutos e intenta de nuevo.'
-      : `No pudimos enviar el enlace: ${error.message}`;
-    return;
-  }
-  msg.textContent = `Listo. Revisa ${email} y abre el enlace desde este mismo dispositivo.`;
+  const falla = (t) => { msg.classList.add('danger'); msg.textContent = t; };
+  if (nombre.length < 3) return falla('Escribe tu nombre completo.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return falla('Escribe un correo válido.');
+
+  $('btn-start').disabled = true;
+  msg.textContent = 'Abriendo tu historia clínica…';
+  const { data, error } = await supabase.rpc('begin_public_intake', { p_email: email, p_name: nombre });
+  $('btn-start').disabled = false;
+  if (error || !data?.token) return falla(`No pudimos abrirla: ${error?.message || 'intenta de nuevo'}`);
+  try { localStorage.setItem(TOKEN_KEY, data.token); } catch { /* modo privado */ }
+  location.href = `formulario.html?t=${encodeURIComponent(data.token)}`;
+});
+
+$('btn-forget')?.addEventListener('click', () => {
+  try { localStorage.removeItem(TOKEN_KEY); } catch { /* nada */ }
+  location.reload();
 });
 
 async function renderPatient(session) {
@@ -140,8 +143,12 @@ async function renderPatient(session) {
 
 async function init() {
   const { data: { session } } = await supabase.auth.getSession();
-  if (session) await renderPatient(session);
-  else show('view-login');
+  if (session) { await renderPatient(session); return; }
+  show('view-login');
+  if (leerToken()) {
+    $('resume-box').classList.remove('hidden');
+    $('form-start').classList.add('hidden');
+  }
 }
 
 supabase.auth.onAuthStateChange((event, session) => {
