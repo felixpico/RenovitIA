@@ -36,12 +36,12 @@ function render({ order, items, patient, provider, physician }) {
   const groups = new Map();
   items.forEach((i) => { const k = CATEGORY[i.category] || (order.order_type === 'dexa' ? 'Imagen' : 'Otros'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(i.study_name); });
   const age = ageFrom(patient?.birth_date);
-  document.title = `Orden ${order.folio || 'borrador'} · Renovitia`;
+  document.title = `Orden ${order.folio || 'borrador'} · RenovitIA`;
   root.innerHTML = `
   <article class="sheet">
     ${!valid ? `<div class="watermark">${order.status === 'cancelled' ? 'CANCELADA' : 'BORRADOR'}</div>` : ''}
     <header>
-      <img src="assets/brand/logo-horizontal.svg" alt="Renovitia">
+      <img src="assets/brand/logo-horizontal.svg" alt="RenovitIA">
       <div class="folio">Folio<b>${esc(order.folio || 'Sin folio')}</b>Emitida ${fmtDate(order.signed_at || order.created_at)}</div>
     </header>
     <h1>Orden de ${order.order_type === 'dexa' ? 'estudio de composición corporal' : 'estudios de laboratorio'}</h1>
@@ -60,7 +60,7 @@ function render({ order, items, patient, provider, physician }) {
       ${physician ? `<strong>${esc(physician.full_name)}</strong><small>Cédula profesional ${esc(physician.cedula_profesional || '—')}${physician.specialty ? ` · ${esc(physician.specialty)}` : ''}${physician.cedula_especialidad ? ` · Cédula de especialidad ${esc(physician.cedula_especialidad)}` : ''}</small>` : '<small>Pendiente de firma médica</small>'}
       ${order.signed_at ? `<small>Firmada electrónicamente el ${new Date(order.signed_at).toLocaleString('es-MX')}</small>` : ''}
     </div></div>
-    <footer>Renovitia · Programa piloto de medicina funcional. Esta orden es válida sólo con folio y firma. Resultados: entregar en PDF al médico tratante o subirlos en la app. Contiene datos personales sensibles.</footer>
+    <footer>RenovitIA · Programa piloto de medicina funcional. Esta orden es válida sólo con folio y firma. Resultados: entregar en PDF al médico tratante o subirlos en la app. Contiene datos personales sensibles.</footer>
   </article>`;
 }
 
