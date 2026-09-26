@@ -532,19 +532,67 @@ async function route() {
 }
 
 /* ================= inicio ================= */
-function show(id) { ['loading', 'view-login', 'view-denied', 'view-app'].forEach((v) => $(v).classList.toggle('hidden', v !== id)); }
+function show(id) { ['loading', 'view-login', 'view-denied', 'view-password', 'view-app'].forEach((v) => $(v).classList.toggle('hidden', v !== id)); }
 
+// Registrar antes de que supabase-js limpie la URL si venimos de un enlace de acceso
+if (/access_token=|code=|type=magiclink|type=recovery/.test(location.hash + location.search)) sessionStorage.setItem('rnv_magic_login', '1');
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function loginMsg(text, kind) { const m = $('login-msg'); m.className = 'notice' + (kind ? ' ' + kind : ''); m.textContent = text; }
+
+/* Entrar con contraseña */
 $('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = $('login-email').value.trim().toLowerCase();
-  const msg = $('login-msg'); msg.className = 'notice';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { msg.classList.add('danger'); msg.textContent = 'Escribe un correo válido.'; return; }
+  const password = $('login-password').value;
+  if (!EMAIL_RE.test(email)) { loginMsg('Escribe un correo válido.', 'danger'); return; }
+  if (!password) { loginMsg('Escribe tu contraseña, o pide un enlace de acceso por correo.', 'danger'); return; }
   $('btn-login').disabled = true;
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: new URL('medico.html', location.href).href, shouldCreateUser: true } });
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
   $('btn-login').disabled = false;
-  if (error) { msg.classList.add('danger'); msg.textContent = error.status === 429 ? 'Demasiados intentos; espera unos minutos.' : 'No pudimos enviar el enlace. Verifica que tu cuenta esté dada de alta.'; return; }
-  msg.textContent = `Revisa ${email} y abre el enlace.`;
+  if (error) {
+    loginMsg(error.status === 429 ? 'Demasiados intentos; espera unos minutos.'
+      : /invalid login credentials/i.test(error.message) ? 'Correo o contraseña incorrectos. Si aún no tienes contraseña, pide el enlace por correo y créala al entrar.'
+      : `No se pudo iniciar sesión: ${error.message}`, 'danger');
+    return;
+  }
+  loginMsg('Entrando…');
 });
+
+/* Enlace mágico (alternativa) */
+$('btn-magic').addEventListener('click', async () => {
+  const email = $('login-email').value.trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) { loginMsg('Escribe tu correo para enviarte el enlace.', 'danger'); return; }
+  $('btn-magic').disabled = true;
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: new URL('medico.html', location.href).href, shouldCreateUser: true } });
+  $('btn-magic').disabled = false;
+  if (error) { loginMsg(error.status === 429 ? 'Demasiados intentos; espera unos minutos.' : 'No pudimos enviar el enlace. Verifica que tu cuenta esté dada de alta.', 'danger'); return; }
+  loginMsg(`Revisa ${email} y abre el enlace. Puede tardar unos minutos o caer en spam.`);
+});
+
+/* Crear o cambiar contraseña */
+let pwReturnTo = null; // 'app' cuando viene desde el panel
+function openPassword(fromApp) {
+  pwReturnTo = fromApp ? 'app' : null;
+  $('password-title').textContent = fromApp ? 'Cambiar contraseña' : 'Crea tu contraseña';
+  $('btn-pw-cancel').textContent = fromApp ? 'Cancelar' : 'Ahora no';
+  $('pw-1').value = ''; $('pw-2').value = ''; $('pw-msg').className = 'notice hidden';
+  show('view-password'); $('pw-1').focus();
+}
+$('btn-password').addEventListener('click', () => openPassword(true));
+$('btn-pw-cancel').addEventListener('click', () => { if (pwReturnTo === 'app') show('view-app'); else afterLogin(); });
+$('form-password').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const a = $('pw-1').value, b = $('pw-2').value, msg = $('pw-msg'); msg.className = 'notice';
+  if (a.length < 10) { msg.classList.add('danger'); msg.textContent = 'Usa al menos 10 caracteres.'; return; }
+  if (a !== b) { msg.classList.add('danger'); msg.textContent = 'Las dos contraseñas no coinciden.'; return; }
+  $('btn-pw-save').disabled = true;
+  const { error } = await supabase.auth.updateUser({ password: a });
+  $('btn-pw-save').disabled = false;
+  if (error) { msg.classList.add('danger'); msg.textContent = /same password/i.test(error.message) ? 'Esa ya es tu contraseña actual.' : `No se pudo guardar: ${error.message}`; return; }
+  msg.textContent = 'Contraseña guardada. A partir de ahora puedes entrar con ella.';
+  setTimeout(() => { if (pwReturnTo === 'app') show('view-app'); else afterLogin(); }, 900);
+});
+
 $('btn-logout').addEventListener('click', async () => { if (!DEMO) await supabase.auth.signOut(); location.href = 'medico.html'; });
 
 let starting = false;
@@ -556,6 +604,24 @@ async function start() {
     if (!S.me.roles.some((r) => r === 'physician' || r === 'admin')) { $('denied-email').textContent = S.me.email; $('btn-logout').classList.remove('hidden'); show('view-denied'); return; }
     $('who-name').textContent = S.me.physician?.full_name || S.me.email;
     $('btn-logout').classList.remove('hidden');
+    if (!DEMO) $('btn-password').classList.remove('hidden');
+    if (!DEMO && needsPassword()) { openPassword(false); return; }
+    await afterLogin();
+    return;
+  } catch (e) {
+    console.error(e);
+    $('error').textContent = `Error: ${e.message || e}`;
+    $('error').classList.remove('hidden');
+    $('loading').classList.add('hidden');
+  }
+}
+/* ¿Entró por enlace mágico sin haber creado contraseña? */
+function needsPassword() {
+  return sessionStorage.getItem('rnv_magic_login') === '1';
+}
+async function afterLogin() {
+  try {
+    sessionStorage.removeItem('rnv_magic_login');
     $('nav').classList.remove('hidden');
     if (DEMO) $('demo-banner').classList.remove('hidden');
     show('view-app');
@@ -569,5 +635,10 @@ async function start() {
     $('loading').classList.add('hidden');
   }
 }
-if (!DEMO) supabase.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_IN' && !S.me) start(); });
+if (!DEMO) supabase.auth.onAuthStateChange((ev, session) => {
+  // Si la sesión llegó por un enlace de acceso (token en la URL), pedimos crear contraseña al entrar.
+  if (ev === 'SIGNED_IN' && /access_token=|code=|type=magiclink|type=recovery/.test(location.hash + location.search)) sessionStorage.setItem('rnv_magic_login', '1');
+  if (ev === 'PASSWORD_RECOVERY') sessionStorage.setItem('rnv_magic_login', '1');
+  if (ev === 'SIGNED_IN' && !S.me) start();
+});
 start();
