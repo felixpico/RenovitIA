@@ -172,11 +172,20 @@ export function renderStudiesTab(root, ctx) {
       h('button', { class: 'btn btn-ghost btn-sm', style: 'margin-left:10px', type: 'button', text: '⬆ Subir estudio', onclick: () => subirDialog() })));
     if (!documents.length) root.append(h('p', { class: 'muted small', text: 'Todavía no hay archivos. Súbelos tú o pídeselos al paciente en su cuestionario.' }));
     else {
-      const sinLeer = documents.filter((d) => d.extraction_status === 'pending').length;
-      const porConfirmar = documents.filter((d) => d.extraction_status === 'extracted').length;
-      if (sinLeer || porConfirmar) {
+      const sinLeer = documents.filter((d) => (d.extraction_status || 'pending') === 'pending' && porDoc(d.id).total === 0).length;
+      const porConfirmar = documents.filter((d) => porDoc(d.id).sinConfirmar > 0).length;
+      const valoresSinConfirmar = documents.reduce((a, d) => a + porDoc(d.id).sinConfirmar, 0);
+      if (sinLeer || valoresSinConfirmar) {
         root.append(h('p', { class: 'muted small', style: 'margin:2px 0 8px' },
-          [sinLeer ? `${sinLeer} sin leer` : null, porConfirmar ? `${porConfirmar} leído(s) esperando tu confirmación` : null].filter(Boolean).join(' · ')));
+          [sinLeer ? `${sinLeer} sin leer` : null,
+            valoresSinConfirmar ? `${valoresSinConfirmar} valor(es) esperando tu confirmación en ${porConfirmar} archivo(s)` : null,
+          ].filter(Boolean).join(' · ')));
+      }
+      if (valoresSinConfirmar) {
+        root.append(h('div', { class: 'notice warn small', style: 'margin:0 0 10px' },
+          h('b', { text: 'Ningún valor sin confirmar es dato clínico todavía. ' }),
+          'Entra a "Revisar" en cada archivo, compáralo contra el estudio original y confírmalo. ',
+          'El plan se puede firmar con valores sin confirmar, pero entonces la firma avala números que nadie cotejó.'));
       }
       root.append(h('div', { class: 'doc-list' }, ...documents.map((d) => tarjetaDocumento(d))));
     }
@@ -345,30 +354,50 @@ export function renderStudiesTab(root, ctx) {
       } catch (e) { toast(`Error: ${e.message}`, true); }
     }
 
+    // Cuántos valores salieron de cada archivo y cuántos siguen sin confirmar.
+    // Se calcula de las filas, no del estatus del documento: el estatus se puede
+    // haber quedado atrás y entonces la pantalla esconde valores que ya existen.
+    function porDoc(docId) {
+      let total = 0, sinConfirmar = 0;
+      for (const r of [...results, ...bodycomp]) {
+        if (r.document_id !== docId) continue;
+        total += 1;
+        if (!r.confirmed_by) sinConfirmar += 1;
+      }
+      return { total, sinConfirmar };
+    }
+
     function tarjetaDocumento(d) {
-      const [etiqueta, color] = EST_DOC[d.extraction_status || 'pending'] || ['—', ''];
+      const est = d.extraction_status || 'pending';
+      const [etiqueta, color] = EST_DOC[est] || ['—', ''];
       const acciones = h('span', { class: 'doc-acciones' });
       acciones.append(h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Abrir', onclick: async () => {
         try { window.open(await api.docUrl(d.storage_path), '_blank', 'noopener'); } catch (err) { toast(err.message, true); }
       } }));
-      if (['extracted', 'confirmed'].includes(d.extraction_status)) {
-        acciones.append(h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Revisar', onclick: () => revisarExtraccion(d) }));
-      }
-      if (d.extraction_status !== 'confirmed') {
+      const cuenta = porDoc(d.id);
+      if (['extracted', 'confirmed'].includes(est) || cuenta.total > 0) {
         acciones.append(h('button', { class: 'btn-link btn-sm', type: 'button',
-          text: d.extraction_status === 'pending' ? 'Leer estudio' : 'Volver a leer', onclick: () => leerEstudio(d) }));
+          text: cuenta.sinConfirmar ? `Revisar (${cuenta.sinConfirmar})` : 'Revisar',
+          onclick: () => revisarExtraccion(d) }));
       }
-      if (['extracted', 'failed'].includes(d.extraction_status)) {
+      if (est !== 'confirmed') {
+        acciones.append(h('button', { class: 'btn-link btn-sm', type: 'button',
+          text: est === 'pending' ? 'Leer estudio' : 'Volver a leer', onclick: () => leerEstudio(d) }));
+      }
+      if (['extracted', 'failed'].includes(est) || cuenta.sinConfirmar > 0) {
         acciones.append(h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Descartar', onclick: async () => {
           if (!(await modal('Descartar lectura', h('p', { text: 'Se borra todo lo que el extractor sacó de este archivo y que nadie haya confirmado. El archivo no se toca.' }), 'Descartar'))) return;
           try { const r = await api.discardExtraction(d.id); toast(`${r.laboratorio} valor(es) descartado(s)`); load(); }
           catch (e) { toast(`Error: ${e.message}`, true); }
         } }));
       }
+      const desfasado = cuenta.sinConfirmar > 0 && est === 'pending';
       return h('div', { class: 'doc-row' },
         h('span', { class: 'doc-nombre', text: d.original_filename || KIND_NOMBRE[d.kind] || 'archivo' }),
         h('span', { class: 'muted small', text: KIND_NOMBRE[d.kind] || '' }),
         color ? h('span', { class: `pill ${color}`, text: etiqueta }) : h('span', { class: 'muted small', text: etiqueta }),
+        cuenta.sinConfirmar ? h('span', { class: 'pill amarillo', text: `${cuenta.sinConfirmar} sin confirmar` }) : null,
+        desfasado ? h('span', { class: 'muted small', text: 'tiene valores de una lectura anterior' }) : null,
         d.extraction_error ? h('span', { class: 'small', style: 'color:var(--danger)', text: d.extraction_error.slice(0, 90) }) : null,
         acciones);
     }

@@ -38,10 +38,11 @@ export async function viewRanges(root, ctx) {
   const cargar = async () => {
     root.innerHTML = '';
     root.append(h('div', { class: 'spinner' }));
-    let data, patrones = [];
+    let data, patrones = [], reglas = [];
     try {
       data = await api.ranges();
       patrones = await api.patterns();
+      reglas = await api.rules();
     } catch (e) { root.innerHTML = ''; root.append(h('div', { class: 'notice danger', text: e.message })); return; }
     root.innerHTML = '';
     const { biomarkers, ranges, criticals = [] } = data;
@@ -64,7 +65,8 @@ export async function viewRanges(root, ctx) {
       h('div', { class: 'stat' }, h('b', { text: String(enPrueba) }), h('span', { text: 'en modo prueba' })),
       h('div', { class: 'stat' }, h('b', { text: String(ranges.length - aprobados - enPrueba) }), h('span', { text: 'pendientes' })),
       h('div', { class: 'stat' }, h('b', { text: String(sinRango.length) }), h('span', { text: 'marcadores sin rango' })),
-      h('div', { class: 'stat' }, h('b', { text: `${patrones.filter((x) => x.approved_by).length}/${patrones.length}` }), h('span', { text: 'patrones firmados' }))));
+      h('div', { class: 'stat' }, h('b', { text: `${patrones.filter((x) => x.approved_by).length}/${patrones.length}` }), h('span', { text: 'patrones firmados' })),
+      h('div', { class: 'stat' }, h('b', { text: `${reglas.filter((x) => x.approved_by).length}/${reglas.length}` }), h('span', { text: 'reglas de sugerencia firmadas' }))));
 
     if (!esMedico) {
       root.append(h('div', { class: 'notice', text: 'Puedes revisar los números y activarlos en modo prueba, pero la firma clínica sólo la puede dar un médico.' }));
@@ -322,6 +324,91 @@ export async function viewRanges(root, ctx) {
           cuerpo.append(h('h4', { class: 'sem-cat', text: SISTEMA_P[sis] || sis }), h('div', { class: 'table-wrap' }, t));
         });
         cuerpo.append(barraP);
+      }
+
+      // ---- Reglas de sugerencia del plan ----
+      if (reglas.length && estado.filtro === 'todos' && estado.evidencia === 'todas') {
+        const pendR = reglas.filter((x) => !x.approved_by).length;
+        cuerpo.append(h('h3', { class: 'block-title', style: 'margin-top:26px', text: 'Reglas de sugerencia del plan' }),
+          h('p', { class: 'muted small', style: 'max-width:62ch' },
+            'Cada regla propone suplementos, péptidos, alimentación, ejercicio o monitoreo cuando los valores del paciente cumplen su condición, y se calla cuando aplica alguno de sus bloqueos. ',
+            h('b', { text: 'La propuesta nunca entra sola al plan: el médico la selecciona.' }),
+            ' Al cambiar la condición, los bloqueos o la lista que sugiere, la firma se cae.'));
+        if (pendR) cuerpo.append(h('div', { class: 'notice small', text: `${pendR} regla(s) pendientes de revisión médica. Mientras no estén firmadas, en la pestaña Plan aparecen marcadas como "regla sin firmar".` }));
+
+        const selR = new Set();
+        const barraR = h('div', { class: 'bulk-bar hidden' });
+        const pintaBarraR = () => {
+          barraR.classList.toggle('hidden', !selR.size);
+          barraR.innerHTML = '';
+          if (!selR.size) return;
+          barraR.append(h('span', { text: `${selR.size} seleccionada(s)` }),
+            esMedico ? h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Firmar seleccionadas', onclick: () => firmarReglas([...selR], true) }) : h('span', { class: 'muted small', text: 'Sólo un médico puede firmarlas' }),
+            esMedico ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Quitar firma', onclick: () => firmarReglas([...selR], false) }) : null,
+            h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Limpiar', onclick: () => { selR.clear(); pintar(); } }));
+        };
+
+        async function firmarReglas(ids, si) {
+          const texto = si
+            ? `Vas a firmar ${ids.length} regla(s) a tu nombre. A partir de ahí sus propuestas aparecen sin la marca de "regla sin firmar". Seguirás siendo tú quien elija cada indicación y su dosis.`
+            : `Vas a quitar la firma de ${ids.length} regla(s). Seguirán proponiendo, marcadas como sin firma.`;
+          if (!(await modal(si ? 'Firmar reglas' : 'Quitar firma', h('p', { text: texto }), si ? 'Firmar' : 'Quitar'))) return;
+          try { const n = await api.approveRules(ids, si); toast(`${n} regla(s) actualizada(s)`); selR.clear(); cargar(); }
+          catch (e) { toast(`Error: ${e.message}`, true); }
+        }
+
+        function bloqueosTexto(b) {
+          const partes = [];
+          (b?.labs || []).forEach((t) => partes.push(t.op === 'entre'
+            ? `${t.code} entre ${t.v} y ${t.v2}`
+            : `${t.code} ${OPERADOR[t.op] || t.op} ${t.v}`));
+          (b?.respuestas || []).forEach((r) => partes.push(`${r.code} menciona "${r.contiene}"`));
+          return partes.join(' · ') || 'sin bloqueos';
+        }
+
+        async function verRegla(x) {
+          const raz = h('textarea', { class: 'input', rows: 4 }); raz.value = x.rationale || '';
+          const lista = h('ul', { class: 'small', style: 'margin:4px 0 0;padding-left:18px' });
+          (x.suggests || []).forEach((it) => lista.append(h('li', {
+            text: it.code ? `${it.cat} · ${it.code}` : `${it.cat} · ${it.titulo || it.title || 'ítem libre'}` })));
+          const cuerpoD = h('div', { class: 'stack' },
+            h('p', { class: 'muted small', text: `${x.code} · evidencia ${x.evidence_level || '—'}${x.sex ? ` · ${SEXO[x.sex]}` : ''}` }),
+            h('div', { class: 'notice small' }, h('b', { text: 'Se dispara cuando: ' }), condicionTexto(x.condition)),
+            h('div', { class: 'notice small' }, h('b', { text: 'No sugiere si: ' }), bloqueosTexto(x.blockers)),
+            h('div', {}, h('b', { class: 'small', text: 'Qué propone' }), lista),
+            h('label', { class: 'field' }, h('span', { class: 'field-label small', text: 'Por qué (se imprime como sustento)' }), raz),
+            x.approved_by ? h('p', { class: 'notice small', text: 'Ya está firmada. Si cambias el texto, la firma se cae y hay que volver a firmarla.' }) : null);
+          if (!(await modal(x.title, cuerpoD, 'Guardar'))) return;
+          if (!raz.value.trim()) { toast('El sustento no puede quedar vacío', true); return; }
+          try { await api.saveRule(x.id, { rationale: raz.value.trim() }); toast('Guardado'); cargar(); }
+          catch (e) { toast(`Error: ${e.message}`, true); }
+        }
+
+        const tr_ = h('table', { class: 'data rangos' });
+        tr_.append(h('thead', {}, h('tr', {},
+          h('th', { text: '' }), h('th', { text: 'Regla' }), h('th', { text: 'Se dispara cuando' }),
+          h('th', { text: 'No sugiere si' }), h('th', { text: 'Propone' }),
+          h('th', { text: 'Evidencia' }), h('th', { text: 'Estado' }), h('th', { text: '' }))));
+        const tbR = h('tbody');
+        reglas.forEach((x) => {
+          const chk = h('input', { type: 'checkbox' });
+          chk.checked = selR.has(x.id);
+          chk.addEventListener('change', () => { if (chk.checked) selR.add(x.id); else selR.delete(x.id); pintaBarraR(); });
+          tbR.append(h('tr', {},
+            h('td', {}, chk),
+            h('td', {}, h('strong', { text: x.title }),
+              h('div', { class: 'muted small', text: x.code }),
+              x.sex ? h('span', { class: 'muted small', text: SEXO[x.sex] }) : null,
+              x.is_active === false ? h('span', { class: 'pill', text: 'inactiva' }) : null),
+            h('td', { class: 'small muted', text: condicionTexto(x.condition) }),
+            h('td', { class: 'small muted', text: bloqueosTexto(x.blockers) }),
+            h('td', { class: 'small', text: `${(x.suggests || []).length} ítem(s)` }),
+            h('td', {}, h('span', { class: `sem-ev ev-${x.evidence_level || 'C'}`, title: EVIDENCIA[x.evidence_level || 'C'], text: x.evidence_level || 'C' })),
+            h('td', {}, x.approved_by ? h('span', { class: 'pill verde', text: 'Firmada' }) : h('span', { class: 'pill amarillo', text: 'Pendiente' })),
+            h('td', {}, h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Ver / editar', onclick: () => verRegla(x) }))));
+        });
+        tr_.append(tbR);
+        cuerpo.append(h('div', { class: 'table-wrap' }, tr_), barraR);
       }
 
       if (sinRango.length && estado.filtro === 'todos' && estado.evidencia === 'todas') {

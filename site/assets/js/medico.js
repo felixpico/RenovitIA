@@ -222,6 +222,19 @@ const liveApi = {
     const { error } = await supabase.from('interpretation_patterns').update(patch).eq('id', id);
     if (error) throw error;
   },
+  async rules() {
+    const { data, error } = await supabase.from('suggestion_rules').select('*')
+      .order('sort_order').order('code');
+    if (error) throw error; return data || [];
+  },
+  async approveRules(ids, aprobar = true) {
+    const { data, error } = await supabase.rpc('aprobar_reglas', { p_ids: ids, p_aprobar: aprobar });
+    if (error) throw error; return data;
+  },
+  async saveRule(id, patch) {
+    const { error } = await supabase.from('suggestion_rules').update(patch).eq('id', id);
+    if (error) throw error;
+  },
   async catalogs() {
     const [sup, pep, ejer] = await Promise.all([
       supabase.from('catalog_supplements').select('*').eq('is_active', true).order('name_es'),
