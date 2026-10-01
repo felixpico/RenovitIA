@@ -163,3 +163,14 @@ table.data.rangos td, table.data.rangos th { vertical-align: middle; }
   .semaforo-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   .sem-valor b { font-size: 1.3rem; }
 }
+
+/* ===== Archivos del paciente con lectura automática ===== */
+.doc-list { display: flex; flex-direction: column; gap: 6px; }
+.doc-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 9px 12px; background: var(--surface);
+}
+.doc-nombre { font-weight: 600; font-size: .88rem; word-break: break-word; flex: 1 1 200px; }
+.doc-acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+@media (max-width: 560px) { .doc-acciones { margin-left: 0; width: 100%; } }

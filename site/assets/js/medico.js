@@ -179,6 +179,27 @@ const liveApi = {
     const { error } = await supabase.from('documents').insert({ patient_id: patientId, kind, storage_path: path, original_filename: file.name, mime_type: file.type, uploaded_by: S.me.id, extraction_status: 'pending' });
     if (error) throw error;
   },
+  async extractStudy(documentId) {
+    const { data, error } = await supabase.functions.invoke('extract-study', { body: { document_id: documentId } });
+    if (error || data?.error) throw new Error(data?.error || error.message);
+    return data;
+  },
+  async confirmExtraction(documentId) {
+    const { data, error } = await supabase.rpc('confirmar_extraccion', { p_document: documentId });
+    if (error) throw error; return data;
+  },
+  async discardExtraction(documentId) {
+    const { data, error } = await supabase.rpc('descartar_extraccion', { p_document: documentId });
+    if (error) throw error; return data;
+  },
+  async extractedRows(documentId) {
+    const [lr, bc] = await Promise.all([
+      supabase.from('lab_results').select('*').eq('document_id', documentId),
+      supabase.from('body_composition').select('*').eq('document_id', documentId),
+    ]);
+    if (lr.error) throw lr.error; if (bc.error) throw bc.error;
+    return { lab: lr.data, bodycomp: bc.data };
+  },
   async evaluateLabs(patientId) {
     const { data, error } = await supabase.rpc('evaluate_labs', { p_patient: patientId });
     if (error) throw error; return data;

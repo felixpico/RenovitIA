@@ -8,6 +8,8 @@ export const ORDER_STATUS = {
 const NEXT = { signed: ['sent', 'scheduled', 'sample_taken'], sent: ['scheduled', 'sample_taken'], scheduled: ['sample_taken'], sample_taken: ['results_received'] };
 const CATEGORY = { hematologia: 'Biometría hemática', electrolitos: 'Electrolitos', hepatico: 'Función hepática', renal: 'Función renal', metabolico: 'Metabólico', cardiovascular: 'Cardiovascular', inflamacion: 'Inflamación', hormonal: 'Hormonas', tiroides: 'Tiroides', nutrientes: 'Nutrientes', genetica: 'Genética', muscular: 'Muscular' };
 const ORDEN_CAT = ['cardiovascular', 'metabolico', 'hepatico', 'renal', 'inflamacion', 'hormonal', 'tiroides', 'nutrientes', 'hematologia', 'electrolitos', 'muscular', 'genetica'];
+const EST_DOC = { pending: ['Sin leer', 'amarillo'], processing: ['Leyendo…', 'amarillo'], extracted: ['Leído, falta confirmar', 'amarillo'], confirmed: ['Confirmado', 'verde'], failed: ['No se pudo leer', 'rojo'], not_applicable: ['No aplica', ''] };
+const KIND_NOMBRE = { lab_report: 'Laboratorio', dexa_report: 'DEXA / composición', prior_study: 'Estudio previo', other: 'Otro' };
 const DEXA_STUDIES = ['Composición corporal DEXA (cuerpo completo)', 'Densitometría ósea (columna lumbar y cadera)'];
 
 export const DEFAULT_INDICATIONS = {
@@ -165,17 +167,19 @@ export function renderStudiesTab(root, ctx) {
       root.append(h('div', { class: 'table-wrap' }, t));
     }
 
-    // ---------- Archivos del paciente ----------
-    const KIND_NOMBRE = { lab_report: 'Laboratorio', dexa_report: 'DEXA / composición', prior_study: 'Estudio previo', other: 'Otro' };
-    const abrir = (d) => h('a', { href: '#', text: `${d.original_filename || KIND_NOMBRE[d.kind] || 'archivo'}${d.order_id ? '' : ''}`, onclick: async (e) => {
-      e.preventDefault();
-      try { window.open(await api.docUrl(d.storage_path), '_blank', 'noopener'); } catch (err) { toast(err.message, true); }
-    } });
     root.append(h('h3', { class: 'block-title', style: 'margin-top:22px' },
       'Archivos del paciente',
       h('button', { class: 'btn btn-ghost btn-sm', style: 'margin-left:10px', type: 'button', text: '⬆ Subir estudio', onclick: () => subirDialog() })));
     if (!documents.length) root.append(h('p', { class: 'muted small', text: 'Todavía no hay archivos. Súbelos tú o pídeselos al paciente en su cuestionario.' }));
-    else root.append(h('div', { class: 'row-meta' }, ...documents.map((d) => abrir(d))));
+    else {
+      const sinLeer = documents.filter((d) => d.extraction_status === 'pending').length;
+      const porConfirmar = documents.filter((d) => d.extraction_status === 'extracted').length;
+      if (sinLeer || porConfirmar) {
+        root.append(h('p', { class: 'muted small', style: 'margin:2px 0 8px' },
+          [sinLeer ? `${sinLeer} sin leer` : null, porConfirmar ? `${porConfirmar} leído(s) esperando tu confirmación` : null].filter(Boolean).join(' · ')));
+      }
+      root.append(h('div', { class: 'doc-list' }, ...documents.map((d) => tarjetaDocumento(d))));
+    }
 
     // ---------- Resumen visual con semáforo funcional ----------
 
@@ -257,6 +261,116 @@ export function renderStudiesTab(root, ctx) {
         caja.append(h('h4', { class: 'sem-cat', text: CATEGORY[cat] || cat }), rejilla);
       });
       return caja;
+    }
+
+    // ---------- Archivos del paciente y lectura automática ----------
+
+    async function leerEstudio(d) {
+      toast(`Leyendo ${d.original_filename || 'el archivo'}…`);
+      try {
+        const r = await api.extractStudy(d.id);
+        const partes = [];
+        if (r.analitos) partes.push(`${r.analitos} analito(s)`);
+        if (r.composicion) partes.push('composición corporal');
+        if (r.sin_catalogo) partes.push(`${r.sin_catalogo} sin catálogo`);
+        if (r.baja_confianza) partes.push(`${r.baja_confianza} de baja confianza`);
+        toast(partes.length ? partes.join(' · ') : `Sin datos que extraer (${r.tipo || 'otro'})`);
+        load();
+      } catch (e) { toast(`No se pudo leer: ${e.message}`, true); load(); }
+    }
+
+    async function revisarExtraccion(d) {
+      let filas;
+      try { filas = await api.extractedRows(d.id); }
+      catch (e) { toast(`Error: ${e.message}`, true); return; }
+
+      const pago = d.extraction_payload || {};
+      const cuerpoD = h('div', { class: 'stack' },
+        h('p', { class: 'muted small' },
+          `${d.original_filename || 'archivo'} · leído con ${d.extraction_model || 'el extractor'}`,
+          pago.laboratorio ? ` · ${pago.laboratorio}` : '',
+          pago.fecha_estudio ? ` · ${pago.fecha_estudio}` : ''),
+        h('div', { class: 'notice small', text: 'Compara contra el estudio original antes de confirmar. Al confirmar, estos valores quedan a tu nombre como dato clínico.' }),
+        h('a', { href: '#', class: 'btn btn-ghost btn-sm', text: 'Abrir el archivo original', onclick: async (e) => {
+          e.preventDefault();
+          try { window.open(await api.docUrl(d.storage_path), '_blank', 'noopener'); } catch (err) { toast(err.message, true); }
+        } }));
+
+      if (pago.notas) cuerpoD.append(h('p', { class: 'small', style: 'color:var(--sem-amar)' }, h('b', { text: 'Notas del extractor: ' }), pago.notas));
+
+      if (filas.lab.length) {
+        const t = h('table', { class: 'data' });
+        t.append(h('thead', {}, h('tr', {}, ...['Como aparece', 'Marcador', 'Valor', 'Confianza'].map((x) => h('th', { text: x })))));
+        const tb = h('tbody');
+        [...filas.lab].sort((a, b) => (a.extraction_confidence ?? 1) - (b.extraction_confidence ?? 1)).forEach((r) => {
+          const bm = bmById.get(r.biomarker_id);
+          const conf = r.extraction_confidence;
+          tb.append(h('tr', {},
+            h('td', { class: 'small', text: r.raw_name || '—' }),
+            h('td', {}, bm ? h('strong', { text: bm.name_es }) : h('span', { class: 'muted small', text: 'sin catálogo · no se evalúa' })),
+            h('td', { text: `${r.value_numeric ?? '—'} ${r.unit || ''}` }),
+            h('td', {}, conf == null ? h('span', { class: 'muted small', text: '—' })
+              : h('span', { class: `pill ${conf >= 0.9 ? 'verde' : conf >= 0.7 ? 'amarillo' : 'rojo'}`, text: `${Math.round(conf * 100)}%` })),
+            r.confirmed_by ? h('td', {}, h('span', { class: 'pill verde', text: 'Confirmado' })) : null));
+        });
+        t.append(tb);
+        cuerpoD.append(h('h4', { class: 'sem-cat', text: 'Laboratorio' }), h('div', { class: 'table-wrap' }, t));
+      }
+
+      if (filas.bodycomp.length) {
+        const CAMPOS = [['method', 'Método'], ['measured_at', 'Fecha'], ['weight_kg', 'Peso kg'], ['height_cm', 'Estatura cm'],
+          ['body_fat_pct', 'Grasa %'], ['fat_mass_kg', 'Masa grasa kg'], ['lean_mass_kg', 'Masa magra kg'],
+          ['appendicular_lean_mass_kg', 'Magra apendicular kg'], ['almi', 'ALMI'], ['ffmi', 'FFMI'],
+          ['visceral_fat_g', 'Visceral g'], ['visceral_fat_cm2', 'Visceral cm²'], ['bmd_t_score', 'T-score'],
+          ['resting_metabolic_rate_kcal', 'Metabolismo basal']];
+        filas.bodycomp.forEach((b) => {
+          const rej = h('div', { class: 'fields-grid' });
+          CAMPOS.forEach(([k, l]) => { if (b[k] != null) rej.append(h('div', { class: 'small' }, h('b', { text: `${l}: ` }), String(b[k]))); });
+          cuerpoD.append(h('h4', { class: 'sem-cat', text: 'Composición corporal' }), rej);
+        });
+      }
+
+      if (!filas.lab.length && !filas.bodycomp.length) {
+        cuerpoD.append(h('div', { class: 'empty-state', text: 'El extractor no encontró valores en este archivo.' }));
+      }
+
+      const yaConfirmado = d.extraction_status === 'confirmed';
+      if (!(await modal(yaConfirmado ? 'Extracción confirmada' : 'Revisar extracción', cuerpoD,
+        yaConfirmado ? 'Cerrar' : 'Confirmar todo'))) return;
+      if (yaConfirmado) return;
+      try {
+        const r = await api.confirmExtraction(d.id);
+        toast(`${r.laboratorio} valor(es) confirmado(s)`);
+        load(); refresh?.();
+      } catch (e) { toast(`Error: ${e.message}`, true); }
+    }
+
+    function tarjetaDocumento(d) {
+      const [etiqueta, color] = EST_DOC[d.extraction_status || 'pending'] || ['—', ''];
+      const acciones = h('span', { class: 'doc-acciones' });
+      acciones.append(h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Abrir', onclick: async () => {
+        try { window.open(await api.docUrl(d.storage_path), '_blank', 'noopener'); } catch (err) { toast(err.message, true); }
+      } }));
+      if (['extracted', 'confirmed'].includes(d.extraction_status)) {
+        acciones.append(h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Revisar', onclick: () => revisarExtraccion(d) }));
+      }
+      if (d.extraction_status !== 'confirmed') {
+        acciones.append(h('button', { class: 'btn-link btn-sm', type: 'button',
+          text: d.extraction_status === 'pending' ? 'Leer estudio' : 'Volver a leer', onclick: () => leerEstudio(d) }));
+      }
+      if (['extracted', 'failed'].includes(d.extraction_status)) {
+        acciones.append(h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Descartar', onclick: async () => {
+          if (!(await modal('Descartar lectura', h('p', { text: 'Se borra todo lo que el extractor sacó de este archivo y que nadie haya confirmado. El archivo no se toca.' }), 'Descartar'))) return;
+          try { const r = await api.discardExtraction(d.id); toast(`${r.laboratorio} valor(es) descartado(s)`); load(); }
+          catch (e) { toast(`Error: ${e.message}`, true); }
+        } }));
+      }
+      return h('div', { class: 'doc-row' },
+        h('span', { class: 'doc-nombre', text: d.original_filename || KIND_NOMBRE[d.kind] || 'archivo' }),
+        h('span', { class: 'muted small', text: KIND_NOMBRE[d.kind] || '' }),
+        color ? h('span', { class: `pill ${color}`, text: etiqueta }) : h('span', { class: 'muted small', text: etiqueta }),
+        d.extraction_error ? h('span', { class: 'small', style: 'color:var(--danger)', text: d.extraction_error.slice(0, 90) }) : null,
+        acciones);
     }
 
     // ---------- Diálogos ----------

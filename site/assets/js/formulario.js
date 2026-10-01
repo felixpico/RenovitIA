@@ -453,6 +453,11 @@ function renderFilePublico(q) {
           p_token: TOKEN, p_path: data.path, p_name: file.name, p_mime: file.type || '', p_kind: kind,
         });
         if (reg.error) throw reg.error;
+        // Se manda a leer sin bloquear al paciente: si falla, el médico lo reintenta
+        if (reg.data?.document_id) {
+          supabase.functions.invoke('extract-study', { body: { token: TOKEN, document_id: reg.data.document_id } })
+            .catch(() => {});
+        }
         v.push({ path: data.path, name: file.name });
         setAnswer(q, [...v]);
         pinta();
