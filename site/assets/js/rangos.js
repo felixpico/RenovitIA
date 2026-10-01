@@ -24,10 +24,11 @@ export async function viewRanges(root, ctx) {
     let data;
     try { data = await api.ranges(); } catch (e) { root.innerHTML = ''; root.append(h('div', { class: 'notice danger', text: e.message })); return; }
     root.innerHTML = '';
-    const { biomarkers, ranges } = data;
+    const { biomarkers, ranges, criticals = [] } = data;
     const bmById = new Map(biomarkers.map((b) => [b.id, b]));
 
     const aprobados = ranges.filter((r) => r.approved_by).length;
+    const enPrueba = ranges.filter((r) => !r.approved_by && r.pilot_enabled).length;
     const sinRango = biomarkers.filter((b) => !ranges.some((r) => r.biomarker_id === b.id));
 
     root.append(h('div', { class: 'page-head' },
@@ -40,17 +41,19 @@ export async function viewRanges(root, ctx) {
     root.append(h('div', { class: 'stat-row' },
       h('div', { class: 'stat' }, h('b', { text: String(ranges.length) }), h('span', { text: 'rangos cargados' })),
       h('div', { class: 'stat' }, h('b', { text: String(aprobados) }), h('span', { text: 'aprobados' })),
-      h('div', { class: 'stat' }, h('b', { text: String(ranges.length - aprobados) }), h('span', { text: 'pendientes' })),
+      h('div', { class: 'stat' }, h('b', { text: String(enPrueba) }), h('span', { text: 'en modo prueba' })),
+      h('div', { class: 'stat' }, h('b', { text: String(ranges.length - aprobados - enPrueba) }), h('span', { text: 'pendientes' })),
       h('div', { class: 'stat' }, h('b', { text: String(sinRango.length) }), h('span', { text: 'marcadores sin rango' }))));
 
     if (!esMedico) {
-      root.append(h('div', { class: 'notice', text: 'Puedes revisar y editar los números, pero sólo un médico puede aprobarlos.' }));
+      root.append(h('div', { class: 'notice', text: 'Puedes revisar los números y activarlos en modo prueba, pero la firma clínica sólo la puede dar un médico.' }));
     }
 
     // ---- filtros ----
     const selFiltro = h('select', { class: 'input', onchange: () => { estado.filtro = selFiltro.value; pintar(); } },
       h('option', { value: 'todos', text: 'Todos' }),
-      h('option', { value: 'pendientes', text: 'Sólo pendientes' }),
+      h('option', { value: 'pendientes', text: 'Sólo sin firma médica' }),
+      h('option', { value: 'prueba', text: 'Sólo en modo prueba' }),
       h('option', { value: 'aprobados', text: 'Sólo aprobados' }));
     selFiltro.value = estado.filtro;
     const selEv = h('select', { class: 'input', onchange: () => { estado.evidencia = selEv.value; pintar(); } },
@@ -72,8 +75,10 @@ export async function viewRanges(root, ctx) {
       barra.innerHTML = '';
       if (!seleccion.size) return;
       barra.append(h('span', { text: `${seleccion.size} seleccionado(s)` }),
-        esMedico ? h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Aprobar seleccionados', onclick: () => aprobar([...seleccion], true) }) : null,
-        esMedico ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Quitar aprobación', onclick: () => aprobar([...seleccion], false) }) : null,
+        esMedico ? h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Firmar seleccionados', onclick: () => aprobar([...seleccion], true) }) : null,
+        esMedico ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Quitar firma', onclick: () => aprobar([...seleccion], false) }) : null,
+        h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Activar en prueba', onclick: () => prueba([...seleccion], true) }),
+        h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Quitar de prueba', onclick: () => prueba([...seleccion], false) }),
         h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Limpiar', onclick: () => { seleccion.clear(); pintar(); } }));
     };
     root.append(barra);
@@ -85,6 +90,17 @@ export async function viewRanges(root, ctx) {
       if (!(await modal(si ? 'Aprobar rangos' : 'Quitar aprobación', h('p', { text: texto }), si ? 'Aprobar' : 'Quitar'))) return;
       try { const n = await api.approveRanges(ids, si); toast(`${n} rango(s) actualizado(s)`); seleccion.clear(); cargar(); }
       catch (e) { toast(`Error: ${e.message}`, true); }
+    }
+
+    async function prueba(ids, si) {
+      const texto = si
+        ? `Vas a activar ${ids.length} rango(s) en modo prueba. Se usan para evaluar y alertar durante el piloto, pero las alertas quedan marcadas como "sin aprobación médica" y no pasan de nivel "priorización".`
+        : `Vas a sacar ${ids.length} rango(s) del modo prueba. Dejan de evaluarse.`;
+      if (!(await modal(si ? 'Activar en modo prueba' : 'Quitar de modo prueba', h('p', { text: texto }), si ? 'Activar' : 'Quitar'))) return;
+      try {
+        for (const id of ids) await api.saveRange(id, { pilot_enabled: si });
+        toast(`${ids.length} rango(s) actualizado(s)`); seleccion.clear(); cargar();
+      } catch (e) { toast(`Error: ${e.message}`, true); }
     }
 
     async function editar(r, bm) {
@@ -125,7 +141,10 @@ export async function viewRanges(root, ctx) {
       ORDEN.forEach((cat) => {
         const filas = ranges
           .filter((r) => bmById.get(r.biomarker_id)?.category === cat)
-          .filter((r) => (estado.filtro === 'todos') || (estado.filtro === 'aprobados' ? !!r.approved_by : !r.approved_by))
+          .filter((r) => (estado.filtro === 'todos')
+            || (estado.filtro === 'aprobados' && !!r.approved_by)
+            || (estado.filtro === 'prueba' && !r.approved_by && r.pilot_enabled)
+            || (estado.filtro === 'pendientes' && !r.approved_by))
           .filter((r) => estado.evidencia === 'todas' || r.evidence_level === estado.evidencia)
           .sort((a, b) => (bmById.get(a.biomarker_id)?.name_es || '').localeCompare(bmById.get(b.biomarker_id)?.name_es || ''));
         if (!filas.length) return;
@@ -150,8 +169,10 @@ export async function viewRanges(root, ctx) {
             h('td', { class: 'muted', text: textoRango(r.reference_low, r.reference_high, u) }),
             h('td', {}, h('span', { class: `sem-ev ev-${r.evidence_level || 'C'}`, title: EVIDENCIA[r.evidence_level || 'C'], text: r.evidence_level || 'C' })),
             h('td', {}, r.approved_by
-              ? h('span', { class: 'pill verde', text: 'Aprobado' })
-              : h('span', { class: 'pill amarillo', text: 'Pendiente' })),
+              ? h('span', { class: 'pill verde', text: 'Firmado' })
+              : r.pilot_enabled
+                ? h('span', { class: 'pill amarillo', text: 'En prueba' })
+                : h('span', { class: 'pill rojo', text: 'Pendiente' })),
             h('td', {}, h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Editar', onclick: () => editar(r, bm || {}) }))));
         });
         t.append(tb);
@@ -159,6 +180,55 @@ export async function viewRanges(root, ctx) {
           h('div', { class: 'table-wrap' }, t));
       });
       if (!visibles) cuerpo.append(h('div', { class: 'empty-state', text: 'Nada que mostrar con estos filtros.' }));
+      // ---- Valores críticos de laboratorio ----
+      if (criticals.length && estado.filtro === 'todos' && estado.evidencia === 'todas') {
+        const pend = criticals.filter((c) => !c.approved_by).length;
+        cuerpo.append(h('h3', { class: 'block-title', style: 'margin-top:26px', text: 'Valores críticos de laboratorio' }),
+          h('p', { class: 'muted small', style: 'max-width:62ch' },
+            'No son rangos de optimización: son umbrales de urgencia de uso universal. ',
+            h('b', { text: 'Un valor fuera de estos límites genera alerta urgente aunque el umbral no esté firmado' }),
+            ' — callarlo es peor que avisar de más.'));
+        if (pend) cuerpo.append(h('div', { class: 'notice small', text: `${pend} umbral(es) pendientes de revisión médica.` }));
+
+        const sel = new Set();
+        const barraC = h('div', { class: 'bulk-bar hidden' });
+        const pintaBarraC = () => {
+          barraC.classList.toggle('hidden', !sel.size);
+          barraC.innerHTML = '';
+          if (!sel.size) return;
+          barraC.append(h('span', { text: `${sel.size} seleccionado(s)` }),
+            esMedico ? h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Firmar seleccionados', onclick: async () => {
+              if (!(await modal('Firmar valores críticos', h('p', { text: `Vas a firmar ${sel.size} umbral(es) de urgencia a tu nombre.` }), 'Firmar'))) return;
+              try { const n = await api.approveCriticals([...sel], true); toast(`${n} umbral(es) firmado(s)`); cargar(); }
+              catch (e) { toast(`Error: ${e.message}`, true); }
+            } }) : h('span', { class: 'muted small', text: 'Sólo un médico puede firmarlos' }),
+            h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Limpiar', onclick: () => { sel.clear(); pintar(); } }));
+        };
+
+        const tc = h('table', { class: 'data rangos' });
+        tc.append(h('thead', {}, h('tr', {}, h('th', { text: '' }), h('th', { text: 'Marcador' }),
+          h('th', { text: 'Crítico bajo' }), h('th', { text: 'Crítico alto' }), h('th', { text: 'Estado' }))));
+        const tbc = h('tbody');
+        criticals
+          .sort((a, b) => (bmById.get(a.biomarker_id)?.name_es || '').localeCompare(bmById.get(b.biomarker_id)?.name_es || ''))
+          .forEach((c) => {
+            const bm = bmById.get(c.biomarker_id);
+            const u = c.unit && c.unit !== 'indice' ? ` ${c.unit}` : '';
+            const chk = h('input', { type: 'checkbox' });
+            chk.checked = sel.has(c.id);
+            chk.addEventListener('change', () => { if (chk.checked) sel.add(c.id); else sel.delete(c.id); pintaBarraC(); });
+            tbc.append(h('tr', {}, h('td', {}, chk),
+              h('td', {}, h('strong', { text: bm?.name_es || '—' })),
+              h('td', { text: c.critical_low != null ? `< ${c.critical_low}${u}` : '—' }),
+              h('td', { text: c.critical_high != null ? `> ${c.critical_high}${u}` : '—' }),
+              h('td', {}, c.approved_by
+                ? h('span', { class: 'pill verde', text: 'Firmado' })
+                : h('span', { class: 'pill amarillo', text: 'Sin revisar' }))));
+          });
+        tc.append(tbc);
+        cuerpo.append(h('div', { class: 'table-wrap' }, tc), barraC);
+      }
+
       if (sinRango.length && estado.filtro === 'todos' && estado.evidencia === 'todas') {
         cuerpo.append(h('h3', { class: 'block-title', style: 'margin-top:24px', text: 'Marcadores sin rango funcional' }),
           h('p', { class: 'muted small', text: 'No se les cargó rango porque dependen de la edad, del ciclo menstrual o no son numéricos. Captúralos a mano si los van a usar.' }),

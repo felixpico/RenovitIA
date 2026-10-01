@@ -207,7 +207,9 @@ export const demoApi = {
     return { laboratorio: 0 };
   },
   async uploadDoc(patientId, order, file) { DOCUMENTS.push({ id: uuid(), patient_id: patientId, order_id: order.id, kind: 'lab_report', storage_path: 'demo', original_filename: file.name, created_at: new Date().toISOString() }); },
-  async ranges() { return { biomarkers: await loadBiomarkers(), ranges: await loadRanges() }; },
+  async evaluateLabs() { return { rojos: 0, alertas_nuevas: 0 }; },
+  async ranges() { return { biomarkers: await loadBiomarkers(), ranges: await loadRanges(), criticals: [] }; },
+  async approveCriticals() { throw new Error('En la vista previa no se aprueban valores criticos'); },
   async saveRange() { throw new Error('En la vista previa no se editan rangos'); },
   async approveRanges() { throw new Error('En la vista previa no se aprueban rangos'); },
   async uploadLooseDoc(patientId, kind, file) { DOCUMENTS.push({ id: uuid(), patient_id: patientId, order_id: null, kind, storage_path: 'demo', original_filename: file.name, created_at: new Date().toISOString() }); },

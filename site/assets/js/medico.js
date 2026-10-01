@@ -179,13 +179,22 @@ const liveApi = {
     const { error } = await supabase.from('documents').insert({ patient_id: patientId, kind, storage_path: path, original_filename: file.name, mime_type: file.type, uploaded_by: S.me.id, extraction_status: 'pending' });
     if (error) throw error;
   },
+  async evaluateLabs(patientId) {
+    const { data, error } = await supabase.rpc('evaluate_labs', { p_patient: patientId });
+    if (error) throw error; return data;
+  },
   async ranges() {
-    const [bm, rg] = await Promise.all([
+    const [bm, rg, cr] = await Promise.all([
       supabase.from('biomarkers').select('id,code,name_es,category,default_unit').order('category'),
       supabase.from('biomarker_ranges').select('*'),
+      supabase.from('biomarker_critical_values').select('*'),
     ]);
-    if (bm.error) throw bm.error; if (rg.error) throw rg.error;
-    return { biomarkers: bm.data, ranges: rg.data };
+    if (bm.error) throw bm.error; if (rg.error) throw rg.error; if (cr.error) throw cr.error;
+    return { biomarkers: bm.data, ranges: rg.data, criticals: cr.data };
+  },
+  async approveCriticals(ids, aprobar = true) {
+    const { data, error } = await supabase.rpc('aprobar_criticos', { p_ids: ids, p_aprobar: aprobar });
+    if (error) throw error; return data;
   },
   async saveRange(id, patch) {
     const { error } = await supabase.from('biomarker_ranges').update(patch).eq('id', id); if (error) throw error;

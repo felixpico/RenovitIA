@@ -42,7 +42,14 @@ export function renderStudiesTab(root, ctx) {
     root.append(h('div', { class: 'toolbar', style: 'margin-bottom:12px' },
       h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: '+ Orden de laboratorio', onclick: () => orderDialog('lab') }),
       h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '+ Orden DEXA', onclick: () => orderDialog('dexa') }),
-      h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '⬆ Subir estudio', onclick: () => subirDialog() })));
+      h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '⬆ Subir estudio', onclick: () => subirDialog() }),
+      h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '⟳ Evaluar laboratorios', onclick: async () => {
+        try {
+          const res = await api.evaluateLabs(patient.id);
+          toast(`${res?.rojos ?? 0} marcador(es) fuera de límite · ${res?.alertas_nuevas ?? 0} alerta(s) nueva(s)`);
+          load(); refresh?.();
+        } catch (e) { toast(`Error: ${e.message}`, true); }
+      } })));
 
     // ---------- Liberación de resultados al paciente ----------
     const held = [...results, ...bodycomp].filter((r) => !r.released_at).length;
@@ -190,6 +197,8 @@ export function renderStudiesTab(root, ctx) {
         if (!ultimo[d.code] || ultimo[d.code].derivado) ultimo[d.code] = { ...d, biomarker_id: bm.id, unit: bm.default_unit };
       });
 
+      Object.values(ultimo).forEach((r) => { if (/^Calculado:/.test(r.raw_name || '')) r.derivado = true; });
+
       const filas = Object.entries(ultimo).map(([code, r]) => {
         const bm = bmPorCodigo.get(code);
         if (!bm) return null;
@@ -218,7 +227,10 @@ export function renderStudiesTab(root, ctx) {
       caja.append(h('p', { class: 'muted small', style: 'margin:2px 0 10px' },
         'Comparado contra rangos de medicina funcional, no contra el rango del laboratorio.'));
       if (pendientes) {
-        caja.append(h('div', { class: 'notice small', text: `${pendientes} de estos rangos todavía no los aprueba un médico. No generan alerta.` }));
+        const enPrueba = filas.filter((f) => f.ev.enPrueba).length;
+        caja.append(h('div', { class: 'notice small', text: enPrueba
+          ? `${enPrueba} de estos rangos están activos en modo prueba, sin firma médica. Las alertas que generan se marcan como tales.`
+          : `${pendientes} de estos rangos todavía no los aprueba un médico. No generan alerta.` }));
       }
 
       const orden = { rojo: 0, amarillo: 1, verde: 2 };
@@ -238,7 +250,7 @@ export function renderStudiesTab(root, ctx) {
             h('div', { class: 'sem-pie small' },
               r.derivado ? h('span', { class: 'sem-tag', text: 'calculado' }) : null,
               ev.rango.evidence_level ? h('span', { class: `sem-ev ev-${ev.rango.evidence_level}`, title: EVIDENCIA[ev.rango.evidence_level], text: ev.rango.evidence_level }) : null,
-              ev.pendiente ? h('span', { class: 'sem-tag pendiente', text: 'sin aprobar' }) : null));
+              ev.pendiente ? h('span', { class: 'sem-tag pendiente', text: ev.enPrueba ? 'en prueba' : 'sin aprobar' }) : null));
           if (r.nota) chip.append(h('p', { class: 'sem-nota small', text: r.nota }));
           rejilla.append(chip);
         });

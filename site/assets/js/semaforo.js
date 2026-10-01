@@ -56,6 +56,7 @@ export function evaluar(valor, rango) {
     direccion: color === 'verde' ? null : (bajo ? 'bajo' : 'alto'),
     rango,
     pendiente: !rango.approved_by,
+    enPrueba: !rango.approved_by && !!rango.pilot_enabled,
   };
 }
 
