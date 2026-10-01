@@ -11,8 +11,16 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const fecha = (d) => (d ? new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : '—');
 const edad = (d) => { if (!d) return null; const b = new Date(d); const n = new Date(); let a = n.getFullYear() - b.getFullYear(); if (n < new Date(n.getFullYear(), b.getMonth(), b.getDate())) a--; return a; };
 
-const dosisOk = (d) => !!d && /\d/.test(d) && /(mcg|µg|ug|mg|kg|UI\b|\bU\b|ml|cap|tab|g\/kg)/i.test(d)
-  && !/(seg[uú]n|variable|indeterminad|a criterio|por definir|reconstitu|protocolo del stack)/i.test(d);
+const dosisOk = (d, r) => {
+  const t = String(d || '').toLowerCase();
+  const re = String(r || '').toLowerCase();
+  if (!t || !/\d/.test(t)) return false;
+  if (/(seg[uú]n|variable|indeterminad|a criterio|por definir|reconstitu|protocolo del stack)/.test(t)) return false;
+  if (/(mcg|µg|ug|\bmg\b|\bg\b|\bkg\b|g\/kg|\bui\b|\biu\b)/.test(t)) return true;
+  if (/(\bu\b|unidad|unidades|\bml\b|\bcc\b)/.test(t)) return /\d/.test(re) && /(mcg|µg|ug|\bmg\b|\bg\b)/.test(re);
+  if (/(\bcap|\btab|porcion|porciones|gotas)/.test(t)) return true;
+  return false;
+};
 
 const SECCIONES = [
   ['peptide', 'Protocolo de péptidos'],
@@ -75,7 +83,7 @@ function secciones(items) {
     const propios = items.filter((i) => i.category === cat);
     if (!propios.length) return '';
     n += 1;
-    const sinDosis = propios.filter((i) => ['supplement', 'peptide', 'medication'].includes(i.category) && !dosisOk(i.dose));
+    const sinDosis = propios.filter((i) => ['supplement', 'peptide', 'medication'].includes(i.category) && !dosisOk(i.dose, i.reconstitution));
     const muestraDosis = ['supplement', 'peptide', 'medication'].includes(cat);
     return `<h2><b>${String(n).padStart(2, '0')}</b>${esc(nombre)}</h2>
       <table><thead><tr>
@@ -84,12 +92,12 @@ function secciones(items) {
         <th>Horario / frecuencia</th><th>Para qué</th></tr></thead><tbody>
         ${propios.map((i) => `<tr>
           <td><b>${esc(i.title)}</b>${i.instructions ? `<br><span class="vacio">${esc(i.instructions)}</span>` : ''}</td>
-          ${muestraDosis ? `<td>${dosisOk(i.dose) ? esc(i.dose) : `<span class="rojo">${esc(i.dose || 'sin dosis')} ⚠</span>`}</td>` : ''}
+          ${muestraDosis ? `<td>${dosisOk(i.dose, i.reconstitution) ? esc(i.dose) : `<span class="rojo">${esc(i.dose || 'sin dosis')} ⚠</span>`}${i.reconstitution ? `<br><span class="vacio">${esc(i.reconstitution)}</span>` : ''}</td>` : ''}
           <td>${esc([i.timing, i.frequency].filter(Boolean).join(' · ') || '—')}</td>
           <td>${esc(i.rationale || '—')}</td>
         </tr>`).join('')}
       </tbody></table>
-      ${cajaRevision(sinDosis.map((i) => `${i.title}: falta la dosis exacta (cantidad y unidad). El plan no se puede firmar así.`))}`;
+      ${cajaRevision(sinDosis.map((i) => `${i.title}: dosis no auditable. Si va en unidades o mL falta la reconstitución en mg. El plan no se puede firmar así.`))}`;
   }).join('');
 }
 

@@ -12,8 +12,16 @@ const ESTADO = {
   approved: ['Firmado', 'verde'], delivered: ['Entregado', 'verde'],
   superseded: ['Reemplazado', ''], cancelled: ['Cancelado', ''],
 };
-const dosisOk = (d) => !!d && /\d/.test(d) && /(mcg|µg|ug|mg|kg|UI\b|\bU\b|ml|cap|tab|g\/kg)/i.test(d)
-  && !/(seg[uú]n|variable|indeterminad|a criterio|por definir|reconstitu|protocolo del stack)/i.test(d);
+const dosisOk = (d, r) => {
+  const t = String(d || '').toLowerCase();
+  const re = String(r || '').toLowerCase();
+  if (!t || !/\d/.test(t)) return false;
+  if (/(seg[uú]n|variable|indeterminad|a criterio|por definir|reconstitu|protocolo del stack)/.test(t)) return false;
+  if (/(mcg|µg|ug|\bmg\b|\bg\b|\bkg\b|g\/kg|\bui\b|\biu\b)/.test(t)) return true;
+  if (/(\bu\b|unidad|unidades|\bml\b|\bcc\b)/.test(t)) return /\d/.test(re) && /(mcg|µg|ug|\bmg\b|\bg\b)/.test(re);
+  if (/(\bcap|\btab|porcion|porciones|gotas)/.test(t)) return true;
+  return false;
+};
 
 export function renderPlanTab(root, ctx) {
   const { h, modal, toast, api, patient, me, demo } = ctx;
@@ -42,7 +50,7 @@ export function renderPlanTab(root, ctx) {
     const firmado = ['approved', 'delivered'].includes(vigente.status);
     const [etiqueta, color] = ESTADO[vigente.status] || ['—', ''];
     const rev = vigente.ai_draft?.revisiones || [];
-    const sinDosis = mios.filter((i) => CON_DOSIS.includes(i.category) && !dosisOk(i.dose));
+    const sinDosis = mios.filter((i) => CON_DOSIS.includes(i.category) && !dosisOk(i.dose, i.reconstitution));
 
     root.append(h('div', { class: 'row-card' },
       h('div', { class: 'row-head' },
@@ -86,13 +94,14 @@ export function renderPlanTab(root, ctx) {
       t.append(h('thead', {}, h('tr', {}, ...['Qué', 'Dosis', 'Horario', 'Para qué', ''].map((x) => h('th', { text: x })))));
       const tb = h('tbody');
       propias.forEach((i) => {
-        const mal = CON_DOSIS.includes(cat) && !dosisOk(i.dose);
+        const mal = CON_DOSIS.includes(cat) && !dosisOk(i.dose, i.reconstitution);
         tb.append(h('tr', {},
           h('td', {}, h('strong', { text: i.title }),
             i.instructions ? h('div', { class: 'muted small', text: i.instructions }) : null),
           h('td', {}, CON_DOSIS.includes(cat)
             ? (mal ? h('span', { class: 'pill rojo', text: i.dose || 'sin dosis' }) : h('span', { text: i.dose }))
-            : h('span', { class: 'muted small', text: '—' })),
+            : h('span', { class: 'muted small', text: '—' }),
+            i.reconstitution ? h('div', { class: 'muted small', text: i.reconstitution }) : null),
           h('td', { class: 'small', text: [i.timing, i.frequency].filter(Boolean).join(' · ') || '—' }),
           h('td', { class: 'small', text: i.rationale || '—' }),
           h('td', {}, firmado ? null : h('span', {},
@@ -121,24 +130,29 @@ export function renderPlanTab(root, ctx) {
       cat.value = item?.category || 'supplement';
       const titulo = h('input', { class: 'input', type: 'text' }); titulo.value = item?.title || '';
       const dosis = h('input', { class: 'input', type: 'text', placeholder: 'p. ej. 500 mg · 2 g · 5000 UI' }); dosis.value = item?.dose || '';
+      const recon = h('input', { class: 'input', type: 'text', placeholder: 'p. ej. 50 mg en 5 mL (10 mg/mL)' }); recon.value = item?.reconstitution || '';
       const horario = h('input', { class: 'input', type: 'text', placeholder: 'mañana con comida' }); horario.value = item?.timing || '';
       const frec = h('input', { class: 'input', type: 'text', placeholder: 'diario · 3 veces por semana' }); frec.value = item?.frequency || '';
       const motivo = h('input', { class: 'input', type: 'text' }); motivo.value = item?.rationale || '';
       const instr = h('textarea', { class: 'input', rows: 3 }); instr.value = item?.instructions || '';
-      const aviso = h('p', { class: 'muted small', text: 'Para suplementos, péptidos y medicamentos la dosis tiene que llevar cantidad y unidad. "Según reconstitución" no se acepta y bloquea la firma.' });
+      const aviso = h('p', { class: 'muted small', text: 'La dosis necesita cantidad y unidad. Si la pones en unidades o mL, la reconstitución es obligatoria: sin ella nadie puede saber cuántos mg recibe el paciente.' });
 
       if (!(await modal(item ? 'Editar indicación' : 'Nueva indicación',
-        h('div', { class: 'stack' }, campo('Categoría', cat), campo('Qué', titulo), campo('Dosis', dosis),
+        h('div', { class: 'stack' }, campo('Categoría', cat), campo('Qué', titulo), campo('Dosis', dosis), campo('Reconstitución del vial', recon),
           h('div', { class: 'fields-grid' }, campo('Horario', horario), campo('Frecuencia', frec)),
           campo('Para qué', motivo), campo('Instrucciones', instr), aviso), 'Guardar'))) return;
 
       if (!titulo.value.trim()) { toast('Falta el nombre de la indicación', true); return; }
-      if (CON_DOSIS.includes(cat.value) && !dosisOk(dosis.value)) {
-        toast('La dosis necesita cantidad y unidad (mg, mcg, UI, ml)', true); return;
+      if (CON_DOSIS.includes(cat.value) && !dosisOk(dosis.value, recon.value)) {
+        toast(/(\bu\b|unidad|ml|cc)/i.test(dosis.value)
+          ? 'Una dosis en unidades o mL necesita la reconstitución en mg, p. ej. "50 mg en 5 mL"'
+          : 'La dosis necesita cantidad y unidad (mg, mcg, UI, g)', true);
+        return;
       }
       try {
         await api.savePlanItem(planId, {
           id: item?.id, category: cat.value, title: titulo.value.trim(), dose: dosis.value.trim() || null,
+          reconstitution: recon.value.trim() || null,
           timing: horario.value.trim() || null, frequency: frec.value.trim() || null,
           rationale: motivo.value.trim() || null, instructions: instr.value.trim() || null,
           sort_order: item?.sort_order ?? 50,
