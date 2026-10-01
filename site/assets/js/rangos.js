@@ -11,6 +11,23 @@ const CATEGORY = {
 const ORDEN = ['cardiovascular', 'metabolico', 'hepatico', 'renal', 'inflamacion', 'hormonal',
   'tiroides', 'nutrientes', 'hematologia', 'electrolitos', 'muscular', 'genetica'];
 const SEXO = { M: 'Hombres', F: 'Mujeres' };
+const SISTEMA_P = {
+  cardiovascular: 'Metabolismo lipídico y riesgo cardiovascular', metabolico: 'Glucosa e insulina',
+  hepatico: 'Hígado', renal: 'Función renal', inflamacion: 'Inflamación', hormonal: 'Eje hormonal',
+  tiroides: 'Tiroides', nutrientes: 'Nutrientes', hematologia: 'Hematología', general: 'Visión general',
+};
+const SEVERIDAD = { actuar: 'Actuar', vigilar: 'Vigilar', informativo: 'Informativo' };
+const SEV_COLOR = { actuar: 'rojo', vigilar: 'amarillo', informativo: '' };
+const OPERADOR = { mayor_igual: '≥', mayor: '>', menor_igual: '≤', menor: '<' };
+function condicionTexto(c) {
+  const term = (t) => t.op === 'entre'
+    ? `${t.code} entre ${t.v} y ${t.v2}`
+    : `${t.code} ${OPERADOR[t.op] || t.op} ${t.v}`;
+  const partes = [];
+  if (c?.todas?.length) partes.push(c.todas.map(term).join(' y '));
+  if (c?.alguna?.length) partes.push(`alguno de: ${c.alguna.map(term).join(' o ')}`);
+  return partes.join(' · ') || '—';
+}
 
 export async function viewRanges(root, ctx) {
   const { h, modal, toast, api, me, setNav } = ctx;
@@ -21,8 +38,11 @@ export async function viewRanges(root, ctx) {
   const cargar = async () => {
     root.innerHTML = '';
     root.append(h('div', { class: 'spinner' }));
-    let data;
-    try { data = await api.ranges(); } catch (e) { root.innerHTML = ''; root.append(h('div', { class: 'notice danger', text: e.message })); return; }
+    let data, patrones = [];
+    try {
+      data = await api.ranges();
+      patrones = await api.patterns();
+    } catch (e) { root.innerHTML = ''; root.append(h('div', { class: 'notice danger', text: e.message })); return; }
     root.innerHTML = '';
     const { biomarkers, ranges, criticals = [] } = data;
     const bmById = new Map(biomarkers.map((b) => [b.id, b]));
@@ -43,7 +63,8 @@ export async function viewRanges(root, ctx) {
       h('div', { class: 'stat' }, h('b', { text: String(aprobados) }), h('span', { text: 'aprobados' })),
       h('div', { class: 'stat' }, h('b', { text: String(enPrueba) }), h('span', { text: 'en modo prueba' })),
       h('div', { class: 'stat' }, h('b', { text: String(ranges.length - aprobados - enPrueba) }), h('span', { text: 'pendientes' })),
-      h('div', { class: 'stat' }, h('b', { text: String(sinRango.length) }), h('span', { text: 'marcadores sin rango' }))));
+      h('div', { class: 'stat' }, h('b', { text: String(sinRango.length) }), h('span', { text: 'marcadores sin rango' })),
+      h('div', { class: 'stat' }, h('b', { text: `${patrones.filter((x) => x.approved_by).length}/${patrones.length}` }), h('span', { text: 'patrones firmados' }))));
 
     if (!esMedico) {
       root.append(h('div', { class: 'notice', text: 'Puedes revisar los números y activarlos en modo prueba, pero la firma clínica sólo la puede dar un médico.' }));
@@ -227,6 +248,80 @@ export async function viewRanges(root, ctx) {
           });
         tc.append(tbc);
         cuerpo.append(h('div', { class: 'table-wrap' }, tc), barraC);
+      }
+
+
+      // ---- Patrones de interpretación ----
+      if (patrones.length && estado.filtro === 'todos' && estado.evidencia === 'todas') {
+        const pend = patrones.filter((x) => !x.approved_by).length;
+        cuerpo.append(h('h3', { class: 'block-title', style: 'margin-top:26px', text: 'Patrones de interpretación' }),
+          h('p', { class: 'muted small', style: 'max-width:62ch' },
+            'Cada patrón es un párrafo clínico que se escribe solo en el plan cuando los valores del paciente cumplen su condición. ',
+            h('b', { text: 'Un patrón sin firma se imprime marcado como tal.' }),
+            ' Al cambiar el texto o la condición de uno ya firmado, la firma se cae.'));
+        if (pend) cuerpo.append(h('div', { class: 'notice small', text: `${pend} patrón(es) pendientes de revisión médica.` }));
+
+        const selP = new Set();
+        const barraP = h('div', { class: 'bulk-bar hidden' });
+        const pintaBarraP = () => {
+          barraP.classList.toggle('hidden', !selP.size);
+          barraP.innerHTML = '';
+          if (!selP.size) return;
+          barraP.append(h('span', { text: `${selP.size} seleccionado(s)` }),
+            esMedico ? h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Firmar seleccionados', onclick: () => firmarPatrones([...selP], true) }) : h('span', { class: 'muted small', text: 'Sólo un médico puede firmarlos' }),
+            esMedico ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Quitar firma', onclick: () => firmarPatrones([...selP], false) }) : null,
+            h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Limpiar', onclick: () => { selP.clear(); pintar(); } }));
+        };
+
+        async function firmarPatrones(ids, si) {
+          const texto = si
+            ? `Vas a firmar ${ids.length} patrón(es) a tu nombre. A partir de ahí su texto se imprime en los planes como interpretación avalada por ti.`
+            : `Vas a quitar la firma de ${ids.length} patrón(es). Seguirán apareciendo, marcados como sin firma.`;
+          if (!(await modal(si ? 'Firmar patrones' : 'Quitar firma', h('p', { text: texto }), si ? 'Firmar' : 'Quitar'))) return;
+          try { const n = await api.approvePatterns(ids, si); toast(`${n} patrón(es) actualizado(s)`); selP.clear(); cargar(); }
+          catch (e) { toast(`Error: ${e.message}`, true); }
+        }
+
+        async function verPatron(x) {
+          const txt = h('textarea', { class: 'input', rows: 7 }); txt.value = x.interpretation || '';
+          const cor = h('textarea', { class: 'input', rows: 3 }); cor.value = x.correlate || '';
+          const cuerpoD = h('div', { class: 'stack' },
+            h('p', { class: 'muted small', text: `${x.code} · ${SISTEMA_P[x.system] || x.system} · ${SEVERIDAD[x.severity] || x.severity} · evidencia ${x.evidence_level || '—'}` }),
+            h('div', { class: 'notice small' }, h('b', { text: 'Se dispara cuando: ' }), condicionTexto(x.condition)),
+            h('label', { class: 'field' }, h('span', { class: 'field-label small', text: 'Interpretación que se imprime' }), txt),
+            h('label', { class: 'field' }, h('span', { class: 'field-label small', text: 'Qué correlacionar' }), cor),
+            x.approved_by ? h('p', { class: 'notice small', text: 'Ya está firmado. Si cambias el texto, la firma se cae y hay que volver a firmarlo.' }) : null);
+          if (!(await modal(x.title, cuerpoD, 'Guardar'))) return;
+          if (!txt.value.trim()) { toast('La interpretación no puede quedar vacía', true); return; }
+          try { await api.savePattern(x.id, { interpretation: txt.value.trim(), correlate: cor.value.trim() || null }); toast('Guardado'); cargar(); }
+          catch (e) { toast(`Error: ${e.message}`, true); }
+        }
+
+        [...new Set(patrones.map((x) => x.system))].forEach((sis) => {
+          const propios = patrones.filter((x) => x.system === sis);
+          const t = h('table', { class: 'data rangos' });
+          t.append(h('thead', {}, h('tr', {},
+            h('th', { text: '' }), h('th', { text: 'Patrón' }), h('th', { text: 'Se dispara cuando' }),
+            h('th', { text: 'Nivel' }), h('th', { text: 'Evidencia' }), h('th', { text: 'Estado' }), h('th', { text: '' }))));
+          const tb = h('tbody');
+          propios.forEach((x) => {
+            const chk = h('input', { type: 'checkbox' });
+            chk.checked = selP.has(x.id);
+            chk.addEventListener('change', () => { if (chk.checked) selP.add(x.id); else selP.delete(x.id); pintaBarraP(); });
+            tb.append(h('tr', {},
+              h('td', {}, chk),
+              h('td', {}, h('strong', { text: x.title }),
+                x.sex ? h('span', { class: 'muted small', text: ` · ${x.sex === 'M' ? 'Hombres' : 'Mujeres'}` }) : null),
+              h('td', { class: 'small muted', text: condicionTexto(x.condition) }),
+              h('td', {}, h('span', { class: `pill ${SEV_COLOR[x.severity] || ''}`, text: SEVERIDAD[x.severity] || x.severity })),
+              h('td', {}, h('span', { class: `sem-ev ev-${x.evidence_level || 'C'}`, title: EVIDENCIA[x.evidence_level || 'C'], text: x.evidence_level || 'C' })),
+              h('td', {}, x.approved_by ? h('span', { class: 'pill verde', text: 'Firmado' }) : h('span', { class: 'pill amarillo', text: 'Pendiente' })),
+              h('td', {}, h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Ver / editar', onclick: () => verPatron(x) }))));
+          });
+          t.append(tb);
+          cuerpo.append(h('h4', { class: 'sem-cat', text: SISTEMA_P[sis] || sis }), h('div', { class: 'table-wrap' }, t));
+        });
+        cuerpo.append(barraP);
       }
 
       if (sinRango.length && estado.filtro === 'todos' && estado.evidencia === 'todas') {

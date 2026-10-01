@@ -205,6 +205,19 @@ const liveApi = {
     const { data, error } = await supabase.rpc('evaluate_labs', { p_patient: patientId });
     if (error) throw error; return data;
   },
+  async patterns() {
+    const { data, error } = await supabase.from('interpretation_patterns').select('*')
+      .order('system').order('sort_order');
+    if (error) throw error; return data || [];
+  },
+  async approvePatterns(ids, aprobar = true) {
+    const { data, error } = await supabase.rpc('aprobar_patrones', { p_ids: ids, p_aprobar: aprobar });
+    if (error) throw error; return data;
+  },
+  async savePattern(id, patch) {
+    const { error } = await supabase.from('interpretation_patterns').update(patch).eq('id', id);
+    if (error) throw error;
+  },
   async catalogs() {
     const [sup, pep, ejer] = await Promise.all([
       supabase.from('catalog_supplements').select('*').eq('is_active', true).order('name_es'),
