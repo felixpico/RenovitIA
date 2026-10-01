@@ -174,3 +174,23 @@ table.data.rangos td, table.data.rangos th { vertical-align: middle; }
 .doc-nombre { font-weight: 600; font-size: .88rem; word-break: break-word; flex: 1 1 200px; }
 .doc-acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
 @media (max-width: 560px) { .doc-acciones { margin-left: 0; width: 100%; } }
+
+/* ===== Sugerencias del sistema para el plan ===== */
+.sug-rule { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-top: 10px; background: var(--surface); }
+.sug-rule.bloqueado { border-left: 4px solid var(--danger); }
+.sug-rule.revisar { border-left: 4px solid var(--accent); }
+.sug-rule.sugerido { border-left: 4px solid var(--sem-verde); }
+.sug-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sug-head strong { font-size: .95rem; }
+.sug-razon { color: var(--muted); font-size: .85rem; margin: 5px 0 0; }
+.sug-disparo { font-size: .8rem; color: var(--muted); margin: 4px 0 0; }
+.sug-disparo code { background: var(--surface-2); border-radius: 5px; padding: 1px 5px; margin-right: 5px; }
+.sug-items { display: flex; flex-direction: column; gap: 4px; margin-top: 9px; }
+.sug-item { display: flex; gap: 9px; align-items: flex-start; padding: 7px 9px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.sug-item.off { opacity: .6; }
+.sug-item input { margin-top: 3px; flex: none; width: 17px; height: 17px; }
+.sug-item .cuerpo { flex: 1 1 auto; min-width: 0; }
+.sug-item .tit { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-weight: 600; font-size: .9rem; }
+.sug-item .det { font-size: .82rem; color: var(--muted); margin-top: 2px; }
+.sug-item .reg { font-size: .8rem; color: var(--danger); font-weight: 600; margin-top: 3px; }
+.sug-cat { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--border); border-radius: 99px; padding: 1px 7px; }

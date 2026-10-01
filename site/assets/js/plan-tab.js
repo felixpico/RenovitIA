@@ -31,10 +31,14 @@ export function renderPlanTab(root, ctx) {
     root.innerHTML = '';
     root.append(h('div', { class: 'spinner' }));
     let data, catalogos = { supplements: [], peptides: [], exercises: [] };
+    let sugerencias = [], sugErr = null;
     try {
       data = await api.plans(patient.id);
       catalogos = await api.catalogs();
     } catch (e) { root.innerHTML = ''; root.append(h('div', { class: 'notice danger', text: e.message })); return; }
+    // Las sugerencias son un extra: si fallan, la pestaña sigue sirviendo.
+    try { sugerencias = await api.suggestions(patient.id); }
+    catch (e) { sugErr = `No se pudieron calcular las sugerencias: ${e.message}`; }
     root.innerHTML = '';
     const { plans, items } = data;
     const vigente = plans.find((p) => ['ai_draft', 'in_review', 'approved', 'delivered'].includes(p.status));
@@ -88,6 +92,9 @@ export function renderPlanTab(root, ctx) {
       root.append(caja);
     }
 
+    // ---- sugerencias del sistema ----
+    if (!firmado) root.append(bloqueSugerencias());
+
     // ---- indicaciones por categoría ----
     CATEGORIAS.forEach(([cat, nombre]) => {
       const propias = mios.filter((i) => i.category === cat);
@@ -116,6 +123,150 @@ export function renderPlanTab(root, ctx) {
       t.append(tb);
       root.append(h('h3', { class: 'block-title', style: 'margin-top:18px', text: nombre }), h('div', { class: 'table-wrap' }, t));
     });
+
+    function bloqueSugerencias() {
+      const ESTADO_SUG = {
+        sugerido: ['Sugerido', 'verde'], revisar: ['Falta un dato', 'amarillo'], bloqueado: ['Bloqueado', 'rojo'],
+      };
+      const caja = h('div', { class: 'row-card', style: 'margin-top:18px' },
+        h('div', { class: 'row-head' },
+          h('strong', { text: 'Sugerencias del sistema' }),
+          h('span', { class: 'pill', text: `${sugerencias.length} regla(s)` })));
+      if (sugErr) { caja.append(h('div', { class: 'notice danger', text: sugErr })); return caja; }
+      if (!sugerencias.length) {
+        caja.append(h('p', { class: 'muted small', style: 'margin:4px 0 0',
+          text: 'Ninguna regla se dispara con el panel actual. Si acabas de capturar laboratorios, corre "Evaluar laboratorios" en Estudios y vuelve a entrar.' }));
+        return caja;
+      }
+      caja.append(h('p', { class: 'muted small', style: 'margin:4px 0 0' },
+        'Se calculan desde el semáforo funcional y el cuestionario. Nada entra al plan hasta que lo selecciones: la dosis y la decisión siguen siendo del médico. ',
+        sugerencias.some((r) => !r.firmado)
+          ? h('b', { text: 'Las reglas todavía no están firmadas por un médico.' }) : null));
+
+      const yaEnPlan = new Set(mios.map((i) => String(i.title || '').trim().toLowerCase()));
+      const yaSugerido = new Set(); // la misma cosa se repite en varias reglas: se marca una vez
+      const seleccion = new Map();
+      const btn = h('button', { class: 'btn btn-primary btn-sm', type: 'button', disabled: true,
+        text: 'Agregar seleccionadas al plan', onclick: agregar });
+      const refrescar = () => {
+        btn.disabled = seleccion.size === 0;
+        btn.textContent = seleccion.size ? `Agregar ${seleccion.size} al plan` : 'Agregar seleccionadas al plan';
+      };
+
+      sugerencias.forEach((r, ri) => {
+        const [et, col] = ESTADO_SUG[r.estado] || ['—', ''];
+        const bloque = h('div', { class: `sug-rule ${r.estado}` },
+          h('div', { class: 'sug-head' },
+            h('strong', { text: r.titulo }),
+            h('span', { class: `pill ${col}`, text: et }),
+            r.evidencia ? h('span', { class: 'sug-cat', text: `Evidencia ${r.evidencia}` }) : null,
+            !r.firmado ? h('span', { class: 'sug-cat', text: 'regla sin firmar' }) : null),
+          r.razon ? h('p', { class: 'sug-razon', text: r.razon }) : null);
+
+        const disp = Object.entries(r.disparado_por || {});
+        if (disp.length) {
+          const linea = h('p', { class: 'sug-disparo' }, 'Se disparó por: ');
+          disp.forEach(([k, v]) => linea.append(h('code', { text: `${k} ${v}` })));
+          bloque.append(linea);
+        }
+        (r.motivos || []).forEach((m) => bloque.append(h('div', {
+          class: r.estado === 'bloqueado' ? 'notice danger small' : 'notice warn small',
+          style: 'margin-top:7px', text: m })));
+
+        const permitido = r.estado !== 'bloqueado';
+        const lista = h('div', { class: 'sug-items' });
+        (r.sugerencias || []).forEach((it, ii) => {
+          const clave = `${ri}:${ii}`;
+          const llave = String(it.titulo || '').trim().toLowerCase();
+          const yaEsta = yaEnPlan.has(llave);
+          const repetida = !yaEsta && yaSugerido.has(llave);
+          yaSugerido.add(llave);
+          const noAprobado = it.regulatorio && !/^aprobado/i.test(it.regulatorio);
+          const conDosis = CON_DOSIS.includes(it.cat);
+          const dosisFloja = conDosis && !dosisOk(it.dosis, it.reconstitucion);
+          // Por defecto marcamos lo que no exige una decisión aparte: ni péptidos ni
+          // medicamentos, nada sin registro sanitario, nada de una regla con un dato
+          // faltante, y nada que ya esté en el plan.
+          const porDefecto = r.estado === 'sugerido' && !yaEsta && !repetida && !noAprobado
+            && it.cat !== 'peptide' && it.cat !== 'medication';
+          const ck = h('input', { type: 'checkbox', checked: porDefecto, disabled: yaEsta || !permitido });
+          const fila = h('div', { class: `sug-item${yaEsta || !permitido ? ' off' : ''}` }, ck,
+            h('div', { class: 'cuerpo' },
+              h('div', { class: 'tit' },
+                h('span', { text: it.titulo }),
+                h('span', { class: 'sug-cat', text: NOMBRE_CAT[it.cat] || it.cat }),
+                yaEsta ? h('span', { class: 'pill verde', text: 'ya en el plan' }) : null,
+                repetida ? h('span', { class: 'sug-cat', text: 'ya sugerido arriba' }) : null,
+                dosisFloja ? h('span', { class: 'pill amarillo', text: 'ajustar dosis' }) : null),
+              h('div', { class: 'det', text: [
+                conDosis && it.dosis ? it.dosis : null,
+                [it.horario, it.frecuencia].filter(Boolean).join(' · ') || null,
+                it.proposito || null,
+              ].filter(Boolean).join(' — ') || '—' }),
+              it.nota ? h('div', { class: 'det', text: it.nota }) : null,
+              it.precauciones ? h('div', { class: 'det', text: `Precauciones: ${it.precauciones}` }) : null,
+              noAprobado ? h('div', { class: 'reg', text: it.regulatorio }) : null));
+          const payload = {
+            category: it.cat,
+            title: it.titulo,
+            dose: conDosis ? (it.dosis || null) : null,
+            reconstitution: it.cat === 'peptide' ? (it.reconstitucion || null) : null,
+            timing: it.horario || null,
+            frequency: it.frecuencia || null,
+            rationale: it.proposito || r.titulo,
+            instructions: [
+              it.nota || null,
+              it.precauciones ? `Precauciones: ${it.precauciones}` : null,
+              it.interacciones ? `Interacciones: ${it.interacciones}` : null,
+              noAprobado ? it.regulatorio : null,
+              `Sugerido por la regla ${r.code}`,
+            ].filter(Boolean).join(' · '),
+            sort_order: 50 + ii,
+          };
+          if (porDefecto) seleccion.set(clave, payload);
+          ck.addEventListener('change', () => {
+            if (ck.checked) seleccion.set(clave, payload); else seleccion.delete(clave);
+            refrescar();
+          });
+          lista.append(fila);
+        });
+        bloque.append(lista);
+        caja.append(bloque);
+      });
+
+      caja.append(h('div', { class: 'toolbar', style: 'margin-top:12px' }, btn,
+        h('span', { class: 'muted small', text: 'Lo que agregues queda como indicación editable: revisa dosis y horario antes de firmar.' })));
+      refrescar();
+      return caja;
+
+      async function agregar() {
+        // Si el médico marca la misma cosa en dos reglas, entra una sola vez.
+        const vistos = new Set(mios.map((i) => String(i.title || '').trim().toLowerCase()));
+        const items = [];
+        for (const it of seleccion.values()) {
+          const k = String(it.title || '').trim().toLowerCase();
+          if (vistos.has(k)) continue;
+          vistos.add(k); items.push(it);
+        }
+        if (!items.length) { toast('Lo seleccionado ya está en el plan', true); return; }
+        const pep = items.filter((i) => i.category === 'peptide' || i.category === 'medication');
+        const cuerpo = h('div', { class: 'stack' },
+          h('p', { text: `Se agregan ${items.length} indicación(es) al plan versión ${vigente.version}.` }),
+          pep.length ? h('div', { class: 'notice danger small',
+            text: `Incluye ${pep.length} péptido(s) o medicamento(s): ${pep.map((i) => i.title).join(', ')}. Confirma dosis, vía y consentimiento.` }) : null,
+          h('p', { class: 'muted small', text: 'Quedan como borrador editable. Ninguna se firma por agregarse.' }));
+        if (!(await modal('Agregar al plan', cuerpo, 'Agregar'))) return;
+        btn.disabled = true;
+        let ok = 0; const fallos = [];
+        for (const it of items) {
+          try { await api.savePlanItem(vigente.id, it); ok += 1; }
+          catch (e) { fallos.push(`${it.title}: ${e.message}`); }
+        }
+        if (fallos.length) toast(`${ok} agregada(s), ${fallos.length} con error: ${fallos[0]}`, true);
+        else toast(`${ok} indicación(es) agregada(s)`);
+        load();
+      }
+    }
 
     async function generar() {
       const texto = vigente

@@ -212,8 +212,64 @@ export const demoApi = {
   async confirmExtraction() { throw new Error('En la vista previa no se confirma nada'); },
   async discardExtraction() { throw new Error('En la vista previa no se descarta nada'); },
   async extractedRows() { return { lab: [], bodycomp: [] }; },
-  async plans() { return { plans: [], items: [] }; },
+  async plans(patientId) {
+    const plan = {
+      id: 'plan-demo-1', patient_id: patientId, version: 1, status: 'ai_draft',
+      created_at: new Date().toISOString(), signed_at: null, physician_notes: null,
+      ai_draft: {
+        hallazgos: [{ texto: 'Dislipidemia aterogenica' }, { texto: 'Resistencia a la insulina' }],
+        revisiones: [{ texto: 'Confirmar que no toma estatina antes de indicar arroz de levadura roja.' }],
+      },
+    };
+    return {
+      plans: [plan],
+      items: [
+        { id: 'it-1', protocol_id: plan.id, is_active: true, category: 'nutrition', sort_order: 10,
+          title: 'Aumentar fibra soluble y pescado graso', dose: null, reconstitution: null,
+          timing: 'Diario', frequency: 'Pescado graso 3 a 4 veces por semana',
+          rationale: 'Lipidos e inflamacion', instructions: null },
+        { id: 'it-2', protocol_id: plan.id, is_active: true, category: 'supplement', sort_order: 20,
+          title: 'Magnesio glicinato', dose: '300 mg elemental', reconstitution: null,
+          timing: 'Antes de dormir', frequency: 'Diario',
+          rationale: 'Sueno y sensibilidad a la insulina', instructions: 'Separar 2 h de levotiroxina' },
+      ],
+    };
+  },
   async catalogs() { return { supplements: [], peptides: [], exercises: [] }; },
+  async suggestions() {
+    return [{
+      code: 'SUG_DISLIPIDEMIA', titulo: 'Dislipidemia aterogenica sin tratamiento farmacologico',
+      razon: 'Colesterol no-HDL y trigliceridos elevados, sin estatina y sin dano hepatico o renal en el panel.',
+      estado: 'sugerido', firmado: false, evidencia: 'A', motivos: [],
+      disparado_por: { TC: 221, TG: 222, LDL: 125, NONHDL: 191 },
+      sugerencias: [
+        { cat: 'supplement', titulo: 'Omega-3 (EPA + DHA)', dosis: '2 g EPA+DHA', horario: 'Repartido en las comidas',
+          frecuencia: 'Diario', proposito: 'Trigliceridos, antiinflamatorio', evidencia: 'A',
+          precauciones: 'Suspender 7 dias antes de cirugia', interacciones: 'Potencia anticoagulantes',
+          nota: 'Primera linea para trigliceridos.', regulatorio: null, reconstitucion: null },
+        { cat: 'supplement', titulo: 'Arroz de levadura roja', dosis: 'Monacolina K 3-10 mg', horario: 'Con la cena',
+          frecuencia: 'Diario', proposito: 'Reduccion de LDL', evidencia: 'B',
+          precauciones: 'Es lovastatina natural: vigilar ALT y CK. No combinar con estatina',
+          interacciones: 'CYP3A4, toronja, fibratos', nota: null, regulatorio: null, reconstitucion: null },
+        { cat: 'nutrition', titulo: 'Eliminar azucares anadidos y carbohidratos refinados', dosis: null,
+          horario: 'Todas las comidas', frecuencia: 'Diario', proposito: 'La palanca mas fuerte sobre los trigliceridos',
+          evidencia: null, precauciones: null, interacciones: null, nota: 'Prioridad sobre cualquier suplemento',
+          regulatorio: null, reconstitucion: null },
+      ],
+    }, {
+      code: 'SUG_INFLAMACION', titulo: 'Inflamacion sistemica de bajo grado',
+      razon: 'PCR ultrasensible por arriba del limite funcional.',
+      estado: 'revisar', firmado: false, evidencia: 'B',
+      motivos: ['Sin dato: el paciente no contesto si tiene un proceso infeccioso activo (J4).'],
+      disparado_por: { PCR_US: 3.1 },
+      sugerencias: [
+        { cat: 'supplement', titulo: 'Curcuma (curcumina con piperina)', dosis: '500-1000 mg', horario: 'Con comida',
+          frecuencia: '1 a 2 veces al dia', proposito: 'Antiinflamatorio, PCR', evidencia: 'B',
+          precauciones: 'Puede irritar en gastritis', interacciones: 'Potencia anticoagulantes',
+          nota: null, regulatorio: null, reconstitucion: null },
+      ],
+    }];
+  },
   async patterns() {
     return [
       { id: 'pt1', code: 'DISLIP_ATEROGENICA_M', title: 'Dislipidemia aterogénica', system: 'cardiovascular',

@@ -205,6 +205,10 @@ const liveApi = {
     const { data, error } = await supabase.rpc('evaluate_labs', { p_patient: patientId });
     if (error) throw error; return data;
   },
+  async suggestions(patientId) {
+    const { data, error } = await supabase.rpc('sugerir_plan', { p_patient: patientId });
+    if (error) throw error; return data || [];
+  },
   async patterns() {
     const { data, error } = await supabase.from('interpretation_patterns').select('*')
       .order('system').order('sort_order');
