@@ -423,10 +423,56 @@ function renderList(q) {
   return box;
 }
 
+const KIND_POR_CODIGO = { S1: 'lab_report', S2: 'dexa_report' };
+
+// Sin cuenta: una Edge Function firma la URL y el archivo sube directo al almacenamiento
+function renderFilePublico(q) {
+  const kind = KIND_POR_CODIGO[q.question_code] || 'prior_study';
+  const v = clone(state.answers.get(q.id)) || [];
+  const lista = h('ul', { class: 'small', style: 'margin:8px 0 0;padding-left:18px' });
+  const pinta = () => { lista.innerHTML = ''; v.forEach((f) => lista.append(h('li', { text: f.name }))); };
+  pinta();
+  const input = h('input', { type: 'file', class: 'input', multiple: true, accept: 'application/pdf,image/*' });
+  const estado = h('div', { class: 'small muted', style: 'margin-top:6px' });
+
+  input.addEventListener('change', async () => {
+    for (const file of input.files) {
+      estado.className = 'small muted';
+      estado.textContent = `Subiendo ${file.name}…`;
+      try {
+        if (file.size > 15 * 1024 * 1024) throw new Error('pasa de 15 MB');
+        const { data, error } = await supabase.functions.invoke('upload-url', {
+          body: { token: TOKEN, kind, filename: file.name, mime: file.type, size: file.size },
+        });
+        const detalle = data?.error || error?.message;
+        if (!data?.path || !data?.token) throw new Error(detalle || 'no pudimos preparar la subida');
+        const up = await supabase.storage.from(CONFIG.STORAGE_BUCKET)
+          .uploadToSignedUrl(data.path, data.token, file, { contentType: file.type || undefined });
+        if (up.error) throw up.error;
+        const reg = await supabase.rpc('public_register_document', {
+          p_token: TOKEN, p_path: data.path, p_name: file.name, p_mime: file.type || '', p_kind: kind,
+        });
+        if (reg.error) throw reg.error;
+        v.push({ path: data.path, name: file.name });
+        setAnswer(q, [...v]);
+        pinta();
+        estado.textContent = v.length === 1 ? 'Archivo guardado.' : `${v.length} archivos guardados.`;
+      } catch (e) {
+        estado.className = 'small';
+        estado.style.color = 'var(--danger)';
+        estado.textContent = `No se pudo subir ${file.name}: ${e.message}. Puedes llevarlo a tu consulta o mandarlo por WhatsApp a tu médico.`;
+      }
+    }
+    input.value = '';
+  });
+
+  return h('div', {},
+    h('p', { class: 'q-hint', text: 'Opcional. PDF o foto (JPG, PNG, HEIC), hasta 15 MB por archivo. Sólo tu médico los puede ver.' }),
+    input, estado, lista);
+}
+
 function renderFile(q) {
-  if (PUBLICO) {
-    return h('p', { class: 'notice small', text: 'Si ya tienes estudios, llévalos a tu consulta o mándalos por WhatsApp a tu médico: desde aquí todavía no se pueden subir.' });
-  }
+  if (PUBLICO) return renderFilePublico(q);
   const v = clone(state.answers.get(q.id)) || [];
   const listEl = h('ul', { class: 'small' });
   const draw = () => { listEl.innerHTML = ''; v.forEach((f) => listEl.append(h('li', { text: f.name }))); };

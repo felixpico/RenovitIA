@@ -25,7 +25,7 @@
       </nav>
       <div class="who">
         <span id="who-name" class="muted small"></span>
-        <button id="btn-password" class="btn-link hidden" type="button">Contraseña</button>
+        <button id="btn-pass" class="btn-link hidden" type="button">Contraseña</button>
         <button id="btn-logout" class="btn-link hidden" type="button">Salir</button>
       </div>
     </div>
@@ -49,12 +49,38 @@
         </label>
         <label class="field">
           <span class="field-label">Contraseña</span>
-          <input id="login-password" class="input" type="password" autocomplete="current-password" placeholder="••••••••">
+          <input id="login-pass" class="input" type="password" autocomplete="current-password" required placeholder="Tu contraseña">
         </label>
         <button id="btn-login" class="btn btn-primary btn-block" type="submit">Entrar</button>
-        <button id="btn-magic" class="btn btn-ghost btn-block" type="button">Entrar con enlace por correo</button>
         <div id="login-msg" class="notice hidden" role="status"></div>
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <button id="btn-show-code" class="btn-link" type="button">Crear o cambiar mi contraseña</button>
+          <button id="btn-magic" class="btn-link" type="button">Prefiero un enlace por correo</button>
+        </div>
       </form>
+
+      <form id="form-code" class="card stack hidden" novalidate>
+        <div>
+          <h2 style="margin:0 0 4px;font-size:1.1rem">Crear o cambiar contraseña</h2>
+          <p class="muted small" style="margin:0">Necesitas el código de un solo uso que te dio el administrador del programa.</p>
+        </div>
+        <label class="field">
+          <span class="field-label">Correo institucional</span>
+          <input id="code-email" class="input" type="email" autocomplete="username" required placeholder="doctor@correo.com">
+        </label>
+        <label class="field">
+          <span class="field-label">Código</span>
+          <input id="code-code" class="input" type="text" autocapitalize="characters" required placeholder="RNV-MED-0000">
+        </label>
+        <label class="field">
+          <span class="field-label">Nueva contraseña (mínimo 10 caracteres)</span>
+          <input id="code-pass" class="input" type="password" autocomplete="new-password" required>
+        </label>
+        <button id="btn-code" class="btn btn-primary btn-block" type="submit">Guardar contraseña y entrar</button>
+        <div id="code-msg" class="notice hidden" role="status"></div>
+        <button id="btn-back-login" class="btn-link" type="button">Volver</button>
+      </form>
+
       <p class="muted small">¿Sólo quieres ver cómo funciona? <a href="medico.html?demo=1">Abrir vista previa con pacientes ficticios</a>.</p>
     </section>
 
@@ -64,26 +90,6 @@
       <p class="muted">Un administrador debe asignarte el rol en Supabase (<code>user_roles</code>).</p>
     </section>
 
-    <section id="view-password" class="hidden narrow stack">
-      <div class="hero">
-        <div class="eyebrow">Equipo clínico</div>
-        <h1 id="password-title">Crea tu contraseña</h1>
-        <p class="muted">Mínimo 10 caracteres. Con ella entras al panel sin depender del correo.</p>
-      </div>
-      <form id="form-password" class="card stack" novalidate>
-        <label class="field">
-          <span class="field-label">Nueva contraseña</span>
-          <input id="pw-1" class="input" type="password" autocomplete="new-password" minlength="10" required>
-        </label>
-        <label class="field">
-          <span class="field-label">Repítela</span>
-          <input id="pw-2" class="input" type="password" autocomplete="new-password" minlength="10" required>
-        </label>
-        <button id="btn-pw-save" class="btn btn-primary btn-block" type="submit">Guardar contraseña</button>
-        <button id="btn-pw-cancel" class="btn btn-ghost btn-block" type="button">Ahora no</button>
-        <div id="pw-msg" class="notice hidden" role="status"></div>
-      </form>
-    </section>
     <section id="view-app" class="hidden"></section>
   </main>
 
