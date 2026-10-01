@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>RenovitIA · Plan funcional</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <style>
+    :root { --brand:#2f6b58; --brand-soft:#e3efe9; --accent:#c7803a; --accent-soft:#fdf2e6;
+            --text:#1c2521; --muted:#5d6b64; --border:#d9dfd9; --danger:#b3261e; --danger-soft:#fbe9e7;
+            --verde:#1f7a4d; --amarillo:#8a5a00; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#eceee9; color:var(--text); font-family:"Inter", Arial, Helvetica, sans-serif; font-size:14px; line-height:1.45; }
+    .bar { max-width:816px; margin:16px auto 0; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; padding:0 16px; }
+    .bar button, .bar a { font:inherit; border-radius:10px; padding:9px 14px; border:1px solid var(--border); background:#fff; color:var(--text); text-decoration:none; cursor:pointer; font-weight:600; }
+    .bar button.primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .sheet { position:relative; max-width:816px; min-height:1056px; margin:12px auto 32px; background:#fff; padding:44px 52px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+    header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border-bottom:2px solid var(--brand); padding-bottom:14px; }
+    header img { height:52px; }
+    .meta { text-align:right; font-size:11.5px; color:var(--muted); }
+    .estado { display:inline-block; margin-top:6px; border-radius:99px; padding:4px 12px; font-size:11px; font-weight:700; letter-spacing:.04em; }
+    .estado.borrador { background:var(--accent); color:#fff; }
+    .estado.firmado { background:var(--brand); color:#fff; }
+    h1 { font-size:21px; margin:20px 0 4px; }
+    .sub { color:var(--muted); margin:0 0 14px; }
+    .ficha { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px 18px; border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin:14px 0; }
+    .ficha span { color:var(--muted); display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; }
+    .objetivo { border-left:4px solid var(--brand); background:var(--brand-soft); padding:10px 14px; border-radius:0 8px 8px 0; margin:0 0 18px; }
+    h2 { font-size:15px; margin:24px 0 8px; color:var(--text); }
+    h2 b { color:var(--accent); margin-right:6px; }
+    h3 { font-size:12.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); margin:16px 0 6px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { background:var(--brand); color:#fff; text-align:left; padding:7px 10px; font-size:11.5px; font-weight:600; }
+    td { padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+    tr:nth-child(even) td { background:#f6f7f4; }
+    .rojo { color:var(--danger); font-weight:700; }
+    .amarillo { color:var(--amarillo); font-weight:700; }
+    .rev { border-left:4px solid var(--accent); background:var(--accent-soft); padding:11px 14px; border-radius:0 8px 8px 0; margin:14px 0; }
+    .rev h4 { margin:0 0 6px; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); }
+    .rev ul { margin:0; padding-left:18px; }
+    .rev li { margin-bottom:4px; }
+    .aviso { border-left:4px solid var(--danger); background:var(--danger-soft); padding:11px 14px; border-radius:0 8px 8px 0; margin:18px 0; font-size:12.5px; }
+    .aviso h4 { margin:0 0 5px; color:var(--danger); font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
+    .firma { border:1px solid var(--brand); border-radius:10px; padding:16px 18px; margin-top:16px; }
+    .lineas { display:grid; grid-template-columns:1fr 1fr; gap:34px 28px; margin-top:26px; }
+    .lineas div { border-top:1px solid var(--text); padding-top:5px; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+    .vacio { color:var(--muted); font-style:italic; }
+    footer { position:absolute; left:52px; right:52px; bottom:28px; font-size:10.5px; color:var(--muted); border-top:1px solid var(--border); padding-top:8px; display:flex; justify-content:space-between; }
+    .watermark { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; font-size:64px; font-weight:800; color:rgba(199,128,58,.13); transform:rotate(-24deg); text-align:center; }
+    .msg { max-width:600px; margin:60px auto; background:#fff; padding:24px; border-radius:12px; }
+    @media print {
+      body { background:#fff; }
+      .bar { display:none; }
+      .sheet { box-shadow:none; margin:0; max-width:none; min-height:auto; padding:0; }
+      footer { position:static; margin-top:32px; }
+      h2, table, .rev, .aviso { break-inside:avoid; }
+      @page { size:letter; margin:14mm; }
+    }
+    @media (max-width:700px) { .ficha { grid-template-columns:1fr 1fr; } .sheet { padding:24px 18px; } .lineas { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <a id="back" href="medico.html">← Volver</a>
+    <div>
+      <button id="print" type="button">Imprimir / PDF</button>
+    </div>
+  </div>
+  <div id="root"><div class="msg">Cargando el plan…</div></div>
+  <script type="module" src="assets/js/plan.js"></script>
+</body>
+</html>

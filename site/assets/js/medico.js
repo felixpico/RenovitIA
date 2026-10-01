@@ -5,6 +5,7 @@ import { INSTRUMENTS, instrumentKey } from './instruments.js';
 import { demoApi } from './medico-demo.js';
 import { renderStudiesTab } from './estudios.js';
 import { viewRanges } from './rangos.js';
+import { renderPlanTab } from './plan-tab.js';
 
 const $ = (id) => document.getElementById(id);
 const DEMO = isDemo();
@@ -203,6 +204,40 @@ const liveApi = {
   async evaluateLabs(patientId) {
     const { data, error } = await supabase.rpc('evaluate_labs', { p_patient: patientId });
     if (error) throw error; return data;
+  },
+  async plans(patientId) {
+    const { data, error } = await supabase.from('protocols').select('*').eq('patient_id', patientId)
+      .order('version', { ascending: false });
+    if (error) throw error;
+    const ids = (data || []).map((p) => p.id);
+    const it = ids.length ? await supabase.from('protocol_items').select('*').in('protocol_id', ids).order('sort_order') : { data: [] };
+    if (it.error) throw it.error;
+    return { plans: data || [], items: it.data || [] };
+  },
+  async generatePlan(patientId) {
+    const { data, error } = await supabase.rpc('generar_plan', { p_patient: patientId });
+    if (error) throw error; return data;
+  },
+  async signPlan(planId) {
+    const { data, error } = await supabase.rpc('firmar_protocolo', { p_protocol: planId });
+    if (error) throw error; return data;
+  },
+  async deliverPlan(planId) {
+    const { data, error } = await supabase.rpc('entregar_protocolo', { p_protocol: planId });
+    if (error) throw error; return data;
+  },
+  async savePlanItem(planId, item) {
+    const row = { ...item, protocol_id: planId, added_by: 'physician', physician_edited: true };
+    if (item.id) { const { error } = await supabase.from('protocol_items').update(row).eq('id', item.id); if (error) throw error; }
+    else { const { error } = await supabase.from('protocol_items').insert(row); if (error) throw error; }
+  },
+  async removePlanItem(itemId) {
+    const { error } = await supabase.from('protocol_items').update({ is_active: false }).eq('id', itemId);
+    if (error) throw error;
+  },
+  async savePlanNotes(planId, notes) {
+    const { error } = await supabase.from('protocols').update({ physician_notes: notes }).eq('id', planId);
+    if (error) throw error;
   },
   async ranges() {
     const [bm, rg, cr] = await Promise.all([
@@ -510,12 +545,14 @@ async function viewPatient(root, id) {
   const openAlerts = d.alerts.filter((a) => ['open', 'acknowledged'].includes(a.status));
   const tabs = h('div', { class: 'tabs', role: 'tablist' });
   const panel = h('div');
-  const TABS = [['alertas', `Alertas (${openAlerts.length} abiertas)`], ['estudios', 'Estudios'], ['respuestas', 'Respuestas']];
+  const TABS = [['alertas', `Alertas (${openAlerts.length} abiertas)`], ['estudios', 'Estudios'], ['plan', 'Plan'], ['respuestas', 'Respuestas']];
   const drawTab = () => {
     tabs.innerHTML = '';
     TABS.forEach(([k, t]) => tabs.append(h('button', { type: 'button', role: 'tab', class: S.patientTab === k ? 'active' : '', 'aria-selected': S.patientTab === k ? 'true' : 'false', text: t, onclick: () => { S.patientTab = k; drawTab(); } })));
     panel.innerHTML = '';
-    if (S.patientTab === 'estudios') {
+    if (S.patientTab === 'plan') {
+      renderPlanTab(panel, { h, badge, modal, toast, api, patient: p, me: S.me, demo: DEMO, refresh: () => route() });
+    } else if (S.patientTab === 'estudios') {
       renderStudiesTab(panel, { h, badge, modal, toast, api, patient: p, sex: sex === 'Femenino' ? 'F' : sex === 'Masculino' ? 'M' : null, me: S.me, demo: DEMO, refresh: null, isAdmin: isAdmin() });
     } else if (S.patientTab === 'alertas') {
       const order = { urgent: 0, block: 1, prioritize: 2 };
