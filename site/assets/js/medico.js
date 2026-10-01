@@ -168,6 +168,15 @@ const liveApi = {
     const { error } = await supabase.from('documents').insert({ patient_id: patientId, order_id: order.id, kind, storage_path: path, original_filename: file.name, mime_type: file.type, uploaded_by: S.me.id, extraction_status: 'pending' });
     if (error) throw error;
   },
+  // Subida libre: el médico sube un estudio aunque no haya orden (p. ej. laboratorios que el paciente trajo)
+  async uploadLooseDoc(patientId, kind, file) {
+    const safe = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.-]+/g, '_').slice(-80);
+    const path = `${patientId}/${kind}/${Date.now()}-${safe}`;
+    const up = await supabase.storage.from(CONFIG.STORAGE_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+    if (up.error) throw up.error;
+    const { error } = await supabase.from('documents').insert({ patient_id: patientId, kind, storage_path: path, original_filename: file.name, mime_type: file.type, uploaded_by: S.me.id, extraction_status: 'pending' });
+    if (error) throw error;
+  },
   async docUrl(path) {
     const { data, error } = await supabase.storage.from(CONFIG.STORAGE_BUCKET).createSignedUrl(path, 120); if (error) throw error; return data.signedUrl;
   },

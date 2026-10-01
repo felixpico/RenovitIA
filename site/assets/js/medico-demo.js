@@ -170,6 +170,7 @@ export const demoApi = {
     return { laboratorio: 0 };
   },
   async uploadDoc(patientId, order, file) { DOCUMENTS.push({ id: uuid(), patient_id: patientId, order_id: order.id, kind: 'lab_report', storage_path: 'demo', original_filename: file.name, created_at: new Date().toISOString() }); },
+  async uploadLooseDoc(patientId, kind, file) { DOCUMENTS.push({ id: uuid(), patient_id: patientId, order_id: null, kind, storage_path: 'demo', original_filename: file.name, created_at: new Date().toISOString() }); },
   async docUrl() { throw new Error('En la vista previa no hay archivos reales'); },
   async orderForPrint(id) {
     await loadBiomarkers();

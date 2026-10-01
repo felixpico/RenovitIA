@@ -39,7 +39,8 @@ export function renderStudiesTab(root, ctx) {
     const runTop = async (fn, msg) => { try { await fn(); toast(msg); load(); refresh?.(); } catch (e) { toast(`Error: ${e.message}`, true); } };
     root.append(h('div', { class: 'toolbar', style: 'margin-bottom:12px' },
       h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: '+ Orden de laboratorio', onclick: () => orderDialog('lab') }),
-      h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '+ Orden DEXA', onclick: () => orderDialog('dexa') })));
+      h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '+ Orden DEXA', onclick: () => orderDialog('dexa') }),
+      h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '⬆ Subir estudio', onclick: () => subirDialog() })));
 
     // ---------- Liberación de resultados al paciente ----------
     const held = [...results, ...bodycomp].filter((r) => !r.released_at).length;
@@ -155,11 +156,17 @@ export function renderStudiesTab(root, ctx) {
       root.append(h('div', { class: 'table-wrap' }, t));
     }
 
-    const loose = documents.filter((d) => !d.order_id);
-    if (loose.length) {
-      root.append(h('h3', { class: 'block-title', style: 'margin-top:22px', text: 'Estudios previos subidos por el paciente' }),
-        h('div', { class: 'row-meta' }, ...loose.map((d) => h('a', { href: '#', text: d.original_filename || d.kind, onclick: async (e) => { e.preventDefault(); try { window.open(await api.docUrl(d.storage_path), '_blank', 'noopener'); } catch (err) { toast(err.message, true); } } }))));
-    }
+    // ---------- Archivos del paciente ----------
+    const KIND_NOMBRE = { lab_report: 'Laboratorio', dexa_report: 'DEXA / composición', prior_study: 'Estudio previo', other: 'Otro' };
+    const abrir = (d) => h('a', { href: '#', text: `${d.original_filename || KIND_NOMBRE[d.kind] || 'archivo'}${d.order_id ? '' : ''}`, onclick: async (e) => {
+      e.preventDefault();
+      try { window.open(await api.docUrl(d.storage_path), '_blank', 'noopener'); } catch (err) { toast(err.message, true); }
+    } });
+    root.append(h('h3', { class: 'block-title', style: 'margin-top:22px' },
+      'Archivos del paciente',
+      h('button', { class: 'btn btn-ghost btn-sm', style: 'margin-left:10px', type: 'button', text: '⬆ Subir estudio', onclick: () => subirDialog() })));
+    if (!documents.length) root.append(h('p', { class: 'muted small', text: 'Todavía no hay archivos. Súbelos tú o pídeselos al paciente en su cuestionario.' }));
+    else root.append(h('div', { class: 'row-meta' }, ...documents.map((d) => abrir(d))));
 
     // ---------- Diálogos ----------
     async function orderDialog(type) {
@@ -278,6 +285,23 @@ export function renderStudiesTab(root, ctx) {
         if (o.status === 'sample_taken') await api.updateOrder(o.id, { status: 'results_received' });
         toast('DEXA guardado'); load();
       } catch (e) { toast(`Error: ${e.message}`, true); }
+    }
+
+    async function subirDialog() {
+      const tipo = h('select', { class: 'input' },
+        h('option', { value: 'lab_report', text: 'Laboratorio' }),
+        h('option', { value: 'dexa_report', text: 'DEXA, InBody o bioimpedancia' }),
+        h('option', { value: 'prior_study', text: 'Otro estudio (ECG, ultrasonido, etc.)' }));
+      const file = h('input', { class: 'input', type: 'file', accept: 'application/pdf,image/*' });
+      const cuerpo = h('div', { class: 'stack' },
+        h('label', { class: 'field' }, h('span', { class: 'field-label small', text: 'Tipo de estudio' }), tipo),
+        h('label', { class: 'field' }, h('span', { class: 'field-label small', text: 'Archivo (PDF o foto)' }), file),
+        h('p', { class: 'muted small', text: 'El paciente no lo verá hasta que liberes sus resultados.' }));
+      if (!(await modal('Subir estudio', cuerpo, 'Subir'))) return;
+      const f = file.files?.[0];
+      if (!f) { toast('No elegiste archivo', true); return; }
+      try { await api.uploadLooseDoc(patient.id, tipo.value, f); toast('Archivo subido'); load(); }
+      catch (e) { toast(`Error al subir: ${e.message}`, true); }
     }
 
     function uploadButton(o) {
