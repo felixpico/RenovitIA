@@ -4,6 +4,7 @@ import { OVERRIDES } from './overrides.js';
 import { INSTRUMENTS, instrumentKey } from './instruments.js';
 import { demoApi } from './medico-demo.js';
 import { renderStudiesTab } from './estudios.js';
+import { viewRanges } from './rangos.js';
 
 const $ = (id) => document.getElementById(id);
 const DEMO = isDemo();
@@ -122,19 +123,20 @@ const liveApi = {
     const { data, error } = await supabase.rpc('reevaluate_intake', { p_intake: intakeId }); if (error) throw error; return data;
   },
   async studies(patientId) {
-    const [o, pr, d, r, bc, bm] = await Promise.all([
+    const [o, pr, d, r, bc, bm, rg] = await Promise.all([
       supabase.from('orders').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
       supabase.from('providers').select('id,name,provider_type').eq('is_active', true).order('name'),
       supabase.from('documents').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
       supabase.from('lab_results').select('*').eq('patient_id', patientId),
       supabase.from('body_composition').select('*').eq('patient_id', patientId).order('measured_at', { ascending: false }),
       supabase.from('biomarkers').select('id,code,name_es,category,default_unit'),
+      supabase.from('biomarker_ranges').select('*'),
     ]);
-    for (const x of [o, pr, d, r, bc, bm]) if (x.error) throw x.error;
+    for (const x of [o, pr, d, r, bc, bm, rg]) if (x.error) throw x.error;
     const ids = o.data.map((x) => x.id);
     const it = ids.length ? await supabase.from('order_items').select('*').in('order_id', ids) : { data: [] };
     if (it.error) throw it.error;
-    return { orders: o.data, items: it.data, providers: pr.data, documents: d.data, results: r.data, bodycomp: bc.data, biomarkers: bm.data };
+    return { orders: o.data, items: it.data, providers: pr.data, documents: d.data, results: r.data, bodycomp: bc.data, biomarkers: bm.data, ranges: rg.data };
   },
   async suggest(patientId) {
     const { data, error } = await supabase.rpc('suggest_studies', { p_patient: patientId }); if (error) throw error; return data;
@@ -176,6 +178,21 @@ const liveApi = {
     if (up.error) throw up.error;
     const { error } = await supabase.from('documents').insert({ patient_id: patientId, kind, storage_path: path, original_filename: file.name, mime_type: file.type, uploaded_by: S.me.id, extraction_status: 'pending' });
     if (error) throw error;
+  },
+  async ranges() {
+    const [bm, rg] = await Promise.all([
+      supabase.from('biomarkers').select('id,code,name_es,category,default_unit').order('category'),
+      supabase.from('biomarker_ranges').select('*'),
+    ]);
+    if (bm.error) throw bm.error; if (rg.error) throw rg.error;
+    return { biomarkers: bm.data, ranges: rg.data };
+  },
+  async saveRange(id, patch) {
+    const { error } = await supabase.from('biomarker_ranges').update(patch).eq('id', id); if (error) throw error;
+  },
+  async approveRanges(ids, aprobar = true) {
+    const { data, error } = await supabase.rpc('aprobar_rangos', { p_ids: ids, p_aprobar: aprobar });
+    if (error) throw error; return data;
   },
   async docUrl(path) {
     const { data, error } = await supabase.storage.from(CONFIG.STORAGE_BUCKET).createSignedUrl(path, 120); if (error) throw error; return data.signedUrl;
@@ -469,7 +486,7 @@ async function viewPatient(root, id) {
     TABS.forEach(([k, t]) => tabs.append(h('button', { type: 'button', role: 'tab', class: S.patientTab === k ? 'active' : '', 'aria-selected': S.patientTab === k ? 'true' : 'false', text: t, onclick: () => { S.patientTab = k; drawTab(); } })));
     panel.innerHTML = '';
     if (S.patientTab === 'estudios') {
-      renderStudiesTab(panel, { h, badge, modal, toast, api, patient: p, sex: sex === 'Femenino' ? 'F' : sex === 'Masculino' ? 'M' : null, me: S.me, demo: DEMO, refresh: null });
+      renderStudiesTab(panel, { h, badge, modal, toast, api, patient: p, sex: sex === 'Femenino' ? 'F' : sex === 'Masculino' ? 'M' : null, me: S.me, demo: DEMO, refresh: null, isAdmin: isAdmin() });
     } else if (S.patientTab === 'alertas') {
       const order = { urgent: 0, block: 1, prioritize: 2 };
       const list = h('div', { class: 'list' });
@@ -530,6 +547,7 @@ async function route() {
   try {
     if (name === 'paciente' && id) await viewPatient(fresh, id);
     else if (name === 'pacientes') await viewPatients(fresh);
+    else if (name === 'rangos') await viewRanges(fresh, { h, badge, modal, toast, api, me: S.me, setNav });
     else await viewAlerts(fresh);
     app.innerHTML = ''; app.append(fresh);
     if (name !== 'alertas' && !(hash === '#/alertas' || !location.hash)) api.alerts().then(updateAlertCount).catch(() => {});

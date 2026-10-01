@@ -109,6 +109,43 @@ async function loadBiomarkers() {
   return biomarkers;
 }
 
+// Rangos funcionales para la vista previa (subconjunto de los que trae la base real)
+const RANGOS_DEMO = {
+  GLU:      [75, 85, 70, 99, 'C'],
+  INS:      [2, 6, null, 10, 'C'],
+  HBA1C:    [4.8, 5.3, 4, 5.6, 'A'],
+  HOMA_IR:  [null, 1.5, null, 2.5, 'B'],
+  APOB:     [null, 80, null, 100, 'A'],
+  LPA:      [null, 75, null, 125, 'A'],
+  TG:       [50, 90, 30, 150, 'A'],
+  HDL:      [55, null, 40, null, 'A'],
+  LDL:      [null, 80, null, 130, 'A'],
+  NONHDL:   [null, 100, null, 130, 'A'],
+  REMNANT:  [null, 20, null, 30, 'A'],
+  TG_HDL:   [null, 2, null, 3, 'B'],
+  HSCRP:    [null, 0.8, null, 2, 'A'],
+  TT:       [600, 900, 400, 1000, 'B'],
+  SHBG:     [30, 50, 20, 60, 'C'],
+  VITD:     [40, 60, 30, 100, 'C'],
+  FERRITIN: [50, 150, 30, 300, 'C'],
+  TSH:      [1, 2, 0.45, 4, 'C'],
+};
+let rangos = null;
+async function loadRanges() {
+  if (!rangos) {
+    const bms = await loadBiomarkers();
+    rangos = bms.filter((b) => RANGOS_DEMO[b.code]).map((b) => {
+      const [ol, oh, rl, rh, ev] = RANGOS_DEMO[b.code];
+      return {
+        id: `rng-${b.code}`, biomarker_id: b.id, sex: null, age_min: null, age_max: null,
+        unit: b.default_unit, optimal_low: ol, optimal_high: oh, reference_low: rl, reference_high: rh,
+        evidence_level: ev, source: 'Vista previa', approved_by: 'doc-1', approved_at: new Date().toISOString(),
+      };
+    });
+  }
+  return rangos;
+}
+
 let template = null;
 async function loadTemplate() {
   if (!template) template = await (await fetch('assets/data/form-v0.2.demo.json')).json();
@@ -138,7 +175,7 @@ export const demoApi = {
   async studies(patientId) {
     const bms = await loadBiomarkers();
     const orders = ORDERS.filter((o) => o.patient_id === patientId).sort((a, b) => b.created_at.localeCompare(a.created_at));
-    return { orders, items: ITEMS.filter((i) => orders.some((o) => o.id === i.order_id)), providers: PROVIDERS, documents: DOCUMENTS.filter((d) => d.patient_id === patientId), results: RESULTS.filter((r) => r.patient_id === patientId), bodycomp: BODYCOMP.filter((b) => b.patient_id === patientId), biomarkers: bms };
+    return { orders, items: ITEMS.filter((i) => orders.some((o) => o.id === i.order_id)), providers: PROVIDERS, documents: DOCUMENTS.filter((d) => d.patient_id === patientId), results: RESULTS.filter((r) => r.patient_id === patientId), bodycomp: BODYCOMP.filter((b) => b.patient_id === patientId), biomarkers: bms, ranges: await loadRanges() };
   },
   async suggest(patientId) {
     const bms = await loadBiomarkers();
@@ -170,6 +207,9 @@ export const demoApi = {
     return { laboratorio: 0 };
   },
   async uploadDoc(patientId, order, file) { DOCUMENTS.push({ id: uuid(), patient_id: patientId, order_id: order.id, kind: 'lab_report', storage_path: 'demo', original_filename: file.name, created_at: new Date().toISOString() }); },
+  async ranges() { return { biomarkers: await loadBiomarkers(), ranges: await loadRanges() }; },
+  async saveRange() { throw new Error('En la vista previa no se editan rangos'); },
+  async approveRanges() { throw new Error('En la vista previa no se aprueban rangos'); },
   async uploadLooseDoc(patientId, kind, file) { DOCUMENTS.push({ id: uuid(), patient_id: patientId, order_id: null, kind, storage_path: 'demo', original_filename: file.name, created_at: new Date().toISOString() }); },
   async docUrl() { throw new Error('En la vista previa no hay archivos reales'); },
   async orderForPrint(id) {

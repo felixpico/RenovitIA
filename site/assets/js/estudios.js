@@ -1,4 +1,5 @@
 // Pestaña "Estudios" del panel médico: órdenes de laboratorio y DEXA, resultados y documentos
+import { rangoDe, evaluar, derivados, edadDe, textoRango, EVIDENCIA } from './semaforo.js';
 export const ORDER_STATUS = {
   draft: ['Borrador', 'neutral'], signed: ['Firmada', 'prioritize'], sent: ['Enviada al proveedor', 'prioritize'],
   scheduled: ['Agendada', 'prioritize'], sample_taken: ['Muestra tomada / estudio realizado', 'block'],
@@ -6,6 +7,7 @@ export const ORDER_STATUS = {
 };
 const NEXT = { signed: ['sent', 'scheduled', 'sample_taken'], sent: ['scheduled', 'sample_taken'], scheduled: ['sample_taken'], sample_taken: ['results_received'] };
 const CATEGORY = { hematologia: 'Biometría hemática', electrolitos: 'Electrolitos', hepatico: 'Función hepática', renal: 'Función renal', metabolico: 'Metabólico', cardiovascular: 'Cardiovascular', inflamacion: 'Inflamación', hormonal: 'Hormonas', tiroides: 'Tiroides', nutrientes: 'Nutrientes', genetica: 'Genética', muscular: 'Muscular' };
+const ORDEN_CAT = ['cardiovascular', 'metabolico', 'hepatico', 'renal', 'inflamacion', 'hormonal', 'tiroides', 'nutrientes', 'hematologia', 'electrolitos', 'muscular', 'genetica'];
 const DEXA_STUDIES = ['Composición corporal DEXA (cuerpo completo)', 'Densitometría ósea (columna lumbar y cadera)'];
 
 export const DEFAULT_INDICATIONS = {
@@ -32,7 +34,7 @@ export function renderStudiesTab(root, ctx) {
     let data;
     try { data = await api.studies(patient.id); } catch (e) { root.innerHTML = ''; root.append(h('div', { class: 'notice danger', text: e.message })); return; }
     root.innerHTML = '';
-    const { orders, items, providers, documents, results, bodycomp, biomarkers } = data;
+    const { orders, items, providers, documents, results, bodycomp, biomarkers, ranges } = data;
     const bmById = new Map(biomarkers.map((b) => [b.id, b]));
     const provName = (id) => providers.find((p) => p.id === id)?.name || 'Sin proveedor';
 
@@ -123,7 +125,7 @@ export function renderStudiesTab(root, ctx) {
       card.append(act);
       list.append(card);
     });
-    root.append(h('h3', { class: 'block-title', text: 'Órdenes' }), list);
+    root.append(resumenSemaforo(), h('h3', { class: 'block-title', text: 'Órdenes' }), list);
 
     // ---------- Resultados ----------
     root.append(h('h3', { class: 'block-title', style: 'margin-top:22px', text: 'Resultados de laboratorio' }));
@@ -167,6 +169,83 @@ export function renderStudiesTab(root, ctx) {
       h('button', { class: 'btn btn-ghost btn-sm', style: 'margin-left:10px', type: 'button', text: '⬆ Subir estudio', onclick: () => subirDialog() })));
     if (!documents.length) root.append(h('p', { class: 'muted small', text: 'Todavía no hay archivos. Súbelos tú o pídeselos al paciente en su cuestionario.' }));
     else root.append(h('div', { class: 'row-meta' }, ...documents.map((d) => abrir(d))));
+
+    // ---------- Resumen visual con semáforo funcional ----------
+
+    function resumenSemaforo() {
+      const edad = edadDe(patient.birth_date);
+      const bmPorCodigo = new Map(biomarkers.map((b) => [b.code, b]));
+
+      // el resultado más reciente de cada marcador
+      const ultimo = {};
+      [...results].sort((a, b) => (a.collected_at || '').localeCompare(b.collected_at || '')).forEach((r) => {
+        const bm = bmById.get(r.biomarker_id);
+        if (bm && r.value_numeric != null) ultimo[bm.code] = r;
+      });
+
+      // marcadores derivados que ningún laboratorio reporta
+      derivados(ultimo, { edad }).forEach((d) => {
+        const bm = bmPorCodigo.get(d.code);
+        if (!bm) return;
+        if (!ultimo[d.code] || ultimo[d.code].derivado) ultimo[d.code] = { ...d, biomarker_id: bm.id, unit: bm.default_unit };
+      });
+
+      const filas = Object.entries(ultimo).map(([code, r]) => {
+        const bm = bmPorCodigo.get(code);
+        if (!bm) return null;
+        const rango = rangoDe(ranges, bm.id, sex, edad);
+        return { bm, r, ev: evaluar(r.value_numeric, rango) };
+      }).filter((x) => x && x.ev);
+
+      const caja = h('section', { class: 'semaforo' });
+      if (!filas.length) {
+        if (!results.length) return h('div', {});
+        caja.append(h('h3', { class: 'block-title', text: 'Resumen funcional' }),
+          h('p', { class: 'muted small', text: 'No hay rangos funcionales que apliquen a estos resultados.' }));
+        return caja;
+      }
+
+      const cuenta = { verde: 0, amarillo: 0, rojo: 0 };
+      filas.forEach((f) => { cuenta[f.ev.color] += 1; });
+      const pendientes = filas.filter((f) => f.ev.pendiente).length;
+
+      caja.append(h('div', { class: 'semaforo-top' },
+        h('h3', { class: 'block-title', style: 'margin:0', text: 'Resumen funcional' }),
+        h('div', { class: 'semaforo-cuenta' },
+          h('span', { class: 'pill rojo' }, h('b', { text: String(cuenta.rojo) }), ' fuera de límite'),
+          h('span', { class: 'pill amarillo' }, h('b', { text: String(cuenta.amarillo) }), ' en el límite'),
+          h('span', { class: 'pill verde' }, h('b', { text: String(cuenta.verde) }), ' en óptimo'))));
+      caja.append(h('p', { class: 'muted small', style: 'margin:2px 0 10px' },
+        'Comparado contra rangos de medicina funcional, no contra el rango del laboratorio.'));
+      if (pendientes) {
+        caja.append(h('div', { class: 'notice small', text: `${pendientes} de estos rangos todavía no los aprueba un médico. No generan alerta.` }));
+      }
+
+      const orden = { rojo: 0, amarillo: 1, verde: 2 };
+      ORDEN_CAT.forEach((cat) => {
+        const dentro = filas.filter((f) => f.bm.category === cat)
+          .sort((a, b) => orden[a.ev.color] - orden[b.ev.color] || a.bm.name_es.localeCompare(b.bm.name_es));
+        if (!dentro.length) return;
+        const rejilla = h('div', { class: 'semaforo-grid' });
+        dentro.forEach(({ bm, r, ev }) => {
+          const u = bm.default_unit && bm.default_unit !== 'indice' ? bm.default_unit : '';
+          const chip = h('article', { class: `sem-card ${ev.color}${ev.pendiente ? ' pendiente' : ''}` },
+            h('header', { class: 'sem-head' },
+              h('span', { class: 'sem-nombre', text: bm.name_es }),
+              ev.direccion ? h('span', { class: 'sem-dir', text: ev.direccion === 'alto' ? '▲' : '▼' }) : null),
+            h('div', { class: 'sem-valor' }, h('b', { text: String(r.value_numeric) }), u ? h('span', { class: 'sem-unidad', text: u }) : null),
+            h('div', { class: 'sem-rango small', text: `Óptimo ${textoRango(ev.rango.optimal_low, ev.rango.optimal_high, u)}` }),
+            h('div', { class: 'sem-pie small' },
+              r.derivado ? h('span', { class: 'sem-tag', text: 'calculado' }) : null,
+              ev.rango.evidence_level ? h('span', { class: `sem-ev ev-${ev.rango.evidence_level}`, title: EVIDENCIA[ev.rango.evidence_level], text: ev.rango.evidence_level }) : null,
+              ev.pendiente ? h('span', { class: 'sem-tag pendiente', text: 'sin aprobar' }) : null));
+          if (r.nota) chip.append(h('p', { class: 'sem-nota small', text: r.nota }));
+          rejilla.append(chip);
+        });
+        caja.append(h('h4', { class: 'sem-cat', text: CATEGORY[cat] || cat }), rejilla);
+      });
+      return caja;
+    }
 
     // ---------- Diálogos ----------
     async function orderDialog(type) {
