@@ -213,6 +213,7 @@ export const demoApi = {
   async discardExtraction() { throw new Error('En la vista previa no se descarta nada'); },
   async extractedRows() { return { lab: [], bodycomp: [] }; },
   async plans() { return { plans: [], items: [] }; },
+  async catalogs() { return { supplements: [], peptides: [], exercises: [] }; },
   async generatePlan() { throw new Error('En la vista previa no se generan planes'); },
   async signPlan() { throw new Error('En la vista previa no se firma'); },
   async deliverPlan() { throw new Error('En la vista previa no se entrega'); },

@@ -205,6 +205,15 @@ const liveApi = {
     const { data, error } = await supabase.rpc('evaluate_labs', { p_patient: patientId });
     if (error) throw error; return data;
   },
+  async catalogs() {
+    const [sup, pep, ejer] = await Promise.all([
+      supabase.from('catalog_supplements').select('*').eq('is_active', true).order('name_es'),
+      supabase.from('catalog_peptides').select('*').eq('is_active', true).order('name_es'),
+      supabase.from('catalog_exercises').select('*').eq('is_active', true).order('modality').order('name_es'),
+    ]);
+    for (const x of [sup, pep, ejer]) if (x.error) throw x.error;
+    return { supplements: sup.data, peptides: pep.data, exercises: ejer.data };
+  },
   async plans(patientId) {
     const { data, error } = await supabase.from('protocols').select('*').eq('patient_id', patientId)
       .order('version', { ascending: false });

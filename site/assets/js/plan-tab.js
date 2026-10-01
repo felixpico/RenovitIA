@@ -30,9 +30,11 @@ export function renderPlanTab(root, ctx) {
   const load = async () => {
     root.innerHTML = '';
     root.append(h('div', { class: 'spinner' }));
-    let data;
-    try { data = await api.plans(patient.id); }
-    catch (e) { root.innerHTML = ''; root.append(h('div', { class: 'notice danger', text: e.message })); return; }
+    let data, catalogos = { supplements: [], peptides: [], exercises: [] };
+    try {
+      data = await api.plans(patient.id);
+      catalogos = await api.catalogs();
+    } catch (e) { root.innerHTML = ''; root.append(h('div', { class: 'notice danger', text: e.message })); return; }
     root.innerHTML = '';
     const { plans, items } = data;
     const vigente = plans.find((p) => ['ai_draft', 'in_review', 'approved', 'delivered'].includes(p.status));
@@ -128,6 +130,8 @@ export function renderPlanTab(root, ctx) {
       const campo = (l, el) => h('label', { class: 'field' }, h('span', { class: 'field-label small', text: l }), el);
       const cat = h('select', { class: 'input' }, ...CATEGORIAS.map(([v, n]) => h('option', { value: v, text: n })));
       cat.value = item?.category || 'supplement';
+      const picker = h('select', { class: 'input' });
+      const avisoReg = h('p', { class: 'small', style: 'margin:4px 0 0' });
       const titulo = h('input', { class: 'input', type: 'text' }); titulo.value = item?.title || '';
       const dosis = h('input', { class: 'input', type: 'text', placeholder: 'p. ej. 500 mg · 2 g · 5000 UI' }); dosis.value = item?.dose || '';
       const recon = h('input', { class: 'input', type: 'text', placeholder: 'p. ej. 50 mg en 5 mL (10 mg/mL)' }); recon.value = item?.reconstitution || '';
@@ -137,8 +141,40 @@ export function renderPlanTab(root, ctx) {
       const instr = h('textarea', { class: 'input', rows: 3 }); instr.value = item?.instructions || '';
       const aviso = h('p', { class: 'muted small', text: 'La dosis necesita cantidad y unidad. Si la pones en unidades o mL, la reconstitución es obligatoria: sin ella nadie puede saber cuántos mg recibe el paciente.' });
 
+      const llenarPicker = () => {
+        const lista = cat.value === 'supplement' ? cat_sup : cat.value === 'peptide' ? cat_pep
+          : cat.value === 'exercise' ? cat_ejer : [];
+        picker.innerHTML = '';
+        picker.append(h('option', { value: '', text: lista.length ? '— elegir del catálogo —' : 'sin catálogo para esta categoría' }));
+        lista.forEach((c) => picker.append(h('option', { value: c.code, text: c.name_es })));
+        picker.disabled = !lista.length;
+        avisoReg.textContent = '';
+      };
+      const cat_sup = catalogos.supplements || [], cat_pep = catalogos.peptides || [], cat_ejer = catalogos.exercises || [];
+      cat.addEventListener('change', llenarPicker);
+      picker.addEventListener('change', () => {
+        const lista = cat.value === 'supplement' ? cat_sup : cat.value === 'peptide' ? cat_pep : cat_ejer;
+        const c = lista.find((x) => x.code === picker.value);
+        avisoReg.textContent = '';
+        if (!c) return;
+        titulo.value = c.name_es;
+        dosis.value = c.default_dose || c.typical_dose || '';
+        recon.value = c.reconstitution_hint || '';
+        horario.value = c.default_timing || c.sets_reps_hint || '';
+        frec.value = c.frequency || '';
+        motivo.value = c.purpose || '';
+        instr.value = [c.cautions ? `Precauciones: ${c.cautions}` : null,
+                       c.interactions ? `Interacciones: ${c.interactions}` : null,
+                       c.monitoring ? `Monitoreo: ${c.monitoring}` : null].filter(Boolean).join(' · ');
+        if (c.regulatory_status && c.regulatory_status !== 'aprobado') {
+          avisoReg.style.color = 'var(--danger)';
+          avisoReg.textContent = `${c.regulatory_status === 'investigacion' ? 'EN INVESTIGACIÓN' : 'NO APROBADO PARA USO HUMANO'} · ${c.regulatory_note || ''}`;
+        }
+      });
+      llenarPicker();
+
       if (!(await modal(item ? 'Editar indicación' : 'Nueva indicación',
-        h('div', { class: 'stack' }, campo('Categoría', cat), campo('Qué', titulo), campo('Dosis', dosis), campo('Reconstitución del vial', recon),
+        h('div', { class: 'stack' }, campo('Categoría', cat), campo('Del catálogo', picker), avisoReg, campo('Qué', titulo), campo('Dosis', dosis), campo('Reconstitución del vial', recon),
           h('div', { class: 'fields-grid' }, campo('Horario', horario), campo('Frecuencia', frec)),
           campo('Para qué', motivo), campo('Instrucciones', instr), aviso), 'Guardar'))) return;
 

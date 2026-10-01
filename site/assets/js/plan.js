@@ -50,6 +50,39 @@ async function cargar() {
   return { plan, items: it.data || [], patient: pa.data, physician: ph.data };
 }
 
+
+const SISTEMA = {
+  cardiovascular: 'Metabolismo lipídico y riesgo cardiovascular', metabolico: 'Glucosa e insulina',
+  hepatico: 'Hígado', renal: 'Función renal e hidratación', inflamacion: 'Inflamación',
+  hormonal: 'Eje hormonal', tiroides: 'Tiroides', nutrientes: 'Nutrientes y minerales',
+  hematologia: 'Hematología', general: 'Visión general',
+};
+const SEV = { actuar: 'rojo', vigilar: 'amarillo', informativo: '' };
+
+function interpretacion(plan) {
+  const lista = plan.ai_draft?.interpretacion || [];
+  if (!lista.length) return '';
+  const sistemas = [...new Set(lista.map((x) => x.sistema))];
+  const bloques = sistemas.map((sis) => {
+    const items = lista.filter((x) => x.sistema === sis);
+    return `<h3>${esc(SISTEMA[sis] || sis)}</h3>` + items.map((x) => {
+      const vals = Object.entries(x.valores || {}).map(([k, v]) => `${esc(k)} ${esc(v)}`).join(' · ');
+      const sev = SEV[x.severidad] || '';
+      return `<div class="interp">
+        <p class="interp-tit"><b class="${sev}">${esc(x.titulo)}</b>
+          ${x.evidencia ? `<span class="ev">evidencia ${esc(x.evidencia)}</span>` : ''}
+          ${x.firmado ? '' : '<span class="ev sin">patrón sin firma</span>'}</p>
+        <p>${esc(x.interpretacion)}</p>
+        ${x.correlacionar ? `<p class="vacio"><b>Qué correlacionar:</b> ${esc(x.correlacionar)}</p>` : ''}
+        ${vals ? `<p class="vacio small">Se disparó por: ${vals}</p>` : ''}
+      </div>`;
+    }).join('');
+  }).join('');
+  return `<h2><b>00</b>Interpretación por sistemas</h2>
+    <p class="sub">Cada párrafo se generó porque los valores de este paciente cumplen su condición. Si la condición no se cumple, el párrafo no aparece.</p>
+    ${bloques}`;
+}
+
 function tablaHallazgos(d) {
   const h = (d.ai_draft?.hallazgos || []).filter((x) => x.color === 'rojo');
   const a = (d.ai_draft?.hallazgos || []).filter((x) => x.color === 'amarillo');
@@ -132,6 +165,8 @@ function pinta(d) {
     </div>
 
     <div class="objetivo"><b>Objetivo del paciente:</b> ${esc(plan.ai_draft?.objetivos || 'sin objetivos capturados')}</div>
+
+    ${interpretacion(plan)}
 
     <h2><b>01</b>Hallazgos del panel</h2>
     ${tablaHallazgos(plan)}
