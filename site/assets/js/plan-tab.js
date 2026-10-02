@@ -75,11 +75,18 @@ export function renderPlanTab(root, ctx) {
         !firmado && !esMedico ? h('span', { class: 'muted small', text: 'Sólo un médico puede firmarlo' }) : null,
         vigente.status === 'approved' ? h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Entregar al paciente', onclick: () => entregar(vigente) }) : null)));
 
-    if (sinDosis.length) {
-      root.append(h('div', { class: 'notice danger', style: 'margin-top:12px' },
-        h('b', { text: `${sinDosis.length} indicación(es) sin dosis concreta. ` }),
-        'No se puede firmar hasta que cada una tenga cantidad y unidad: ',
-        sinDosis.map((i) => i.title).join(', '), '.'));
+    if (sinDosis.length && !firmado) {
+      root.append(h('div', { class: 'notice warn', style: 'margin-top:12px' },
+        h('b', { text: `${sinDosis.length} indicación(es) sin dosis auditable: ` }),
+        sinDosis.map((i) => i.title).join(', '), '. ',
+        'Se pueden guardar así. Si firmas el plan con ellas, la firma queda registrada como ',
+        h('b', { text: 'firmada reconociendo dosis no auditables' }), ' y esos renglones salen marcados en la hoja.'));
+    }
+    const firmoSinDosis = vigente.ai_draft?.firmado_con_dosis_no_auditable;
+    if (firmado && firmoSinDosis) {
+      root.append(h('div', { class: 'notice warn', style: 'margin-top:12px' },
+        h('b', { text: `Firmado reconociendo ${firmoSinDosis.renglones} renglón(es) sin dosis auditable: ` }),
+        (firmoSinDosis.titulos || []).join(', '), '.'));
     }
 
     if (rev.length) {
@@ -290,14 +297,34 @@ export function renderPlanTab(root, ctx) {
       const frec = h('input', { class: 'input', type: 'text', placeholder: 'diario · 3 veces por semana' }); frec.value = item?.frequency || '';
       const motivo = h('input', { class: 'input', type: 'text' }); motivo.value = item?.rationale || '';
       const instr = h('textarea', { class: 'input', rows: 3 }); instr.value = item?.instructions || '';
-      const aviso = h('p', { class: 'muted small', text: 'La dosis necesita cantidad y unidad. Si la pones en unidades o mL, la reconstitución es obligatoria: sin ella nadie puede saber cuántos mg recibe el paciente.' });
+      const aviso = h('p', { class: 'muted small', text: 'Para guardar basta con que la casilla traiga algo. Para firmar el plan, la dosis necesita cantidad y unidad; si la pones en unidades o mL, hace falta la reconstitución, porque sin ella nadie puede saber cuántos mg recibe el paciente.' });
 
+      const GRUPO_REG = [
+        ['aprobado', 'Con registro sanitario'],
+        ['investigacion', 'En investigación clínica'],
+        ['no_aprobado_uso_humano', 'Sin aprobación para uso humano'],
+        ['suplemento', 'Como suplemento'],
+      ];
       const llenarPicker = () => {
         const lista = cat.value === 'supplement' ? cat_sup : cat.value === 'peptide' ? cat_pep
           : cat.value === 'exercise' ? cat_ejer : [];
         picker.innerHTML = '';
         picker.append(h('option', { value: '', text: lista.length ? '— elegir del catálogo —' : 'sin catálogo para esta categoría' }));
-        lista.forEach((c) => picker.append(h('option', { value: c.code, text: c.name_es })));
+        // Los péptidos se agrupan por estatus regulatorio: lo que tiene registro
+        // va primero, para que elegir un peptido sin aprobación sea deliberado.
+        if (cat.value === 'peptide' && lista.some((c) => c.regulatory_status)) {
+          GRUPO_REG.forEach(([est, titulo]) => {
+            const propios = lista.filter((c) => c.regulatory_status === est);
+            if (!propios.length) return;
+            const g = h('optgroup', { label: `${titulo} (${propios.length})` });
+            propios.forEach((c) => g.append(h('option', { value: c.code, text: c.name_es })));
+            picker.append(g);
+          });
+          const resto = lista.filter((c) => !GRUPO_REG.some(([e]) => e === c.regulatory_status));
+          resto.forEach((c) => picker.append(h('option', { value: c.code, text: c.name_es })));
+        } else {
+          lista.forEach((c) => picker.append(h('option', { value: c.code, text: c.name_es })));
+        }
         picker.disabled = !lista.length;
         avisoReg.textContent = '';
       };
@@ -324,17 +351,24 @@ export function renderPlanTab(root, ctx) {
       });
       llenarPicker();
 
-      if (!(await modal(item ? 'Editar indicación' : 'Nueva indicación',
-        h('div', { class: 'stack' }, campo('Categoría', cat), campo('Del catálogo', picker), avisoReg, campo('Qué', titulo), campo('Dosis', dosis), campo('Reconstitución del vial', recon),
-          h('div', { class: 'fields-grid' }, campo('Horario', horario), campo('Frecuencia', frec)),
-          campo('Para qué', motivo), campo('Instrucciones', instr), aviso), 'Guardar'))) return;
+      const cuerpoForm = h('div', { class: 'stack' }, campo('Categoría', cat), campo('Del catálogo', picker), avisoReg, campo('Qué', titulo), campo('Dosis', dosis), campo('Reconstitución del vial', recon),
+        h('div', { class: 'fields-grid' }, campo('Horario', horario), campo('Frecuencia', frec)),
+        campo('Para qué', motivo), campo('Instrucciones', instr), aviso);
 
-      if (!titulo.value.trim()) { toast('Falta el nombre de la indicación', true); return; }
-      if (CON_DOSIS.includes(cat.value) && !dosisOk(dosis.value, recon.value)) {
-        toast(/(\bu\b|unidad|ml|cc)/i.test(dosis.value)
-          ? 'Una dosis en unidades o mL necesita la reconstitución en mg, p. ej. "50 mg en 5 mL"'
-          : 'La dosis necesita cantidad y unidad (mg, mcg, UI, g)', true);
-        return;
+      // El formulario se vuelve a abrir con lo que ya escribiste cuando falta un
+      // campo. Antes se cerraba y se perdía la captura: eso hacía ver el aviso
+      // de dosis como un muro.
+      for (;;) {
+        if (!(await modal(item ? 'Editar indicación' : 'Nueva indicación', cuerpoForm, 'Guardar'))) return;
+        if (!titulo.value.trim()) { toast('Falta el nombre de la indicación', true); continue; }
+        // Guardar no exige una dosis auditable, sólo que la casilla traiga algo:
+        // el médico captura primero y afina después. La dosis se vuelve requisito
+        // al firmar, no al escribir.
+        if (CON_DOSIS.includes(cat.value) && !dosis.value.trim()) {
+          toast('Escribe algo en la dosis. Si aún no la defines, anota qué falta, p. ej. "por definir: escalamiento"', true);
+          continue;
+        }
+        break;
       }
       try {
         await api.savePlanItem(planId, {
@@ -357,13 +391,28 @@ export function renderPlanTab(root, ctx) {
     }
 
     async function firmar(plan) {
+      const ck = h('input', { type: 'checkbox' });
       const cuerpo = h('div', { class: 'stack' },
         h('p', { text: 'Al firmar, el plan queda a tu nombre, desaparece la marca de agua y puede entregarse al paciente.' }),
         rev.length ? h('div', { class: 'notice small', text: `Quedan ${rev.length} punto(s) marcados para revisión. Revísalos antes de firmar.` }) : null,
         h('div', { class: 'notice small', text: 'Confirma que revisaste cada indicación, su dosis y sus interacciones.' }));
+      if (sinDosis.length) {
+        const ul = h('ul', { class: 'small', style: 'margin:6px 0 0;padding-left:18px' });
+        sinDosis.forEach((i) => ul.append(h('li', { text: `${i.title} — ${i.dose || 'sin dosis'}${i.reconstitution ? '' : (/(\bu\b|unidad|ml|cc)/i.test(i.dose || '') ? ' (sin reconstitución)' : '')}` })));
+        cuerpo.append(h('div', { class: 'notice danger' },
+          h('b', { text: `${sinDosis.length} renglón(es) no tienen una dosis que alguien pueda auditar:` }), ul,
+          h('p', { class: 'small', style: 'margin:8px 0 0',
+            text: 'Una dosis en unidades o mL sin reconstitución no permite saber cuántos mg recibe el paciente. Puedes firmar así, y queda escrito en el plan que lo firmaste reconociéndolo.' }),
+          h('label', { class: 'field', style: 'margin-top:6px;flex-direction:row;gap:8px;align-items:flex-start' }, ck,
+            h('span', { class: 'small', text: 'Lo reconozco y firmo de todas formas.' }))));
+      }
       if (!(await modal('Firmar plan', cuerpo, 'Firmar'))) return;
-      try { await api.signPlan(plan.id); toast('Plan firmado'); load(); }
-      catch (e) { toast(e.message, true); }
+      if (sinDosis.length && !ck.checked) { toast('Marca el reconocimiento o corrige las dosis antes de firmar', true); return; }
+      try {
+        const r = await api.signPlan(plan.id, sinDosis.length > 0);
+        toast(r?.sin_dosis_auditable ? `Plan firmado · ${r.sin_dosis_auditable} renglón(es) sin dosis auditable, queda registrado` : 'Plan firmado');
+        load();
+      } catch (e) { toast(e.message, true); }
     }
 
     async function entregar(plan) {

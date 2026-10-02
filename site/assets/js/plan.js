@@ -130,7 +130,7 @@ function secciones(items) {
           <td>${esc(i.rationale || '—')}</td>
         </tr>`).join('')}
       </tbody></table>
-      ${cajaRevision(sinDosis.map((i) => `${i.title}: dosis no auditable. Si va en unidades o mL falta la reconstitución en mg. El plan no se puede firmar así.`))}`;
+      ${cajaRevision(sinDosis.map((i) => `${i.title}: dosis no auditable. Si va en unidades o mL falta la reconstitución en mg.`))}`;
   }).join('');
 }
 
@@ -192,7 +192,10 @@ function pinta(d) {
       ${firmado
         ? `<p><b>${esc(physician?.full_name || 'Médico responsable')}</b><br>
            ${esc(physician?.specialty || '')}${physician?.cedula_profesional ? ` · Cédula ${esc(physician.cedula_profesional)}` : ''}<br>
-           Firmado el ${fecha(plan.signed_at)}</p>`
+           Firmado el ${fecha(plan.signed_at)}</p>
+           ${plan.ai_draft?.firmado_con_dosis_no_auditable
+             ? `<p class="rojo">Firmado reconociendo ${plan.ai_draft.firmado_con_dosis_no_auditable.renglones} renglón(es) sin dosis auditable: ${esc((plan.ai_draft.firmado_con_dosis_no_auditable.titulos || []).join(', '))}.</p>`
+             : ''}`
         : `<p>Este plan sólo puede entregarse al paciente después de la firma del médico.
            Al firmarse desaparece la marca de agua.</p>
            <div class="lineas">

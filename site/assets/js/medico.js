@@ -257,8 +257,9 @@ const liveApi = {
     const { data, error } = await supabase.rpc('generar_plan', { p_patient: patientId });
     if (error) throw error; return data;
   },
-  async signPlan(planId) {
-    const { data, error } = await supabase.rpc('firmar_protocolo', { p_protocol: planId });
+  async signPlan(planId, aceptarDosisNoAuditable = false) {
+    const { data, error } = await supabase.rpc('firmar_protocolo',
+      { p_protocol: planId, p_aceptar_dosis_no_auditable: aceptarDosisNoAuditable });
     if (error) throw error; return data;
   },
   async deliverPlan(planId) {
