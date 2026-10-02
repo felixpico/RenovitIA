@@ -105,6 +105,14 @@ function tablaMetas(d) {
     </tbody></table>`;
 }
 
+// Un renglón por marcador convierte el aviso en una pared de frases idénticas.
+// Cuando son varios, se resumen en una línea.
+function resumeRangoSinFirma(lista) {
+  if (!lista?.length) return [];
+  if (lista.length <= 2) return lista;
+  return [`${lista.length} de los rangos usados en este panel no tienen firma médica.`];
+}
+
 function cajaRevision(lista, titulo = 'Para revisión del médico') {
   if (!lista?.length) return '';
   return `<div class="rev"><h4>${esc(titulo)}</h4><ul>${lista.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
@@ -171,8 +179,7 @@ function pinta(d) {
     <h2><b>01</b>Hallazgos del panel</h2>
     ${tablaHallazgos(plan)}
     ${tablaMetas(plan)}
-    ${cajaRevision([...porTipo('critico'), ...porTipo('unidad'), ...porTipo('rango_sin_firma')])}
-    ${cajaRevision(porTipo('sin_confirmar'), 'Valores leídos de archivos, sin confirmar')}
+    ${cajaRevision([...porTipo('critico'), ...porTipo('unidad'), ...resumeRangoSinFirma(porTipo('rango_sin_firma'))])}
 
     ${secciones(items)}
 

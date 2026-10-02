@@ -55,7 +55,13 @@ export function renderPlanTab(root, ctx) {
     const mios = items.filter((i) => i.protocol_id === vigente.id && i.is_active);
     const firmado = ['approved', 'delivered'].includes(vigente.status);
     const [etiqueta, color] = ESTADO[vigente.status] || ['—', ''];
-    const rev = vigente.ai_draft?.revisiones || [];
+    const revTodas = vigente.ai_draft?.revisiones || [];
+    // Los valores sin confirmar venían como un renglón por marcador: veinte
+    // frases idénticas que tapaban los puntos que sí hay que leer. Se cuentan
+    // en una sola línea, y no se imprimen en la hoja del paciente: eso es
+    // control interno, no información para quien recibe el plan.
+    const revSinConf = revTodas.filter((r) => r.tipo === 'sin_confirmar');
+    const rev = revTodas.filter((r) => r.tipo !== 'sin_confirmar');
     const sinDosis = mios.filter((i) => CON_DOSIS.includes(i.category) && !dosisOk(i.dose, i.reconstitution));
 
     root.append(h('div', { class: 'row-card' },
@@ -66,6 +72,7 @@ export function renderPlanTab(root, ctx) {
         `${(vigente.ai_draft?.hallazgos || []).length} hallazgo(s)`,
         `${mios.length} indicación(es)`,
         rev.length ? `${rev.length} punto(s) a revisar` : 'sin pendientes de revisión',
+        revSinConf.length ? `${revSinConf.length} valor(es) sin confirmar` : null,
         vigente.signed_at ? `Firmado ${new Date(vigente.signed_at).toLocaleDateString('es-MX')}` : null),
       h('div', { class: 'toolbar' },
         h('a', { class: 'btn btn-ghost btn-sm', href: `plan.html?id=${vigente.id}${demo ? '&demo=1' : ''}`, target: '_blank', rel: 'noopener', text: 'Ver / imprimir' }),
@@ -89,12 +96,18 @@ export function renderPlanTab(root, ctx) {
         (firmoSinDosis.titulos || []).join(', '), '.'));
     }
 
-    if (rev.length) {
+    if (rev.length || revSinConf.length) {
       const caja = h('div', { class: 'notice', style: 'margin-top:12px' },
         h('b', { text: 'Para revisión antes de firmar' }));
       const ul = h('ul', { class: 'small', style: 'margin:6px 0 0;padding-left:18px' });
       rev.slice(0, 12).forEach((r) => ul.append(h('li', { text: r.texto })));
       if (rev.length > 12) ul.append(h('li', { class: 'muted', text: `y ${rev.length - 12} más, en la hoja impresa.` }));
+      if (revSinConf.length) {
+        ul.append(h('li', {},
+          `${revSinConf.length} valor(es) del panel se leyeron de un archivo y no se han confirmado contra el estudio original. `,
+          h('button', { class: 'btn-link btn-sm', type: 'button', text: 'Confirmarlos en Estudios',
+            onclick: () => { const t = [...document.querySelectorAll('[role=tab]')].find((b) => b.textContent.trim() === 'Estudios'); t?.click(); } })));
+      }
       caja.append(ul);
       root.append(caja);
     }
@@ -395,6 +408,7 @@ export function renderPlanTab(root, ctx) {
       const cuerpo = h('div', { class: 'stack' },
         h('p', { text: 'Al firmar, el plan queda a tu nombre, desaparece la marca de agua y puede entregarse al paciente.' }),
         rev.length ? h('div', { class: 'notice small', text: `Quedan ${rev.length} punto(s) marcados para revisión. Revísalos antes de firmar.` }) : null,
+        revSinConf.length ? h('div', { class: 'notice small', text: `${revSinConf.length} valor(es) del panel siguen sin confirmar contra el estudio original. Si firmas así, la firma avala números que nadie cotejó. Esto no se imprime en la hoja del paciente.` }) : null,
         h('div', { class: 'notice small', text: 'Confirma que revisaste cada indicación, su dosis y sus interacciones.' }));
       if (sinDosis.length) {
         const ul = h('ul', { class: 'small', style: 'margin:6px 0 0;padding-left:18px' });
