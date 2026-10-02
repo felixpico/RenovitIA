@@ -54,13 +54,31 @@
     .ev.sin { border-style:dashed; color:var(--accent); border-color:var(--accent); }
     footer { position:absolute; left:52px; right:52px; bottom:28px; font-size:10.5px; color:var(--muted); border-top:1px solid var(--border); padding-top:8px; display:flex; justify-content:space-between; }
     .watermark { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; font-size:64px; font-weight:800; color:rgba(199,128,58,.13); transform:rotate(-24deg); text-align:center; }
+    details { margin:5px 0 0; }
+    details > summary { cursor:pointer; font-size:11.5px; font-weight:600; color:var(--brand); list-style:none; display:inline-flex; align-items:center; gap:5px; padding:2px 0; }
+    details > summary::-webkit-details-marker { display:none; }
+    details > summary::before { content:"▸"; font-size:10px; }
+    details[open] > summary::before { content:"▾"; }
+    details > summary:hover { text-decoration:underline; }
+    .det-cuerpo { border-left:2px solid var(--border); margin:5px 0 4px; padding:2px 0 2px 10px; font-size:12.5px; }
+    .det-cuerpo p { margin:4px 0; }
+    .det-cuerpo ul { margin:4px 0; padding-left:18px; }
+    table.horarios td.franja { background:var(--brand-soft); width:150px; vertical-align:top; }
+    table.horarios tr:nth-child(even) td.franja { background:var(--brand-soft); }
+    .falta { margin:0 0 9px; }
+    .falta p { margin:2px 0; }
+    .falta .lista-falta { font-size:12.5px; }
+    @media print {
+      details > summary { color:var(--muted); }
+      .det-cuerpo { font-size:11.5px; }
+    }
     .msg { max-width:600px; margin:60px auto; background:#fff; padding:24px; border-radius:12px; }
     @media print {
       body { background:#fff; }
       .bar { display:none; }
       .sheet { box-shadow:none; margin:0; max-width:none; min-height:auto; padding:0; }
       footer { position:static; margin-top:32px; }
-      h2, table, .rev, .aviso { break-inside:avoid; }
+      h2, table, .rev, .aviso, details, .falta, .interp { break-inside:avoid; }
       @page { size:letter; margin:14mm; }
     }
     @media (max-width:700px) { .ficha { grid-template-columns:1fr 1fr; } .sheet { padding:24px 18px; } .lineas { grid-template-columns:1fr; } }
