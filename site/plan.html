@@ -68,6 +68,37 @@
     .falta { margin:0 0 9px; }
     .falta p { margin:2px 0; }
     .falta .lista-falta { font-size:12.5px; }
+    /* franjas horarias */
+    .franjas { display:grid; gap:9px; margin-top:4px; }
+    .franja { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .franja-head { display:flex; align-items:center; gap:9px; background:var(--brand-soft); padding:7px 11px; }
+    .franja-head b { font-size:13px; }
+    .fr-ico { width:19px; height:19px; flex:none; fill:none; stroke:var(--brand); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; color:var(--brand); }
+    .franja-n { display:block; font-size:10.5px; color:var(--muted); }
+    .franja-items { padding:4px 11px 8px; }
+    .tomar { display:flex; gap:9px; padding:7px 0; border-bottom:1px dashed var(--border); }
+    .tomar:last-child { border-bottom:none; }
+    .tomar-check { width:15px; height:15px; margin-top:2px; flex:none; border:1.6px solid var(--border); border-radius:4px; }
+    .tomar-cuerpo { flex:1 1 auto; min-width:0; }
+    .tomar-tit { display:flex; flex-wrap:wrap; align-items:center; gap:7px; }
+    .tomar-dosis { font-size:12.5px; font-weight:600; color:var(--brand); }
+    .tomar-dosis .vacio { font-weight:400; }
+    /* calendario de entrenamiento */
+    .semana { display:grid; grid-template-columns:repeat(7, 1fr); gap:5px; margin:10px 0 16px; }
+    .dia { border:1px solid var(--border); border-radius:8px; padding:7px 3px; text-align:center; background:#fafbf9; }
+    .dia-on { background:var(--brand); border-color:var(--brand); }
+    .dia-ini { display:block; font-size:10px; letter-spacing:.06em; color:var(--muted); font-weight:700; }
+    .dia-on .dia-ini { color:rgba(255,255,255,.75); }
+    .dia-foco { display:block; font-size:10.5px; font-weight:700; margin-top:3px; color:var(--muted); }
+    .dia-on .dia-foco { color:#fff; }
+    .dia-bloque { margin-bottom:14px; }
+    .dia-bloque h3 { margin-bottom:2px; }
+    table.ejercicios td:first-child { width:52%; }
+    .ej-svg { width:100%; max-width:240px; height:auto; display:block; margin:4px 0 6px; }
+    /* consejos */
+    .tips { display:grid; gap:7px; }
+    .tip { border-left:3px solid var(--brand); background:#fafbf9; border-radius:0 8px 8px 0; padding:7px 11px; }
+    .tip-txt { margin:0; font-size:13px; }
     @media print {
       details > summary { color:var(--muted); }
       .det-cuerpo { font-size:11.5px; }
@@ -78,7 +109,7 @@
       .bar { display:none; }
       .sheet { box-shadow:none; margin:0; max-width:none; min-height:auto; padding:0; }
       footer { position:static; margin-top:32px; }
-      h2, table, .rev, .aviso, details, .falta, .interp { break-inside:avoid; }
+      h2, table, .rev, .aviso, details, .falta, .interp, .franja, .dia-bloque, .tip, .semana { break-inside:avoid; }
       @page { size:letter; margin:14mm; }
     }
     @media (max-width:700px) { .ficha { grid-template-columns:1fr 1fr; } .sheet { padding:24px 18px; } .lineas { grid-template-columns:1fr; } }

@@ -2,6 +2,7 @@
 // vive dentro de un "¿Por qué?" desplegable, que al imprimir se abre solo.
 // Mientras no esté firmado lleva marca de agua y la leyenda de no entregar.
 import { supabase } from './supabase.js';
+import { esquemaEjercicio } from './ejercicios-svg.js';
 
 const root = document.getElementById('root');
 document.getElementById('print').addEventListener('click', () => window.print());
@@ -40,13 +41,17 @@ async function cargar() {
       ? supabase.from('physicians').select('full_name,cedula_profesional,specialty,cedula_especialidad').eq('user_id', plan.signed_by).single()
       : Promise.resolve({ data: null }),
   ]);
-  // Estos tres son extra: si fallan, la hoja se imprime sin ellos.
-  const [est, mac, fd] = await Promise.all([
+  // Todo esto es extra: si algo falla, la hoja se imprime sin esa parte.
+  const [est, mac, fd, prog, tips, pats] = await Promise.all([
     supabase.rpc('estudios_faltantes', { p_patient: plan.patient_id }).then((r) => r.data || []).catch(() => []),
     supabase.rpc('macros_objetivo', { p_patient: plan.patient_id }).then((r) => r.data || null).catch(() => null),
     supabase.from('catalog_foods').select('*').eq('is_active', true).then((r) => r.data || []).catch(() => []),
+    supabase.rpc('programa_entrenamiento', { p_patient: plan.patient_id }).then((r) => r.data || null).catch(() => null),
+    supabase.from('catalog_tips').select('*').eq('is_active', true).order('category').order('sort_order').then((r) => r.data || []).catch(() => []),
+    supabase.from('interpretation_patterns').select('code,patient_summary,patient_text').then((r) => r.data || []).catch(() => []),
   ]);
-  return { plan, items: it.data || [], patient: pa.data, physician: ph.data, estudios: est, macros: mac, foods: fd };
+  return { plan, items: it.data || [], patient: pa.data, physician: ph.data,
+           estudios: est, macros: mac, foods: fd, programa: prog, tips, patrones: pats };
 }
 
 /* ---------- piezas ---------- */
@@ -64,11 +69,13 @@ function detalle(resumen, cuerpo) {
   return `<details><summary>${esc(resumen)}</summary><div class="det-cuerpo">${cuerpo}</div></details>`;
 }
 
-// 01: qué encontramos, en una frase por cosa
-function loQueEncontramos(plan) {
+// 01: una frase por hallazgo. Lo clínico vive dentro del desplegable, y
+// cuando el patrón tiene versión en lenguaje simple se usa esa.
+function loQueEncontramos(plan, patrones) {
   const lista = plan.ai_draft?.interpretacion || [];
   const hall = plan.ai_draft?.hallazgos || [];
   const metas = plan.ai_draft?.metas || [];
+  const simple = new Map((patrones || []).map((p) => [p.code, p]));
   const metaDe = (m) => (metas.find((x) => x.marcador === m) || {}).meta;
   const rojos = hall.filter((x) => x.color === 'rojo');
   const amarillos = hall.filter((x) => x.color === 'amarillo');
@@ -79,16 +86,19 @@ function loQueEncontramos(plan) {
   }
 
   const bloques = lista.map((x) => {
+    const sp = simple.get(x.code) || {};
     const vals = Object.entries(x.valores || {}).map(([k, v]) => `${esc(k)} ${esc(v)}`).join(' · ');
     const sev = SEV[x.severidad] || '';
-    const largo = `<p>${esc(x.interpretacion)}</p>
-      ${x.correlacionar ? `<p><b>Qué conviene revisar además:</b> ${esc(x.correlacionar)}</p>` : ''}
-      ${x.evidencia ? `<p class="vacio small">Nivel de evidencia ${esc(x.evidencia)}${x.firmado ? '' : ' · este párrafo todavía no lo firma un médico'}</p>` : ''}`;
+    // Lo visible: una frase. Si el patrón no tiene versión simple todavía,
+    // se usa el título, nunca el párrafo clínico completo.
+    const resumen = sp.patient_summary || x.titulo;
+    const largo = sp.patient_text
+      ? `<p>${esc(sp.patient_text)}</p>`
+      : `<p>${esc(x.interpretacion)}</p>`;
     return `<div class="interp">
-      <p class="interp-tit"><b class="${sev}">${esc(x.titulo)}</b>
-        <span class="ev">${esc(SISTEMA[x.sistema] || x.sistema)}</span></p>
-      ${vals ? `<p class="vacio small">Lo vemos en: ${vals}</p>` : ''}
-      ${detalle('¿Por qué importa y de dónde viene?', largo)}
+      <p class="interp-tit"><b class="${sev}">${esc(resumen)}</b></p>
+      <p class="vacio small">${esc(SISTEMA[x.sistema] || x.sistema)}${vals ? ` · lo vemos en ${vals}` : ''}</p>
+      ${detalle('Quiero entenderlo mejor', largo)}
     </div>`;
   }).join('');
 
@@ -164,31 +174,54 @@ function franjaDe(i) {
   return 'indefinido';
 }
 
+const ICONO = {
+  ayunas: '<svg viewBox="0 0 24 24" class="fr-ico"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M3.5 3.5l2 2M18.5 18.5l2 2M1 12h3M20 12h3M3.5 20.5l2-2M18.5 5.5l2-2"/></svg>',
+  desayuno: '<svg viewBox="0 0 24 24" class="fr-ico"><path d="M4 13h12a4 4 0 0 1 0 8H8a4 4 0 0 1-4-4z"/><path d="M16 14h2a3 3 0 0 1 0 6h-1"/><path d="M7 4v3M11 3v4"/></svg>',
+  entreno: '<svg viewBox="0 0 24 24" class="fr-ico"><path d="M2 12h3M19 12h3M6 8v8M18 8v8M9 6v12M15 6v12M9 12h6"/></svg>',
+  comida: '<svg viewBox="0 0 24 24" class="fr-ico"><path d="M5 3v8a2 2 0 0 0 4 0V3M7 11v10"/><path d="M17 3c-2 0-3 3-3 6s1 4 3 4v8"/></svg>',
+  cena: '<svg viewBox="0 0 24 24" class="fr-ico"><path d="M3 18h18"/><path d="M4 18a8 8 0 0 1 16 0"/><path d="M12 6V3"/></svg>',
+  dormir: '<svg viewBox="0 0 24 24" class="fr-ico"><path d="M20 14.5A8 8 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>',
+  semanal: '<svg viewBox="0 0 24 24" class="fr-ico"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/></svg>',
+  indefinido: '<svg viewBox="0 0 24 24" class="fr-ico"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.4"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg>',
+};
+
 function tablaHorarios(items, n) {
   const tomables = items.filter((i) => ['supplement', 'peptide', 'medication'].includes(i.category));
   if (!tomables.length) return '';
-  const filas = FRANJAS.map(([clave, titulo]) => {
+  const tarjetas = FRANJAS.map(([clave, titulo]) => {
     const propios = tomables.filter((i) => franjaDe(i) === clave);
     if (!propios.length) return '';
-    return propios.map((i, k) => {
-      const mal = !dosisOk(i.dose, i.reconstitution);
-      const extra = [i.rationale ? `<p><b>Para qué:</b> ${esc(i.rationale)}</p>` : '',
-        i.instructions ? `<p>${esc(i.instructions)}</p>` : '',
-        i.reconstitution ? `<p><b>Preparación del frasco:</b> ${esc(i.reconstitution)}</p>` : ''].join('');
-      return `<tr>
-        ${k === 0 ? `<td class="franja" rowspan="${propios.length}"><b>${esc(titulo)}</b></td>` : ''}
-        <td><b>${esc(i.title)}</b>${i.category === 'peptide' ? ' <span class="ev">inyectable</span>' : ''}
-          ${detalle('Ver detalle', extra)}</td>
-        <td>${mal ? `<span class="rojo">${esc(i.dose || 'falta definir')}</span>` : esc(i.dose)}</td>
-        <td>${esc(i.frequency || 'diario')}</td>
-      </tr>`;
-    }).join('');
+    return `<div class="franja">
+      <div class="franja-head">${ICONO[clave] || ''}<div><b>${esc(titulo)}</b>
+        <span class="franja-n">${propios.length} ${propios.length === 1 ? 'cosa' : 'cosas'}</span></div></div>
+      <div class="franja-items">
+        ${propios.map((i) => {
+          const mal = !dosisOk(i.dose, i.reconstitution);
+          const extra = [
+            i.rationale ? `<p><b>Para qué es:</b> ${esc(i.rationale)}</p>` : '',
+            i.instructions ? `<p>${esc(i.instructions)}</p>` : '',
+            i.reconstitution ? `<p><b>Cómo se prepara el frasco:</b> ${esc(i.reconstitution)}</p>` : '',
+            i.frequency ? `<p><b>Cada cuándo:</b> ${esc(i.frequency)}</p>` : '',
+          ].join('');
+          return `<div class="tomar">
+            <div class="tomar-check" aria-hidden="true"></div>
+            <div class="tomar-cuerpo">
+              <div class="tomar-tit"><b>${esc(i.title)}</b>
+                ${i.category === 'peptide' ? '<span class="ev">inyectable</span>' : ''}
+                ${i.category === 'medication' ? '<span class="ev">medicamento</span>' : ''}</div>
+              <div class="tomar-dosis ${mal ? 'rojo' : ''}">${esc(i.dose || 'falta definir')}
+                <span class="vacio">· ${esc(i.frequency || 'diario')}</span></div>
+              ${extra ? detalle('Ver detalle', extra) : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
   }).join('');
   const sinDosis = tomables.filter((i) => !dosisOk(i.dose, i.reconstitution));
   return `<h2><b>${n}</b>Qué tomar y a qué hora</h2>
     <p class="sub">Si un día se te pasa una toma, no la dupliques: sigue con la siguiente.</p>
-    <table class="horarios"><thead><tr><th>Cuándo</th><th>Qué</th><th>Cuánto</th><th>Cada cuándo</th></tr></thead>
-      <tbody>${filas}</tbody></table>
+    <div class="franjas">${tarjetas}</div>
     ${sinDosis.length ? `<div class="rev"><h4>Pendiente de definir con tu médico</h4><ul>
       ${sinDosis.map((i) => `<li>${esc(i.title)}: la cantidad exacta la define tu médico antes de que empieces.</li>`).join('')}
     </ul></div>` : ''}`;
@@ -243,7 +276,7 @@ function armarComida(cm, meta, foods) {
   const orden = ['proteina', 'carbohidrato', 'fruta', 'grasa', 'verdura'];
   return [...gr.entries()]
     .map(([code, g]) => ({ f: fd(code), g: r5(g) }))
-    .filter((x) => x.f && (x.g >= 10 || x.f.role === 'grasa'))
+    .filter((x) => x.f && x.g >= (x.f.role === 'grasa' ? 5 : 10))
     .sort((a, b) => orden.indexOf(a.f.role) - orden.indexOf(b.f.role));
 }
 
@@ -329,10 +362,91 @@ function tablaIndicaciones(propios) {
   </tbody></table>`;
 }
 
+/* ---------- entrenamiento ---------- */
+const SEMANA = ['Lunes', 'Martes', 'Miercoles', 'Miércoles', 'Jueves', 'Viernes', 'Sabado', 'Sábado', 'Domingo'];
+const ETIQUETA_DIA = { Lunes: 'LUN', Martes: 'MAR', Miercoles: 'MIÉ', 'Miércoles': 'MIÉ', Jueves: 'JUE', Viernes: 'VIE', Sabado: 'SÁB', 'Sábado': 'SÁB', Domingo: 'DOM' };
+const FOCO_CORTO = (foco) => {
+  const f = String(foco || '').toLowerCase();
+  if (f.startsWith('jalon') || f.startsWith('jalón')) return 'JALÓN';
+  if (f.startsWith('empuje')) return 'EMPUJE';
+  if (f.startsWith('pierna')) return 'PIERNA';
+  return foco;
+};
+
+function calendario(prog) {
+  const dias = prog?.dias || [];
+  if (!dias.length) return '';
+  const conEntreno = new Map(dias.map((d) => [d.dia, d]));
+  const base = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
+  return `<div class="semana">${base.map((d) => {
+    const e = conEntreno.get(d);
+    return `<div class="dia ${e ? 'dia-on' : ''}">
+      <span class="dia-ini">${esc(ETIQUETA_DIA[d] || d)}</span>
+      <span class="dia-foco">${e ? esc(FOCO_CORTO(e.foco)) : 'Caminar'}</span>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function seccionEjercicio(prog, items, n) {
+  const propios = items.filter((i) => i.category === 'exercise');
+  if (!prog?.dias?.length && !propios.length) return '';
+  if (!prog?.dias?.length) {
+    return `<h2><b>${n}</b>Ejercicio</h2>${tablaIndicaciones(propios)}`;
+  }
+  const dias = prog.dias.map((d) => `<div class="dia-bloque">
+    <h3>${esc(d.dia)} · ${esc(FOCO_CORTO(d.foco))}</h3>
+    <p class="vacio small">${esc(d.foco)}</p>
+    <table class="ejercicios"><thead><tr><th>Ejercicio</th><th>Series y repeticiones</th><th>Esfuerzo</th></tr></thead><tbody>
+      ${(d.ejercicios || []).map((e) => `<tr>
+        <td><b>${esc(e.nombre)}</b>
+          ${(e.svg || e.como || e.errores) ? detalle('Ver cómo se hace', `
+            ${e.svg ? esquemaEjercicio(e.svg) : ''}
+            ${e.como ? `<p><b>Cómo se hace:</b> ${esc(e.como)}</p>` : ''}
+            ${e.errores ? `<p><b>Errores que hay que evitar:</b> ${esc(e.errores)}</p>` : ''}
+            ${e.cuidado ? `<p class="rojo">${esc(e.cuidado)}</p>` : ''}
+            ${e.musculos ? `<p class="vacio small">Trabaja: ${esc(e.musculos)}</p>` : ''}`)
+            : `<div class="vacio small">${esc(e.musculos || '')}</div>`}
+        </td>
+        <td>${esc(e.series || '—')}</td>
+        <td>${esc(e.rpe || '—')}</td>
+      </tr>`).join('')}
+    </tbody></table>
+  </div>`).join('');
+
+  const cardio = (prog.cardio || []).map((c) => `<tr>
+    <td><b>${esc(c.nombre)}</b>${c.como ? detalle('Ver cómo se hace',
+      `${c.svg ? esquemaEjercicio(c.svg) : ''}<p>${esc(c.como)}</p>`) : ''}</td>
+    <td>${esc(c.series || '—')}</td><td>${esc(c.rpe || '—')}</td>
+  </tr>`).join('');
+
+  return `<h2><b>${n}</b>Ejercicio</h2>
+    ${prog.requiere_autorizacion ? `<div class="aviso"><h4>Antes de empezar</h4>
+      Tu cuestionario de seguridad salió positivo: necesitas que tu médico te autorice antes de entrenar con pesas.</div>` : ''}
+    <p class="sub">Tres días de fuerza con un día de descanso entre ellos, y caminata el resto. Programa de nivel ${esc(prog.nivel || '—')}.</p>
+    ${calendario(prog)}
+    ${dias}
+    ${cardio ? `<h3>Cardio y movimiento del resto de la semana</h3>
+      <table><thead><tr><th>Qué</th><th>Cuánto</th><th>Intensidad</th></tr></thead><tbody>${cardio}</tbody></table>` : ''}
+    ${(prog.notas || []).length ? `<div class="rev"><h4>Cómo seguirlo</h4><ul>
+      ${prog.notas.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
+    ${propios.length ? `<h3>Indicaciones de tu médico sobre el ejercicio</h3>${tablaIndicaciones(propios)}` : ''}`;
+}
+
+/* ---------- sueño y estrés ---------- */
+function seccionTips(categoria, titulo, tips, items, cat, n) {
+  const propios = items.filter((i) => i.category === cat);
+  const propias = (tips || []).filter((t) => t.category === categoria);
+  if (!propios.length && !propias.length) return '';
+  return `<h2><b>${n}</b>${esc(titulo)}</h2>
+    ${propios.length ? tablaIndicaciones(propios) : ''}
+    ${propias.length ? `<h3>Lo que más mueve la aguja</h3>
+      <div class="tips">${propias.map((t) => `<div class="tip">
+        <p class="tip-txt"><b>${esc(t.tip)}</b></p>
+        ${t.why ? detalle('¿Por qué?', `<p>${esc(t.why)}</p>`) : ''}
+      </div>`).join('')}</div>` : ''}`;
+}
+
 const RESTO = [
-  ['exercise', 'Ejercicio'],
-  ['sleep', 'Sueño'],
-  ['stress', 'Manejo del estrés'],
   ['referral', 'Con quién más te vamos a mandar'],
   ['lab_followup', 'Cuándo repetir estudios'],
   ['other', 'Otros'],
@@ -348,22 +462,12 @@ function seccionesResto(items, desde) {
   return { html, n };
 }
 
-function cajaRevision(lista, titulo = 'Para revisión del médico') {
-  if (!lista?.length) return '';
-  return `<div class="rev"><h4>${esc(titulo)}</h4><ul>${lista.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
-}
-function resumeRangoSinFirma(lista) {
-  if (!lista?.length) return [];
-  if (lista.length <= 2) return lista;
-  return [`${lista.length} de los rangos usados en este panel no tienen firma médica.`];
-}
+
 
 /* ---------- hoja ---------- */
 function pinta(d) {
-  const { plan, items, patient, physician, estudios, macros, foods } = d;
+  const { plan, items, patient, physician, estudios, macros, foods, programa, tips, patrones } = d;
   const firmado = ['approved', 'delivered'].includes(plan.status);
-  const rev = (plan.ai_draft?.revisiones || []);
-  const porTipo = (t) => rev.filter((r) => r.tipo === t).map((r) => r.texto);
   const nombre = `${patient?.first_name || ''} ${patient?.last_name || ''}`.trim() || 'Paciente';
   const e = edad(patient?.birth_date);
 
@@ -374,6 +478,9 @@ function pinta(d) {
   const blEstudios = estudiosFaltantes(estudios, sig()); if (blEstudios) nn();
   const blHorarios = tablaHorarios(items, sig()); if (blHorarios) nn();
   const blComida = seccionComida(macros, foods, items, sig()); if (blComida) nn();
+  const blEjercicio = seccionEjercicio(programa, items, sig()); if (blEjercicio) nn();
+  const blSueno = seccionTips('sueno', 'Sueño', tips, items, 'sleep', sig()); if (blSueno) nn();
+  const blEstres = seccionTips('estres', 'Manejo del estrés', tips, items, 'stress', sig()); if (blEstres) nn();
   const resto = seccionesResto(items, n);
   n = resto.n;
 
@@ -401,12 +508,14 @@ function pinta(d) {
 
     <div class="objetivo"><b>Lo que tú quieres lograr:</b> ${esc(plan.ai_draft?.objetivos || 'sin objetivos capturados')}</div>
 
-    ${loQueEncontramos(plan)}
-    ${cajaRevision([...porTipo('critico'), ...porTipo('unidad'), ...resumeRangoSinFirma(porTipo('rango_sin_firma'))])}
+    ${loQueEncontramos(plan, patrones)}
 
     ${blEstudios}
     ${blHorarios}
     ${blComida}
+    ${blEjercicio}
+    ${blSueno}
+    ${blEstres}
     ${resto.html}
 
     ${items.length ? '' : '<p class="vacio">Tu médico todavía no captura las indicaciones. Esta hoja se completa antes de entregarse.</p>'}
