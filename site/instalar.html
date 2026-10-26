@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f6b58">
+  <title>RenovitIA · Instalar en tu teléfono</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <style>
+    .plataformas { display:grid; gap:10px; }
+    .paso { display:flex; gap:11px; align-items:flex-start; padding:9px 0; border-bottom:1px dashed var(--border); }
+    .paso:last-child { border-bottom:none; }
+    .paso-n { flex:none; width:24px; height:24px; border-radius:50%; background:var(--brand); color:#fff;
+              display:grid; place-items:center; font-size:.78rem; font-weight:700; }
+    .paso-txt { font-size:.95rem; }
+    .ico-in { width:17px; height:17px; vertical-align:-3px; fill:none; stroke:currentColor; stroke-width:1.9;
+              stroke-linecap:round; stroke-linejoin:round; }
+    .qr { display:block; margin:0 auto; width:188px; height:188px; }
+    .tabs { display:flex; gap:6px; margin-bottom:10px; }
+    .tabs button { flex:1; font:inherit; font-weight:600; font-size:.9rem; padding:9px 6px; border-radius:10px;
+                   border:1px solid var(--border); background:var(--surface); cursor:pointer; }
+    .tabs button[aria-selected="true"] { background:var(--brand); border-color:var(--brand); color:#fff; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html" aria-label="RenovitIA, inicio"><picture><source srcset="assets/brand/logo-header-oscuro.svg" media="(prefers-color-scheme: dark)"><img class="brand-logo" src="assets/brand/logo-header.svg" alt="RenovitIA" width="172" height="32"></picture></a>
+    </div>
+  </header>
+
+  <main class="container stack">
+    <div class="hero">
+      <div class="eyebrow">Tu programa, en tu teléfono</div>
+      <h1>Instala RenovitIA</h1>
+      <p class="muted">Se instala desde el navegador, no hace falta buscarla en ninguna tienda. Ocupa casi nada y te queda el ícono en la pantalla de inicio, igual que cualquier otra app.</p>
+    </div>
+
+    <div id="box-instalada" class="notice hidden" role="status">
+      <strong>Ya la tienes instalada.</strong> Estás viéndola desde el ícono.
+    </div>
+
+    <div class="card stack">
+      <button id="btn-instalar" class="btn btn-primary btn-block hidden" type="button">Instalar ahora</button>
+      <div class="tabs" role="tablist">
+        <button id="tab-android" role="tab" aria-selected="false" aria-controls="p-android" type="button">Android</button>
+        <button id="tab-ios" role="tab" aria-selected="false" aria-controls="p-ios" type="button">iPhone</button>
+      </div>
+
+      <section id="p-android" role="tabpanel" class="plataformas hidden">
+        <div class="paso"><span class="paso-n">1</span><span class="paso-txt">Abre esta página en <strong>Chrome</strong>.</span></div>
+        <div class="paso"><span class="paso-n">2</span><span class="paso-txt">Toca el menú de los tres puntos <svg class="ico-in" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="19" r="1.4" fill="currentColor"/></svg> arriba a la derecha.</span></div>
+        <div class="paso"><span class="paso-n">3</span><span class="paso-txt">Elige <strong>Instalar aplicación</strong> o <strong>Agregar a pantalla principal</strong>.</span></div>
+        <div class="paso"><span class="paso-n">4</span><span class="paso-txt">Confirma. El ícono de RenovitIA queda con tus demás apps.</span></div>
+      </section>
+
+      <section id="p-ios" role="tabpanel" class="plataformas hidden">
+        <div class="notice warn small">En iPhone sólo funciona desde <strong>Safari</strong>. Si abriste esta página desde Chrome, WhatsApp o Instagram, ciérrala y vuelve a abrirla en Safari.</div>
+        <div class="paso"><span class="paso-n">1</span><span class="paso-txt">Abre esta página en <strong>Safari</strong>.</span></div>
+        <div class="paso"><span class="paso-n">2</span><span class="paso-txt">Toca el botón de compartir <svg class="ico-in" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg> en la barra de abajo.</span></div>
+        <div class="paso"><span class="paso-n">3</span><span class="paso-txt">Desliza y elige <strong>Agregar a inicio</strong>.</span></div>
+        <div class="paso"><span class="paso-n">4</span><span class="paso-txt">Toca <strong>Agregar</strong> arriba a la derecha.</span></div>
+      </section>
+    </div>
+
+    <div class="card stack">
+      <strong>Para abrirla desde otro teléfono</strong>
+      <p class="muted small" style="margin:0">Escanea este código con la cámara.</p>
+      <div id="qr"></div>
+      <p class="muted small" id="url-texto" style="margin:0;word-break:break-all"></p>
+    </div>
+
+    <div class="card stack">
+      <strong>Entrar con tu correo</strong>
+      <p class="muted small" style="margin:0">Una vez instalada, abre el ícono y entra con el mismo correo que le diste a tu médico. Te mandamos un código de 6 dígitos.</p>
+      <a class="btn btn-ghost btn-block" href="index.html">Ir a entrar</a>
+    </div>
+  </main>
+
+  <script type="module" src="assets/js/instalar.js"></script>
+</body>
+</html>

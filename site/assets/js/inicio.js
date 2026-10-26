@@ -138,8 +138,95 @@ async function renderPatient(session) {
     else if (hechos) el.textContent = 'Tus estudios ya se realizaron. Tu médico los está revisando y te los explicará en tu consulta; aparecerán aquí cuando los libere.';
   }
 
+  // Protocolo: la RLS sólo deja ver el que el médico ya firmó y entregó.
+  const { data: planes } = await supabase.from('protocols')
+    .select('id,version,status,signed_at,start_date')
+    .eq('patient_id', patient.id).eq('status', 'delivered')
+    .order('version', { ascending: false });
+  if (planes?.length) {
+    const p0 = planes[0];
+    $('plan-status').textContent = 'Tu médico ya firmó y entregó tu plan.';
+    const caja = $('plan-list');
+    caja.innerHTML = '';
+    const a = document.createElement('a');
+    a.className = 'btn btn-primary btn-block';
+    a.href = `plan.html?id=${p0.id}`;
+    a.textContent = `Ver mi plan (versión ${p0.version})`;
+    caja.append(a);
+    if (planes.length > 1) {
+      const n = document.createElement('p');
+      n.className = 'muted small';
+      n.style.margin = '6px 0 0';
+      n.textContent = `Tienes ${planes.length} versiones. Ésta es la más reciente.`;
+      caja.append(n);
+    }
+  }
+
   show('view-patient');
 }
+
+/* ---------- entrar con correo y codigo de 6 digitos ---------- */
+// Se usa codigo y no liga magica a proposito: en iPhone la liga abre Safari,
+// no la app instalada, y la sesion se queda en el navegador equivocado.
+const aviso = (texto, malo = false) => {
+  const m = $('otp-msg');
+  m.className = `notice ${malo ? 'danger' : ''}`;
+  m.textContent = texto;
+  m.classList.remove('hidden');
+};
+let correoPendiente = null;
+
+$('form-otp').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const correo = $('otp-email').value.trim().toLowerCase();
+  if (!correo || !correo.includes('@')) { aviso('Escribe un correo válido.', true); return; }
+  const btn = $('btn-otp');
+  btn.disabled = true; btn.textContent = 'Mandando…';
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: correo,
+      options: { shouldCreateUser: true },
+    });
+    if (error) throw error;
+    correoPendiente = correo;
+    $('form-otp').classList.add('hidden');
+    $('form-codigo').classList.remove('hidden');
+    $('otp-code').focus();
+    aviso(`Te mandamos un código a ${correo}. Revisa tu bandeja y la carpeta de spam.`);
+  } catch (err) {
+    aviso(/rate|limit|seconds/i.test(err.message || '')
+      ? 'Ya pediste un código hace poco. Espera un minuto y vuelve a intentar.'
+      : `No se pudo mandar el código: ${err.message}`, true);
+  } finally { btn.disabled = false; btn.textContent = 'Mandarme el código'; }
+});
+
+$('form-codigo').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const codigo = $('otp-code').value.replace(/\D/g, '');
+  if (codigo.length !== 6) { aviso('El código son 6 dígitos.', true); return; }
+  const btn = $('btn-codigo');
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  try {
+    const { error } = await supabase.auth.verifyOtp({ email: correoPendiente, token: codigo, type: 'email' });
+    if (error) throw error;
+    // El trigger enlaza al entrar por primera vez. Si la cuenta ya existia,
+    // este intento lo enlaza de todos modos.
+    try { await supabase.rpc('vincular_mi_cuenta'); } catch { /* sin bloquear la entrada */ }
+  } catch (err) {
+    aviso(/expired|invalid/i.test(err.message || '')
+      ? 'Ese código no es válido o ya venció. Pide uno nuevo.'
+      : `No se pudo entrar: ${err.message}`, true);
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+});
+
+$('btn-otro-correo').addEventListener('click', () => {
+  correoPendiente = null;
+  $('form-codigo').classList.add('hidden');
+  $('form-otp').classList.remove('hidden');
+  $('otp-msg').classList.add('hidden');
+  $('btn-codigo').disabled = false; $('btn-codigo').textContent = 'Entrar';
+});
 
 async function init() {
   const { data: { session } } = await supabase.auth.getSession();
@@ -150,6 +237,8 @@ async function init() {
     $('form-start').classList.add('hidden');
   }
 }
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
 supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN' && session) renderPatient(session);

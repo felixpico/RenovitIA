@@ -11,6 +11,9 @@
   <link rel="icon" href="assets/brand/favicon-32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="RenovitIA">
   <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
@@ -62,6 +65,32 @@
         <button id="btn-forget" class="btn-link" type="button">Empezar de nuevo con otro correo</button>
       </div>
 
+      <div class="card stack" id="box-entrar">
+        <div>
+          <h2 style="margin:0 0 4px;font-size:1.2rem">¿Ya eres paciente del programa?</h2>
+          <p class="muted small" style="margin:0">Entra con el mismo correo que le diste a tu médico. Te mandamos un código de 6 dígitos, sin contraseñas.</p>
+        </div>
+        <form id="form-otp" class="stack" novalidate>
+          <label class="field">
+            <span class="field-label">Correo electrónico</span>
+            <input id="otp-email" class="input" type="email" autocomplete="email" inputmode="email" required placeholder="tu@correo.com">
+          </label>
+          <button id="btn-otp" class="btn btn-primary btn-block" type="submit">Mandarme el código</button>
+        </form>
+        <form id="form-codigo" class="stack hidden" novalidate>
+          <label class="field">
+            <span class="field-label">Código de 6 dígitos</span>
+            <input id="otp-code" class="input" type="text" inputmode="numeric" autocomplete="one-time-code"
+                   pattern="[0-9]*" maxlength="6" required placeholder="000000"
+                   style="font-size:1.4rem;letter-spacing:.35em;text-align:center">
+          </label>
+          <button id="btn-codigo" class="btn btn-primary btn-block" type="submit">Entrar</button>
+          <button id="btn-otro-correo" class="btn-link" type="button">Usar otro correo</button>
+        </form>
+        <div id="otp-msg" class="notice hidden" role="status"></div>
+      </div>
+
+      <p class="muted small"><a href="instalar.html">Instalar RenovitIA en tu teléfono</a></p>
       <p class="muted small">¿Sólo quieres ver cómo es el formulario? <a href="formulario.html?demo=1">Abrir vista previa</a> (no guarda datos).</p>
       <p class="muted small" style="margin-top:4px">¿Eres del equipo médico? <a href="medico.html">Entrar al panel</a>.</p>
     </section>
@@ -97,8 +126,14 @@
         <strong>Siguientes pasos</strong>
         <ol class="steps" style="margin:0">
           <li><span class="step-n">2</span><div><strong>Órdenes de estudios</strong><span id="orders-status" class="muted small">Disponibles cuando tu médico revise tu historia clínica.</span><div id="orders-list" class="stack" style="margin-top:8px"></div></div></li>
-          <li><span class="step-n">3</span><div><strong>Tu protocolo</strong><span class="muted small">Lo verás aquí cuando tu médico lo firme y lo entregue.</span></div></li>
+          <li><span class="step-n">3</span><div><strong>Tu protocolo</strong><span id="plan-status" class="muted small">Lo verás aquí cuando tu médico lo firme y lo entregue.</span><div id="plan-list" class="stack" style="margin-top:8px"></div></div></li>
         </ol>
+      </div>
+
+      <div class="card stack" id="box-instalar-app">
+        <strong>Tenlo a la mano</strong>
+        <p class="muted small" style="margin:0">Instala RenovitIA en tu teléfono y entra con un toque, sin escribir la dirección.</p>
+        <a class="btn btn-ghost btn-block" href="instalar.html">Cómo instalarla</a>
       </div>
 
       <div class="notice small">Si tienes una emergencia médica llama al <strong>911</strong>. Si estás pensando en hacerte daño, llama a la Línea de la Vida <strong>800 911 2000</strong> (24 h).</div>
