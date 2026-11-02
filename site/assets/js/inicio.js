@@ -153,6 +153,9 @@ async function renderPatient(session) {
     a.href = `plan.html?id=${p0.id}`;
     a.textContent = `Ver mi plan (versión ${p0.version})`;
     caja.append(a);
+    // El panel diario sólo tiene sentido con un plan entregado.
+    const boxHoy = $('box-hoy');
+    if (boxHoy) boxHoy.style.display = '';
     if (planes.length > 1) {
       const n = document.createElement('p');
       n.className = 'muted small';

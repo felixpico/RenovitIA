@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f6b58">
+  <title>RenovitIA · Mi día</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="RenovitIA">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <style>
+    .dia-nav { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:4px; }
+    .dia-nav button { font:inherit; font-weight:700; background:none; border:1px solid var(--border);
+                      border-radius:10px; width:38px; height:38px; cursor:pointer; color:var(--text); }
+    .dia-nav button:disabled { opacity:.35; cursor:default; }
+    .dia-titulo { text-align:center; line-height:1.2; }
+    .dia-titulo b { display:block; font-size:1.05rem; }
+    .dia-titulo span { font-size:.8rem; color:var(--muted); }
+
+    .anillo { display:flex; align-items:center; gap:14px; }
+    .anillo svg { flex:none; width:74px; height:74px; transform:rotate(-90deg); }
+    .anillo .pista { fill:none; stroke:var(--surface-2); stroke-width:9; }
+    .anillo .avance { fill:none; stroke:var(--brand); stroke-width:9; stroke-linecap:round; transition:stroke-dasharray .35s ease; }
+    .anillo-txt { font-size:.95rem; }
+    .anillo-txt b { font-size:1.5rem; display:block; line-height:1.1; }
+
+    .fr { border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:9px; }
+    .fr-h { display:flex; align-items:center; gap:9px; background:var(--brand-soft); padding:8px 12px; font-weight:700; font-size:.92rem; }
+    .fr-ico { width:19px; height:19px; flex:none; fill:none; stroke:var(--brand); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .fr-items { padding:2px 12px 8px; }
+
+    .tom { display:flex; gap:11px; align-items:flex-start; padding:10px 0; border-bottom:1px dashed var(--border); }
+    .tom:last-child { border-bottom:none; }
+    .tom-box { flex:none; width:26px; height:26px; margin-top:1px; border:2px solid var(--border); border-radius:8px;
+               background:var(--surface); cursor:pointer; display:grid; place-items:center; padding:0; }
+    .tom-box svg { width:16px; height:16px; stroke:#fff; stroke-width:3.2; fill:none; stroke-linecap:round; stroke-linejoin:round; opacity:0; }
+    .tom-box[aria-pressed="true"] { background:var(--brand); border-color:var(--brand); }
+    .tom-box[aria-pressed="true"] svg { opacity:1; }
+    .tom-cuerpo { flex:1 1 auto; min-width:0; }
+    .tom-tit { font-weight:600; font-size:.95rem; }
+    .tom-sub { font-size:.82rem; color:var(--muted); }
+    .tom.hecho .tom-tit { text-decoration:line-through; color:var(--muted); }
+
+    .escala { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; }
+    .escala button { font:inherit; font-weight:600; padding:9px 0; border-radius:9px; border:1px solid var(--border);
+                     background:var(--surface); cursor:pointer; color:var(--text); }
+    .escala button[aria-pressed="true"] { background:var(--brand); border-color:var(--brand); color:#fff; }
+    .racha { display:flex; gap:4px; }
+    .racha span { flex:1; height:30px; border-radius:7px; background:var(--surface-2); display:grid; place-items:center;
+                  font-size:.66rem; color:var(--muted); font-weight:700; }
+    .racha span.ok { background:var(--brand); color:#fff; }
+    .racha span.parcial { background:var(--brand-soft); color:var(--brand-strong); }
+    .guardado { font-size:.8rem; color:var(--brand); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html" aria-label="RenovitIA, inicio"><picture><source srcset="assets/brand/logo-header-oscuro.svg" media="(prefers-color-scheme: dark)"><img class="brand-logo" src="assets/brand/logo-header.svg" alt="RenovitIA" width="172" height="32"></picture></a>
+      <span id="guardado" class="guardado"></span>
+    </div>
+  </header>
+
+  <main class="container stack">
+    <div id="cargando" class="spinner" aria-label="Cargando"></div>
+    <div id="error" class="notice danger hidden" role="alert"></div>
+
+    <section id="app" class="stack hidden">
+      <div class="dia-nav">
+        <button id="ayer" type="button" aria-label="Día anterior">‹</button>
+        <div class="dia-titulo"><b id="dia-nombre"></b><span id="dia-fecha"></span></div>
+        <button id="manana" type="button" aria-label="Día siguiente">›</button>
+      </div>
+
+      <div class="card anillo">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="pista" cx="50" cy="50" r="42"></circle>
+          <circle id="aro" class="avance" cx="50" cy="50" r="42" stroke-dasharray="0 264"></circle>
+        </svg>
+        <div class="anillo-txt"><b id="pct">0%</b><span id="resumen" class="muted">de tu día</span></div>
+      </div>
+
+      <div id="lista" class="stack"></div>
+
+      <div class="card stack">
+        <strong>¿Cómo amaneciste?</strong>
+        <label class="field"><span class="field-label small">Horas que dormiste</span>
+          <input id="sueno-hrs" class="input" type="number" min="0" max="16" step="0.5" inputmode="decimal" placeholder="7.5"></label>
+        <div><span class="field-label small">Energía</span><div class="escala" id="esc-energy"></div></div>
+        <div><span class="field-label small">Ánimo</span><div class="escala" id="esc-mood"></div></div>
+        <div><span class="field-label small">Estrés</span><div class="escala" id="esc-stress"></div></div>
+        <label class="field"><span class="field-label small">Notas para tu médico</span>
+          <textarea id="notas" class="input" rows="3" placeholder="Algo que sentiste, una molestia, una duda…"></textarea></label>
+      </div>
+
+      <div class="card stack">
+        <strong>Tus últimos 7 días</strong>
+        <div class="racha" id="racha"></div>
+        <p class="muted small" style="margin:0">Verde lleno es día completo. Verde claro, a medias. Tu médico ve esto antes de ajustar tu plan.</p>
+      </div>
+
+      <a class="btn btn-ghost btn-block" href="index.html">Volver al inicio</a>
+    </section>
+  </main>
+
+  <script type="module" src="assets/js/hoy.js"></script>
+</body>
+</html>

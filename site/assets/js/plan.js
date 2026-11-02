@@ -3,6 +3,7 @@
 // Mientras no esté firmado lleva marca de agua y la leyenda de no entregar.
 import { supabase } from './supabase.js';
 import { esquemaEjercicio } from './ejercicios-svg.js';
+import { FRANJAS, franjaDe } from './franjas.js';
 
 const root = document.getElementById('root');
 document.getElementById('print').addEventListener('click', () => window.print());
@@ -150,29 +151,6 @@ function estudiosFaltantes(lista, n) {
 }
 
 /* ---------- horarios ---------- */
-const FRANJAS = [
-  ['ayunas', 'En ayunas, al despertar'],
-  ['desayuno', 'Con el desayuno'],
-  ['entreno', 'Alrededor del entrenamiento'],
-  ['comida', 'Con la comida'],
-  ['cena', 'Con la cena'],
-  ['dormir', 'Antes de dormir'],
-  ['semanal', 'Un día fijo de la semana'],
-  ['indefinido', 'Sin horario definido'],
-];
-function franjaDe(i) {
-  const t = `${i.timing || ''} ${i.frequency || ''}`.toLowerCase();
-  if (/ayun/.test(t)) return 'ayunas';
-  if (/(entren|pre-?entreno|post-?entreno|gimnasio)/.test(t)) return 'entreno';
-  if (/(dormir|acostar|antes de la cama)/.test(t)) return 'dormir';
-  if (/(desayun|ma[nñ]ana|matutin|am\b)/.test(t)) return 'desayuno';
-  if (/cena/.test(t)) return 'cena';
-  if (/(comida principal|con la comida|mediod|almuerz)/.test(t)) return 'comida';
-  if (/(semana|semanal)/.test(t) && /(1 vez|una vez|d[ií]a fijo)/.test(t)) return 'semanal';
-  if (/noche/.test(t)) return 'cena';
-  if (/(comida|aliment)/.test(t)) return 'comida';
-  return 'indefinido';
-}
 
 const ICONO = {
   ayunas: '<svg viewBox="0 0 24 24" class="fr-ico"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M3.5 3.5l2 2M18.5 18.5l2 2M1 12h3M20 12h3M3.5 20.5l2-2M18.5 5.5l2-2"/></svg>',
