@@ -207,3 +207,34 @@ tr.invalid td:first-child { color: var(--danger); }
 /* Preguntas filtro: botones grandes, no chips chiquitos */
 .q.gate .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .q.gate .chip span { width: 100%; justify-content: center; min-height: 52px; border-radius: 12px; font-weight: 600; }
+
+/* ===== Portada para quien llega por primera vez ===== */
+.promo-hero { display: grid; gap: 22px; align-items: center; margin-bottom: 8px; }
+.promo-txt h1 { font-size: 1.75rem; line-height: 1.18; margin: 6px 0 10px; }
+.promo-txt .muted { margin: 0 0 16px; }
+.promo-tel { display: flex; justify-content: center; }
+.tel-svg { width: 100%; max-width: 215px; height: auto; filter: drop-shadow(0 8px 26px rgba(28,37,33,.17)); }
+
+.promo-h2 { font-size: 1.2rem; margin: 28px 0 10px; }
+.promo-grid { display: grid; gap: 10px; }
+.promo-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 15px; background: var(--surface); }
+.promo-card .mini { width: 72px; height: auto; display: block; margin-bottom: 9px; }
+.promo-card strong { display: block; margin-bottom: 4px; font-size: .98rem; }
+.promo-card p { margin: 0; }
+
+.promo-no { border-left: 4px solid var(--accent); background: var(--warn-soft, #fdf2e6);
+            border-radius: 0 var(--radius) var(--radius) 0; padding: 13px 16px; margin-top: 22px; }
+.promo-no strong { display: block; margin-bottom: 6px; }
+.promo-no ul { margin: 0; padding-left: 18px; font-size: .9rem; color: var(--muted); }
+.promo-no li { margin-bottom: 4px; }
+
+.promo-datos { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--border);
+               border-radius: var(--radius); padding: 13px 15px; margin-top: 12px; background: var(--surface); }
+.promo-datos svg { flex: none; width: 26px; height: 26px; fill: none; stroke: var(--brand);
+                   stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+@media (min-width: 720px) {
+  .promo-hero { grid-template-columns: 1.15fr .85fr; gap: 30px; }
+  .promo-txt h1 { font-size: 2.1rem; }
+  .promo-grid { grid-template-columns: 1fr 1fr; }
+}

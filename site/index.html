@@ -29,21 +29,145 @@
 
     <!-- Vista: sin sesión -->
     <section id="view-login" class="hidden stack">
-      <div class="hero">
-        <div class="eyebrow">Programa piloto</div>
-        <h1>Tu salud, medida y ajustada con criterio médico</h1>
-        <p class="muted">Empezamos por conocerte a fondo. Con tu historia clínica, estudios de laboratorio y composición corporal, un médico diseña y firma tu protocolo de 12 semanas.</p>
+      <div class="promo-hero">
+        <div class="promo-txt">
+          <div class="eyebrow">Programa piloto · Monterrey</div>
+          <h1>No es una dieta. Es tu bioquímica, medida y corregida.</h1>
+          <p class="muted">Medimos 80 marcadores en tu sangre y tu composición corporal. Una médica los interpreta con rangos funcionales, no con los del laboratorio, y te firma un plan de 12 semanas con nombre, dosis y horario.</p>
+          <a class="btn btn-primary btn-wide" href="#empezar">Empezar mi historia clínica</a>
+          <p class="muted small" style="margin:8px 0 0">15 minutos. Se guarda solo y puedes continuar después.</p>
+        </div>
+        <div class="promo-tel" aria-hidden="true">
+          <svg viewBox="0 0 220 440" class="tel-svg" role="img" aria-label="Vista del plan en el teléfono">
+            <rect x="4" y="4" width="212" height="432" rx="30" fill="#1c2521"/>
+            <rect x="12" y="12" width="196" height="416" rx="24" fill="#ffffff"/>
+            <rect x="86" y="18" width="48" height="7" rx="3.5" fill="#1c2521"/>
+            <text x="28" y="56" font-size="11" font-weight="700" fill="#2f6b58">Tu plan</text>
+            <text x="28" y="70" font-size="7.5" fill="#5d6b64">Lo que encontramos</text>
+            <g>
+              <rect x="24" y="80" width="172" height="26" rx="7" fill="#fbe9e7"/>
+              <circle cx="36" cy="93" r="4.5" fill="#b3261e"/>
+              <text x="47" y="91" font-size="7.5" font-weight="700" fill="#1c2521">Triglicéridos</text>
+              <text x="47" y="101" font-size="7" fill="#5d6b64">222 · meta menos de 100</text>
+              <rect x="24" y="110" width="172" height="26" rx="7" fill="#fbe9e7"/>
+              <circle cx="36" cy="123" r="4.5" fill="#b3261e"/>
+              <text x="47" y="121" font-size="7.5" font-weight="700" fill="#1c2521">Colesterol HDL</text>
+              <text x="47" y="131" font-size="7" fill="#5d6b64">30 · meta más de 50</text>
+              <rect x="24" y="140" width="172" height="26" rx="7" fill="#fdf2e6"/>
+              <circle cx="36" cy="153" r="4.5" fill="#c7803a"/>
+              <text x="47" y="151" font-size="7.5" font-weight="700" fill="#1c2521">Vitamina D</text>
+              <text x="47" y="161" font-size="7" fill="#5d6b64">28 · en el límite</text>
+              <rect x="24" y="170" width="172" height="26" rx="7" fill="#e3efe9"/>
+              <circle cx="36" cy="183" r="4.5" fill="#1f7a4d"/>
+              <text x="47" y="181" font-size="7.5" font-weight="700" fill="#1c2521">Función renal</text>
+              <text x="47" y="191" font-size="7" fill="#5d6b64">en rango óptimo</text>
+            </g>
+            <text x="28" y="218" font-size="8" font-weight="700" fill="#2f6b58">Hoy</text>
+            <circle cx="178" cy="215" r="13" fill="none" stroke="#eceee9" stroke-width="4"/>
+            <circle cx="178" cy="215" r="13" fill="none" stroke="#2f6b58" stroke-width="4" stroke-linecap="round"
+                    stroke-dasharray="49 82" transform="rotate(-90 178 215)"/>
+            <text x="170" y="218" font-size="7" font-weight="700" fill="#2f6b58">60%</text>
+            <g>
+              <rect x="24" y="228" width="140" height="22" rx="6" fill="#f6f7f4"/>
+              <rect x="31" y="234" width="10" height="10" rx="3" fill="#2f6b58"/>
+              <path d="M33.5 239l2 2 4-4.5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+              <text x="47" y="243" font-size="7.5" fill="#5d6b64">Omega-3 · 2 g</text>
+              <rect x="24" y="254" width="140" height="22" rx="6" fill="#f6f7f4"/>
+              <rect x="31" y="260" width="10" height="10" rx="3" fill="#2f6b58"/>
+              <path d="M33.5 265l2 2 4-4.5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+              <text x="47" y="269" font-size="7.5" fill="#5d6b64">Berberina · 500 mg</text>
+              <rect x="24" y="280" width="140" height="22" rx="6" fill="#f6f7f4"/>
+              <rect x="31" y="286" width="10" height="10" rx="3" fill="none" stroke="#d9dfd9" stroke-width="1.6"/>
+              <text x="47" y="295" font-size="7.5" fill="#5d6b64">Magnesio · 300 mg</text>
+            </g>
+            <text x="28" y="326" font-size="8" font-weight="700" fill="#2f6b58">Tus macros</text>
+            <g font-size="7" fill="#5d6b64">
+              <rect x="24" y="334" width="172" height="1" fill="#eceee9"/>
+              <text x="28" y="348">Proteína</text><text x="150" y="348" font-weight="700" fill="#1c2521">160 g</text>
+              <rect x="24" y="354" width="172" height="1" fill="#eceee9"/>
+              <text x="28" y="368">Carbohidratos</text><text x="150" y="368" font-weight="700" fill="#1c2521">247 g</text>
+              <rect x="24" y="374" width="172" height="1" fill="#eceee9"/>
+              <text x="28" y="388">Grasa</text><text x="150" y="388" font-weight="700" fill="#1c2521">97 g</text>
+              <rect x="24" y="394" width="172" height="1" fill="#eceee9"/>
+              <text x="28" y="408">Agua</text><text x="150" y="408" font-weight="700" fill="#1c2521">2.8 L</text>
+            </g>
+          </svg>
+        </div>
       </div>
 
+      <h2 class="promo-h2">Esto es lo que vas a tener</h2>
+      <div class="promo-grid">
+        <div class="promo-card">
+          <svg viewBox="0 0 64 44" class="mini" aria-hidden="true">
+            <rect x="2" y="4" width="60" height="9" rx="3" fill="#fbe9e7"/><circle cx="9" cy="8.5" r="2.6" fill="#b3261e"/>
+            <rect x="2" y="17" width="60" height="9" rx="3" fill="#fdf2e6"/><circle cx="9" cy="21.5" r="2.6" fill="#c7803a"/>
+            <rect x="2" y="30" width="60" height="9" rx="3" fill="#e3efe9"/><circle cx="9" cy="34.5" r="2.6" fill="#1f7a4d"/>
+          </svg>
+          <strong>Tus 80 marcadores, en semáforo</strong>
+          <p class="muted small">Rojo es fuera de límite, amarillo es en el límite, verde está bien. Con rangos de medicina funcional, que son más estrictos que los del laboratorio.</p>
+        </div>
+        <div class="promo-card">
+          <svg viewBox="0 0 64 44" class="mini" aria-hidden="true">
+            <circle cx="10" cy="10" r="5" fill="none" stroke="#2f6b58" stroke-width="1.6"/><path d="M10 3v2M10 15v2M3 10h2M15 10h2" stroke="#2f6b58" stroke-width="1.6" stroke-linecap="round"/>
+            <rect x="22" y="6" width="40" height="8" rx="3" fill="#e3efe9"/>
+            <path d="M6 28a4 4 0 0 1 8 0" fill="none" stroke="#2f6b58" stroke-width="1.6"/><path d="M4 32h12" stroke="#2f6b58" stroke-width="1.6" stroke-linecap="round"/>
+            <rect x="22" y="24" width="40" height="8" rx="3" fill="#e3efe9"/>
+            <rect x="22" y="36" width="28" height="6" rx="3" fill="#f0f3f0"/>
+          </svg>
+          <strong>Qué tomar y a qué hora</strong>
+          <p class="muted small">Cada suplemento o péptido con su dosis, agrupado por el momento del día. Le pones palomita cuando lo tomas y tu médica lo ve.</p>
+        </div>
+        <div class="promo-card">
+          <svg viewBox="0 0 64 44" class="mini" aria-hidden="true">
+            <rect x="2" y="6" width="60" height="7" rx="3" fill="#2f6b58"/>
+            <rect x="2" y="17" width="44" height="5" rx="2.5" fill="#e3efe9"/><rect x="50" y="17" width="12" height="5" rx="2.5" fill="#c7803a"/>
+            <rect x="2" y="26" width="34" height="5" rx="2.5" fill="#e3efe9"/><rect x="50" y="26" width="12" height="5" rx="2.5" fill="#c7803a"/>
+            <rect x="2" y="35" width="40" height="5" rx="2.5" fill="#e3efe9"/><rect x="50" y="35" width="12" height="5" rx="2.5" fill="#c7803a"/>
+          </svg>
+          <strong>Cuánto comer, con un día de ejemplo</strong>
+          <p class="muted small">Tus calorías y macros calculados con tu peso y tu actividad, más un día completo desglosado en gramos para que veas el tamaño de las porciones.</p>
+        </div>
+        <div class="promo-card">
+          <svg viewBox="0 0 64 44" class="mini" aria-hidden="true">
+            <rect x="2" y="8" width="18" height="28" rx="4" fill="#2f6b58"/><text x="11" y="26" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">L</text>
+            <rect x="23" y="8" width="18" height="28" rx="4" fill="#f0f3f0"/><text x="32" y="26" font-size="9" fill="#5d6b64" text-anchor="middle" font-weight="700">M</text>
+            <rect x="44" y="8" width="18" height="28" rx="4" fill="#2f6b58"/><text x="53" y="26" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">M</text>
+          </svg>
+          <strong>Tu rutina, día por día</strong>
+          <p class="muted small">Qué entrenar cada día, con series y repeticiones. Cada ejercicio trae un esquema de cómo se hace y los errores que hay que evitar.</p>
+        </div>
+      </div>
+
+      <h2 class="promo-h2">Cómo funciona</h2>
       <ol class="steps">
-        <li><span class="step-n">1</span><div><strong>Historia clínica funcional</strong><span class="muted small">12–15 minutos. Se guarda solo y puedes continuar después.</span></div></li>
-        <li><span class="step-n">2</span><div><strong>Estudios de laboratorio y DEXA</strong><span class="muted small">Tu médico emite las órdenes; tú agendas la toma.</span></div></li>
-        <li><span class="step-n">3</span><div><strong>Resultados</strong><span id="results-status" class="muted small">Aparecen aquí cuando tu médico los revise contigo.</span></div></li><li><span class="step-n">4</span><div><strong>Protocolo firmado por tu médico</strong><span class="muted small">Alimentación, ejercicio, suplementación, sueño y estrés.</span></div></li>
+        <li><span class="step-n">1</span><div><strong>Contestas tu historia clínica</strong><span class="muted small">15 minutos, desde el celular. Se guarda solo y puedes dejarla a medias.</span></div></li>
+        <li><span class="step-n">2</span><div><strong>Te hacemos los estudios</strong><span class="muted small">La médica firma las órdenes, tú agendas la toma en el laboratorio.</span></div></li>
+        <li><span class="step-n">3</span><div><strong>Se interpretan con criterio funcional</strong><span id="results-status" class="muted small">Cada valor contra rangos óptimos, no sólo contra el rango del laboratorio.</span></div></li>
+        <li><span class="step-n">4</span><div><strong>Recibes tu plan firmado</strong><span class="muted small">Alimentación, ejercicio, suplementación, sueño y estrés. Con nombre, dosis y horario.</span></div></li>
       </ol>
+
+      <div class="promo-no">
+        <strong>Qué no es esto</strong>
+        <ul>
+          <li>No es una dieta de internet ni un paquete de suplementos.</li>
+          <li>No prometemos un resultado. Medimos, corregimos y volvemos a medir a las 12 semanas.</li>
+          <li>No sustituye a tu médico de cabecera ni a una urgencia.</li>
+          <li>Nada se te indica sin que una médica con cédula lo firme con su nombre.</li>
+        </ul>
+      </div>
+
+      <div class="promo-datos">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9.2-8 11-4.6-1.8-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>
+        <div>
+          <strong>Tus estudios son tuyos</strong>
+          <p class="muted small" style="margin:2px 0 0">Sólo tú y tu equipo médico ven tus resultados. Te decimos qué guardamos antes de que escribas nada, y puedes pedir que se borre.</p>
+        </div>
+      </div>
+
+      <h2 class="promo-h2" id="empezar">Empecemos</h2>
 
       <form id="form-start" class="card stack" novalidate>
         <div>
-          <h2 style="margin:0 0 4px;font-size:1.2rem">Empecemos</h2>
           <p class="muted small" style="margin:0">Escribe tu nombre y tu correo para abrir tu historia clínica. Se guarda sola en este dispositivo y puedes continuar después.</p>
         </div>
         <label class="field">
