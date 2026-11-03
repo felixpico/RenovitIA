@@ -238,3 +238,5 @@ tr.invalid td:first-child { color: var(--danger); }
   .promo-txt h1 { font-size: 2.1rem; }
   .promo-grid { grid-template-columns: 1fr 1fr; }
 }
+.promo-claim { font-size: 1.12rem; font-weight: 600; color: var(--brand); margin: 0 0 12px; line-height: 1.35; }
+@media (min-width: 720px) { .promo-claim { font-size: 1.28rem; } }
