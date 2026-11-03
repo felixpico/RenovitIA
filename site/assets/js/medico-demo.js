@@ -291,6 +291,10 @@ export const demoApi = {
   },
   async approvePatterns() { throw new Error('En la vista previa no se firman patrones'); },
   async savePattern() { throw new Error('En la vista previa no se editan patrones'); },
+  async generarAcceso(patientId) {
+    return { token: '00000000-1111-2222-3333-444444444444', correo: 'paciente@demo.mx',
+             nombre: 'Roberto', expira: new Date(Date.now() + 72 * 3600 * 1000).toISOString() };
+  },
   async rules() {
     return [
       { id: 'rg1', code: 'SUG_DISLIPIDEMIA', title: 'Dislipidemia aterogenica sin tratamiento farmacologico',

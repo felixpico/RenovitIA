@@ -222,6 +222,10 @@ const liveApi = {
     const { error } = await supabase.from('interpretation_patterns').update(patch).eq('id', id);
     if (error) throw error;
   },
+  async generarAcceso(patientId, horas = 72) {
+    const { data, error } = await supabase.rpc('generar_acceso_paciente', { p_patient: patientId, p_horas: horas });
+    if (error) throw error; return data;
+  },
   async rules() {
     const { data, error } = await supabase.from('suggestion_rules').select('*')
       .order('sort_order').order('code');
@@ -543,6 +547,10 @@ async function viewPatient(root, id) {
       h('dt', { text: 'Programa' }), h('dd', { text: PATIENT_STATUS[p.status] || p.status }),
       h('dt', { text: 'Objetivos' }), h('dd', { text: fmtAnswer({ question_code: 'B1' }, ans('B1')) || '—' }))));
 
+  // Acceso del paciente: una liga de un solo uso que se manda por WhatsApp.
+  // Evita depender del correo, que en el piloto fue el punto que fallaba.
+  side.append(tarjetaAcceso(p));
+
   // Puntajes
   const SC_NAMES = { PHQ9: 'Depresión (PHQ-9)', GAD7: 'Ansiedad (GAD-7)', PSS10: 'Estrés (PSS-10)', STOPBANG: 'Apnea (STOP-BANG)', AUDITC: 'Alcohol (AUDIT-C)', SCOFF: 'TCA (SCOFF)', PARQ: 'Ejercicio (PAR-Q+)', ADAM: 'Andropausia (ADAM)', MRS: 'Climaterio (MRS)', IPAQ: 'Actividad (MET-min)', IMC: 'IMC', CINTURA_ESTATURA: 'Cintura/estatura' };
   const scores = h('div', { class: 'scores' });
@@ -646,6 +654,52 @@ function updateAlertCount(alerts) {
 }
 
 /* ================= router ================= */
+// Genera la liga de acceso del paciente y deja listo el mensaje de WhatsApp.
+function tarjetaAcceso(p) {
+  const caja = h('div', { class: 'card stack' }, h('h2', { class: 'card-title', text: 'Acceso del paciente' }));
+  const estado = h('p', { class: 'muted small', style: 'margin:0',
+    text: p.user_id ? 'Ya tiene cuenta y puede entrar desde su teléfono.' : 'Todavía no ha entrado nunca.' });
+  const salida = h('div', { class: 'stack', style: 'display:none' });
+
+  const btn = h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Generar liga de acceso',
+    onclick: async () => {
+      if (!p.email) { toast('Este paciente no tiene correo capturado', true); return; }
+      const texto = h('div', { class: 'stack' },
+        h('p', { text: `Se crea una liga de un solo uso para ${fullName(p)}.` }),
+        h('p', { class: 'small' }, 'Dura ', h('b', { text: '72 horas' }), ' y se desactiva en cuanto la usa. ',
+          'Si ya había una sin usar, queda cancelada.'),
+        h('div', { class: 'notice warn small' },
+          'Quien tenga la liga entra a su expediente. Mándala sólo al teléfono del paciente, no a un grupo.'));
+      if (!(await modal('Generar acceso', texto, 'Generar'))) return;
+      btn.disabled = true; btn.textContent = 'Generando…';
+      try {
+        const r = await api.generarAcceso(p.id, 72);
+        const liga = `${location.origin}/acceso.html?t=${r.token}`;
+        const mensaje = `Hola ${r.nombre || ''}, soy del equipo de RenovitIA. `
+          + `Aquí está tu acceso a la app, con tu plan y tus indicaciones del día: ${liga}\n\n`
+          + `La liga es sólo para ti y se vence en 3 días. Al abrirla, agrégala a tu pantalla de inicio para tenerla a la mano.`;
+        salida.innerHTML = '';
+        salida.style.display = '';
+        salida.append(
+          h('div', { class: 'notice small' }, h('b', { text: 'Liga lista. ' }),
+            `Vence el ${new Date(r.expira).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}.`),
+          h('div', { class: 'toolbar' },
+            p.phone ? h('a', { class: 'btn btn-primary btn-sm', target: '_blank', rel: 'noopener',
+              href: `${waLink(p.phone)}?text=${encodeURIComponent(mensaje)}`, text: 'Mandar por WhatsApp' }) : null,
+            h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Copiar liga',
+              onclick: async () => { try { await navigator.clipboard.writeText(liga); toast('Liga copiada'); } catch { toast('Copia la liga de abajo', true); } } }),
+            h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Copiar mensaje',
+              onclick: async () => { try { await navigator.clipboard.writeText(mensaje); toast('Mensaje copiado'); } catch { toast('No se pudo copiar', true); } } })),
+          h('p', { class: 'muted small', style: 'word-break:break-all;margin:0', text: liga }),
+          p.phone ? null : h('p', { class: 'muted small', style: 'margin:0', text: 'Este paciente no tiene teléfono capturado: copia la liga y mándasela como prefieras.' }));
+      } catch (e) { toast(`Error: ${e.message}`, true); }
+      finally { btn.disabled = false; btn.textContent = 'Generar liga de acceso'; }
+    } });
+
+  caja.append(estado, h('div', { class: 'toolbar' }, btn), salida);
+  return caja;
+}
+
 async function route() {
   const app = $('view-app');
   const hash = location.hash || '#/alertas';

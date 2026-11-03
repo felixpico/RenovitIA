@@ -205,8 +205,10 @@ $('form-otp').addEventListener('submit', async (e) => {
 
 $('form-codigo').addEventListener('submit', async (e) => {
   e.preventDefault();
+  // El largo del codigo lo decide la configuracion de Supabase, no esta pantalla:
+  // si manana se cambia de 6 a 8, aqui no hay que tocar nada.
   const codigo = $('otp-code').value.replace(/\D/g, '');
-  if (codigo.length !== 6) { aviso('El código son 6 dígitos.', true); return; }
+  if (codigo.length < 4) { aviso('Escribe el código completo que te llegó al correo.', true); return; }
   const btn = $('btn-codigo');
   btn.disabled = true; btn.textContent = 'Entrando…';
   try {
@@ -221,6 +223,14 @@ $('form-codigo').addEventListener('submit', async (e) => {
       : `No se pudo entrar: ${err.message}`, true);
     btn.disabled = false; btn.textContent = 'Entrar';
   }
+});
+
+// Pegar desde el correo suele traer espacios o un guion en medio.
+$('otp-code').addEventListener('input', () => {
+  const campo = $('otp-code');
+  const limpio = campo.value.replace(/\D/g, '');
+  if (campo.value !== limpio) campo.value = limpio;
+  $('btn-codigo').disabled = limpio.length < 4;
 });
 
 $('btn-otro-correo').addEventListener('click', () => {

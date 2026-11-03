@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f6b58">
+  <meta name="robots" content="noindex, nofollow">
+  <title>RenovitIA · Entrando</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="RenovitIA">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <main class="container stack" style="padding-top:56px;max-width:460px">
+    <div style="text-align:center">
+      <img src="assets/brand/logo-horizontal.svg" alt="RenovitIA" width="200" height="38">
+    </div>
+
+    <div id="cargando" class="card stack" style="text-align:center">
+      <div class="spinner" aria-label="Entrando"></div>
+      <strong>Entrando a tu cuenta…</strong>
+      <p class="muted small" style="margin:0">Un momento, no cierres esta pantalla.</p>
+    </div>
+
+    <div id="listo" class="card stack hidden" style="text-align:center">
+      <strong id="saludo">Listo</strong>
+      <p class="muted small" style="margin:0">Ya estás dentro. Te llevamos a tu inicio.</p>
+    </div>
+
+    <div id="falla" class="card stack hidden">
+      <strong>No pudimos abrir tu cuenta</strong>
+      <p id="falla-texto" class="notice danger" style="margin:0"></p>
+      <p class="muted small" style="margin:0">Pídele a tu médico una liga nueva por WhatsApp. Las ligas se vencen por seguridad.</p>
+      <a class="btn btn-ghost btn-block" href="index.html">Ir al inicio</a>
+    </div>
+  </main>
+
+  <script type="module" src="assets/js/acceso.js"></script>
+</body>
+</html>

@@ -68,7 +68,7 @@
       <div class="card stack" id="box-entrar">
         <div>
           <h2 style="margin:0 0 4px;font-size:1.2rem">¿Ya eres paciente del programa?</h2>
-          <p class="muted small" style="margin:0">Entra con el mismo correo que le diste a tu médico. Te mandamos un código de 6 dígitos, sin contraseñas.</p>
+          <p class="muted small" style="margin:0">Entra con el mismo correo que le diste a tu médico. Te mandamos un código al correo, sin contraseñas.</p>
         </div>
         <form id="form-otp" class="stack" novalidate>
           <label class="field">
@@ -79,10 +79,10 @@
         </form>
         <form id="form-codigo" class="stack hidden" novalidate>
           <label class="field">
-            <span class="field-label">Código de 6 dígitos</span>
+            <span class="field-label">Código que te llegó</span>
             <input id="otp-code" class="input" type="text" inputmode="numeric" autocomplete="one-time-code"
-                   pattern="[0-9]*" maxlength="6" required placeholder="000000"
-                   style="font-size:1.4rem;letter-spacing:.35em;text-align:center">
+                   pattern="[0-9]*" maxlength="12" required placeholder="Escríbelo tal cual"
+                   style="font-size:1.35rem;letter-spacing:.22em;text-align:center">
           </label>
           <button id="btn-codigo" class="btn btn-primary btn-block" type="submit">Entrar</button>
           <button id="btn-otro-correo" class="btn-link" type="button">Usar otro correo</button>
