@@ -1,3 +1,4 @@
+import { pintarPaciente } from './paciente.js';
 import { supabase, applyBranding } from './supabase.js';
 
 const $ = (id) => document.getElementById(id);
@@ -138,32 +139,15 @@ async function renderPatient(session) {
     else if (hechos) el.textContent = 'Tus estudios ya se realizaron. Tu médico los está revisando y te los explicará en tu consulta; aparecerán aquí cuando los libere.';
   }
 
-  // Protocolo: la RLS sólo deja ver el que el médico ya firmó y entregó.
-  const { data: planes } = await supabase.from('protocols')
-    .select('id,version,status,signed_at,start_date')
-    .eq('patient_id', patient.id).eq('status', 'delivered')
-    .order('version', { ascending: false });
-  if (planes?.length) {
-    const p0 = planes[0];
-    $('plan-status').textContent = 'Tu médico ya firmó y entregó tu plan.';
-    const caja = $('plan-list');
-    caja.innerHTML = '';
-    const a = document.createElement('a');
-    a.className = 'btn btn-primary btn-block';
-    a.href = `plan.html?id=${p0.id}`;
-    a.textContent = `Ver mi plan (versión ${p0.version})`;
-    caja.append(a);
-    // El panel diario sólo tiene sentido con un plan entregado.
-    const boxHoy = $('box-hoy');
-    if (boxHoy) boxHoy.style.display = '';
-    if (planes.length > 1) {
-      const n = document.createElement('p');
-      n.className = 'muted small';
-      n.style.margin = '6px 0 0';
-      n.textContent = `Tienes ${planes.length} versiones. Ésta es la más reciente.`;
-      caja.append(n);
-    }
-  }
+  // El protocolo, las tomas del dia y el semaforo los dibuja paciente.js.
+  // Aqui solo se le pasa lo que ya se conto arriba para no repetir consultas.
+  let faltantes = 0;
+  try {
+    const { data: ef } = await supabase.rpc('estudios_faltantes', { p_patient: patient.id });
+    faltantes = Array.isArray(ef) ? ef.length : 0;
+  } catch (e) { /* sin plan o sin acceso: se queda en cero */ }
+
+  await pintarPaciente(patient, { nLab: (nLab || 0) + (nBc || 0), faltantes });
 
   show('view-patient');
 }

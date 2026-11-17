@@ -16,7 +16,8 @@ export const NOMBRE_FRANJA = Object.fromEntries(FRANJAS);
 
 export function franjaDe(i) {
   const t = `${i.timing || ''} ${i.frequency || ''}`.toLowerCase();
-  if (/ayun/.test(t)) return 'ayunas';
+  // \b es necesario: sin el, "desayuno" hace match con /ayun/ y cae en ayunas.
+  if (/\bayun/.test(t)) return 'ayunas';
   if (/(entren|pre-?entreno|post-?entreno|gimnasio)/.test(t)) return 'entreno';
   if (/(dormir|acostar|antes de la cama)/.test(t)) return 'dormir';
   if (/(desayun|ma[nñ]ana|matutin|am\b)/.test(t)) return 'desayuno';

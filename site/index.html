@@ -229,47 +229,70 @@
     </section>
 
     <!-- Vista: paciente -->
-    <section id="view-patient" class="hidden stack">
-      <div class="hero">
-        <div class="eyebrow">Bienvenido</div>
-        <h1 id="welcome-name">Hola</h1>
-      </div>
+    <section id="view-patient" class="hidden">
 
-      <div class="card stack">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-          <div>
-            <strong>Historia clínica funcional</strong>
-            <div id="intake-status" class="muted small">Sin iniciar</div>
-          </div>
-          <span id="intake-pct" style="font-weight:700;color:var(--brand)">0%</span>
+      <!-- ===== Pestana: Hoy ===== -->
+      <div class="pg on" id="pg-hoy">
+        <div class="hero">
+          <div class="eyebrow">Bienvenido</div>
+          <h1 id="welcome-name">Hola</h1>
+          <p class="muted small" id="hoy-sub" style="margin:4px 0 0">Esto es lo que te toca hoy.</p>
         </div>
-        <div class="progress"><span id="intake-bar"></span></div>
-        <a id="btn-intake" class="btn btn-primary btn-block" href="formulario.html">Comenzar</a>
+
+        <!-- Se llena cuando el medico ya entrego un plan -->
+        <div id="hoy-contenido" class="stack"></div>
+
+        <!-- Mientras no hay plan entregado, esto es lo que el paciente ve -->
+        <div id="onboarding" class="stack">
+          <div class="card stack">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+              <div>
+                <strong>Historia clinica funcional</strong>
+                <div id="intake-status" class="muted small">Sin iniciar</div>
+              </div>
+              <span id="intake-pct" style="font-weight:700;color:var(--brand)">0%</span>
+            </div>
+            <div class="progress"><span id="intake-bar"></span></div>
+            <a id="btn-intake" class="btn btn-primary btn-block" href="formulario.html">Comenzar</a>
+          </div>
+
+          <div class="card stack">
+            <strong>Siguientes pasos</strong>
+            <ol class="steps" style="margin:0">
+              <li><span class="step-n">2</span><div><strong>Ordenes de estudios</strong><span id="orders-status" class="muted small">Disponibles cuando tu medico revise tu historia clinica.</span><div id="orders-list" class="stack" style="margin-top:8px"></div></div></li>
+              <li><span class="step-n">3</span><div><strong>Tu protocolo</strong><span id="plan-status" class="muted small">Lo veras aqui cuando tu medico lo firme y lo entregue.</span><div id="plan-list" class="stack" style="margin-top:8px"></div></div></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="card stack" id="box-instalar-app">
+          <strong>Tenlo a la mano</strong>
+          <p class="muted small" style="margin:0">Instala RenovitIA en tu telefono y entra con un toque, sin escribir la direccion.</p>
+          <a class="btn btn-ghost btn-block" href="instalar.html">Como instalarla</a>
+        </div>
+
+        <div class="notice small">Si tienes una emergencia medica llama al <strong>911</strong>. Si estas pensando en hacerte dano, llama a la Linea de la Vida <strong>800 911 2000</strong> (24 h).</div>
       </div>
 
-      <div class="card stack">
-        <strong>Siguientes pasos</strong>
-        <ol class="steps" style="margin:0">
-          <li><span class="step-n">2</span><div><strong>Órdenes de estudios</strong><span id="orders-status" class="muted small">Disponibles cuando tu médico revise tu historia clínica.</span><div id="orders-list" class="stack" style="margin-top:8px"></div></div></li>
-          <li><span class="step-n">3</span><div><strong>Tu protocolo</strong><span id="plan-status" class="muted small">Lo verás aquí cuando tu médico lo firme y lo entregue.</span><div id="plan-list" class="stack" style="margin-top:8px"></div></div></li>
-        </ol>
+      <!-- ===== Pestana: Mi salud ===== -->
+      <div class="pg" id="pg-salud">
+        <div class="hero">
+          <h1>Mi salud</h1>
+          <p class="muted small" id="salud-sub" style="margin:4px 0 0">Tu estado por sistema.</p>
+        </div>
+        <div id="semaforo" class="stack"></div>
+        <div id="salud-nav" class="stack" style="margin-top:14px"></div>
       </div>
 
-      <div class="card stack" id="box-hoy" style="display:none">
-        <strong>Tu día</strong>
-        <p class="muted small" style="margin:0">Lo que te toca hoy, para ir palomeando conforme lo tomas.</p>
-        <a class="btn btn-primary btn-block" href="hoy.html">Abrir mi día</a>
-      </div>
-
-      <div class="card stack" id="box-instalar-app">
-        <strong>Tenlo a la mano</strong>
-        <p class="muted small" style="margin:0">Instala RenovitIA en tu teléfono y entra con un toque, sin escribir la dirección.</p>
-        <a class="btn btn-ghost btn-block" href="instalar.html">Cómo instalarla</a>
-      </div>
-
-      <div class="notice small">Si tienes una emergencia médica llama al <strong>911</strong>. Si estás pensando en hacerte daño, llama a la Línea de la Vida <strong>800 911 2000</strong> (24 h).</div>
     </section>
   </main>
+
+  <nav class="tabs hidden" id="tabbar" aria-label="Secciones">
+    <button class="tb on" type="button" data-pg="hoy" aria-pressed="true">
+      <svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg> Hoy</button>
+    <button class="tb" type="button" data-pg="salud" aria-pressed="false">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/></svg> Mi salud</button>
+  </nav>
 
   <script type="module" src="assets/js/inicio.js"></script>
 </body>

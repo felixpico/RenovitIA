@@ -222,6 +222,15 @@ const liveApi = {
     const { error } = await supabase.from('interpretation_patterns').update(patch).eq('id', id);
     if (error) throw error;
   },
+  async riesgoCV(patientId) {
+    const { data, error } = await supabase.rpc('riesgo_cv', { p_patient: patientId });
+    if (error) throw error; return data;
+  },
+  async guardarVitales(patientId, fila) {
+    const { error } = await supabase.from('vital_signs')
+      .insert({ patient_id: patientId, source: 'consulta', ...fila });
+    if (error) throw error;
+  },
   async generarAcceso(patientId, horas = 72) {
     const { data, error } = await supabase.rpc('generar_acceso_paciente', { p_patient: patientId, p_horas: horas });
     if (error) throw error; return data;
@@ -549,6 +558,7 @@ async function viewPatient(root, id) {
 
   // Acceso del paciente: una liga de un solo uso que se manda por WhatsApp.
   // Evita depender del correo, que en el piloto fue el punto que fallaba.
+  side.append(tarjetaRiesgoCV(p));
   side.append(tarjetaAcceso(p));
 
   // Puntajes
@@ -654,6 +664,73 @@ function updateAlertCount(alerts) {
 }
 
 /* ================= router ================= */
+// Semaforo de riesgo cardiovascular con la ecuacion PREVENT de la AHA.
+// Si falta un dato, lo dice y NO inventa un numero: una cifra de riesgo
+// calculada a medias es peor que no tenerla.
+const COLOR_CV = { verde: 'verde', amarillo: 'amarillo', naranja: 'amarillo', rojo: 'rojo' };
+
+function tarjetaRiesgoCV(p) {
+  const caja = h('div', { class: 'card stack' }, h('h2', { class: 'card-title', text: 'Riesgo cardiovascular' }));
+  const cuerpo = h('div', { class: 'stack' }, h('div', { class: 'spinner' }));
+  caja.append(cuerpo);
+
+  const capturaPA = () => h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Capturar presión arterial',
+    onclick: async () => {
+      const sis = h('input', { class: 'input', type: 'number', inputmode: 'numeric', min: 60, max: 260, placeholder: '120' });
+      const dia = h('input', { class: 'input', type: 'number', inputmode: 'numeric', min: 30, max: 180, placeholder: '80' });
+      const campo = (l, el) => h('label', { class: 'field' }, h('span', { class: 'field-label small', text: l }), el);
+      const ok = await modal('Presión arterial', h('div', { class: 'stack' },
+        h('div', { class: 'fields-grid' }, campo('Sistólica', sis), campo('Diastólica', dia)),
+        h('p', { class: 'muted small', text: 'Tomada sentado, tras 5 minutos de reposo. Es el dato que más mueve el cálculo de riesgo.' })), 'Guardar');
+      if (!ok) return;
+      const n = Number(sis.value);
+      if (!n || n < 60 || n > 260) { toast('La sistólica no parece válida', true); return; }
+      try {
+        await api.guardarVitales(p.id, { sbp: n, dbp: dia.value ? Number(dia.value) : null });
+        toast('Presión guardada');
+        pinta();
+      } catch (e) { toast(`Error: ${e.message}`, true); }
+    } });
+
+  async function pinta() {
+    cuerpo.innerHTML = '';
+    let r;
+    try { r = await api.riesgoCV(p.id); }
+    catch (e) { cuerpo.append(h('p', { class: 'muted small', text: e.message })); return; }
+
+    if (!r || r.calculable === false) {
+      cuerpo.append(
+        h('p', { class: 'muted small', style: 'margin:0' }, 'No se puede calcular todavía. Falta: ',
+          h('b', { text: (r?.falta || []).join(', ') }), '.'),
+        h('div', { class: 'toolbar' }, capturaPA()));
+      (r?.potenciadores || []).forEach((t) => cuerpo.append(h('div', { class: 'notice warn small', text: t })));
+      return;
+    }
+
+    cuerpo.append(
+      h('div', { style: 'display:flex;align-items:center;gap:12px' },
+        h('span', { class: `pill ${COLOR_CV[r.color] || ''}`, style: 'font-size:1.5rem;font-weight:800;padding:8px 14px', text: `${r.pct}%` }),
+        h('div', {}, h('b', { text: r.banda }),
+          h('div', { class: 'muted small', text: 'a 10 años · ' + r.modelo }))),
+      h('p', { class: 'muted small', style: 'margin:0' },
+        `Sistólica ${r.entradas.sistolica}, colesterol total ${r.entradas.colesterol_total}, HDL ${r.entradas.hdl}, eGFR ${r.entradas.egfr}.`,
+        r.entradas.diabetes ? ' Diabetes.' : '', r.entradas.fuma ? ' Fuma.' : '',
+        r.entradas.antihipertensivo ? ' Con antihipertensivo.' : '', r.entradas.estatina ? ' Con estatina.' : ''));
+
+    if (!r.bandas_firmadas) {
+      cuerpo.append(h('div', { class: 'notice warn small' },
+        h('b', { text: 'Los cortes de color no están firmados. ' }),
+        'El porcentaje viene de la ecuación oficial; los rangos que lo pintan de un color u otro los tiene que revisar un médico.'));
+    }
+    (r.potenciadores || []).forEach((t) => cuerpo.append(h('div', { class: 'notice danger small' },
+      h('b', { text: 'Ojo: ' }), t)));
+    cuerpo.append(h('div', { class: 'toolbar' }, capturaPA()));
+  }
+
+  pinta();
+  return caja;
+}
+
 // Genera la liga de acceso del paciente y deja listo el mensaje de WhatsApp.
 function tarjetaAcceso(p) {
   const caja = h('div', { class: 'card stack' }, h('h2', { class: 'card-title', text: 'Acceso del paciente' }));

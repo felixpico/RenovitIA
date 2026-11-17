@@ -291,6 +291,13 @@ export const demoApi = {
   },
   async approvePatterns() { throw new Error('En la vista previa no se firman patrones'); },
   async savePattern() { throw new Error('En la vista previa no se editan patrones'); },
+  async riesgoCV() {
+    return { calculable: true, pct: 8.4, modelo: 'PREVENT 10 anos, CVD total', banda: 'En el limite',
+             color: 'amarillo', bandas_firmadas: false, potenciadores: ['Lp(a) elevada, que PREVENT no toma en cuenta y sube el riesgo real'],
+             entradas: { edad: 48, sexo: 'M', colesterol_total: 221, hdl: 30, sistolica: 138, egfr: 88,
+                         diabetes: false, fuma: false, antihipertensivo: false, estatina: false } };
+  },
+  async guardarVitales() { throw new Error('En la vista previa no se guardan signos vitales'); },
   async generarAcceso(patientId) {
     return { token: '00000000-1111-2222-3333-444444444444', correo: 'paciente@demo.mx',
              nombre: 'Roberto', expira: new Date(Date.now() + 72 * 3600 * 1000).toISOString() };
