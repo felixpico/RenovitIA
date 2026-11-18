@@ -197,6 +197,7 @@ const ICO = {
   chat: '<path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   grafica: '<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>',
   perfil: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  presion: '<path d="M12 21s-7-4.6-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.4-7 10-7 10z"/><path d="M8.5 12h2l1-2 1.5 4 1-2h2"/>',
 };
 const acceso = (icono, titulo, sub, sec, cuenta) => `
   <button class="acceso" type="button" data-sec="${sec}">
@@ -237,6 +238,7 @@ async function pintarSalud(nLab, faltantes) {
   nav.innerHTML = [
     acceso('plan', 'Mi protocolo', S.plan ? `Versión ${S.plan.version} · firmado por tu médica`
       : 'Pendiente de firma médica', 'protocolo'),
+    acceso('presion', 'Mi presión', 'Tómale foto a tu baumanómetro', 'presion'),
     acceso('lab', 'Mis estudios', nLab ? `${nLab} resultados disponibles` : 'Aún no hay resultados liberados', 'estudios'),
     faltantes ? acceso('pin', 'Estudios pendientes', 'Lo que falta por hacerte', 'pendientes', faltantes) : '',
     acceso('comida', 'Mi alimentación', 'Tus macros y un día de ejemplo', 'alimentacion'),

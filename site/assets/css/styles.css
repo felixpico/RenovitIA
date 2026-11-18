@@ -412,6 +412,11 @@ body.con-tabs { padding-bottom: 86px; }
 .sysh .cta.rojo { background: var(--danger-soft); color: var(--danger); }
 .sysh .cta.amarillo { background: var(--warn-soft); color: var(--accent); }
 .sysh .cta.verde { background: var(--brand-soft); color: var(--brand); }
+.lv { padding: 13px 14px; border-bottom: 1px solid var(--border); }
+.lv:last-child { border-bottom: 0; }
+.lv .t { display: flex; align-items: baseline; gap: 10px; }
+.lv .t b { font-size: 15px; letter-spacing: -.01em; }
+.lv .t .ds { margin-left: auto; font-size: 13.5px; font-weight: 700; color: var(--brand); white-space: nowrap; }
 .lv .exp { font-size: 13px; color: var(--muted); margin-top: 6px; }
 .lv .m { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
 
@@ -472,3 +477,31 @@ body.con-tabs { padding-bottom: 86px; }
 .chip { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 99px;
   background: var(--brand-soft); color: var(--brand); }
 .chip.c { background: var(--warn-soft); color: var(--accent); }
+
+/* Mi presión */
+.pfoto { margin: 14px 0 4px; }
+.confirma { border: 2px solid var(--brand); border-radius: 14px; padding: 14px; margin-top: 14px; background: var(--surface); }
+.confirma > b { font-size: 15px; color: var(--brand-strong); }
+.confirma > p { font-size: 13px; color: var(--muted); margin: 5px 0 12px; }
+.tres { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.tres label { display: block; }
+.tres span { display: block; font-size: 10px; font-weight: 800; letter-spacing: .5px; color: var(--muted); margin-bottom: 4px; }
+.tres input { width: 100%; box-sizing: border-box; padding: 12px 6px; font-size: 22px; font-weight: 800;
+  text-align: center; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text); }
+.tres input:focus { outline: 2px solid var(--brand); border-color: var(--brand); }
+.lv .t .ds.pa-verde { color: #16a34a; }
+.lv .t .ds.pa-amarillo { color: #b45309; }
+.lv .t .ds.pa-rojo { color: var(--danger); }
+
+/* Recordatorios */
+.rec { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.rec-top { display: flex; align-items: flex-start; gap: 12px; }
+.rec-top > div { flex: 1; }
+.rec-top b { display: block; font-size: 15px; }
+.rec-top span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.btn-sm { min-height: 36px; padding: 0 13px; font-size: 13.5px; border-radius: 10px; }
+.horas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 13px; }
+.horas label { display: block; }
+.horas span { display: block; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+.horas input { width: 100%; box-sizing: border-box; padding: 9px 8px; font-size: 15px; font-weight: 700;
+  border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--text); }

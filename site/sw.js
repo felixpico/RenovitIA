@@ -3,7 +3,7 @@
 // 2) que si el paciente abre el icono sin senal, vea la pantalla y un aviso,
 //    en lugar del dinosaurio del navegador.
 // NUNCA cachea datos del paciente: todo lo que sale de Supabase va a la red.
-const CACHE = 'renovitia-v2';
+const CACHE = 'renovitia-v3';
 const SHELL = [
   './',
   './index.html',
@@ -51,4 +51,44 @@ self.addEventListener('fetch', (e) => {
     }).catch(() => hit);
     return hit || red;
   }));
+});
+
+// ---- Recordatorios ----
+// El servidor manda el texto ya armado. El service worker no decide nada:
+// si el payload viene vacio o roto, no inventa un aviso generico con el
+// nombre de un suplemento, porque seria adivinar sobre un dato clinico.
+self.addEventListener('push', (e) => {
+  let d = null;
+  try { d = e.data ? e.data.json() : null; } catch (_) { d = null; }
+  if (!d || !d.titulo) return;
+  e.waitUntil(self.registration.showNotification(d.titulo, {
+    body: d.cuerpo || '',
+    icon: './assets/brand/icon-192.png',
+    badge: './assets/brand/icon-192.png',
+    tag: d.tag || 'renovitia',
+    renotify: false,
+    data: { url: d.url || './index.html' },
+    actions: [{ action: 'abrir', title: 'Ver mi dia' }],
+  }));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const destino = (e.notification.data && e.notification.data.url) || './index.html';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((lista) => {
+    for (const c of lista) {
+      if (c.url.includes(self.registration.scope) && 'focus' in c) {
+        c.navigate(destino).catch(() => {});
+        return c.focus();
+      }
+    }
+    return self.clients.openWindow(destino);
+  }));
+});
+
+// Si el navegador rota la suscripcion, la app la vuelve a registrar
+// la proxima vez que el paciente abra la pantalla. Aqui solo se avisa.
+self.addEventListener('pushsubscriptionchange', (e) => {
+  e.waitUntil(self.clients.matchAll({ includeUncontrolled: true })
+    .then((l) => l.forEach((c) => c.postMessage({ tipo: 'push-caducado' }))));
 });
