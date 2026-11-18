@@ -138,38 +138,168 @@ async function entrenamiento(p) {
 }
 
 /* ============ Mis estudios ============ */
+/* ============ Mis estudios ============ */
+// Version C: que atender primero.
+// El bloque de acciones NO dice "esto es por tu ApoB". La regla firmada que
+// dispara con ApoB tambien dispara con TG y LDL, y reparte sus sugerencias
+// entre los tres. CoQ10 esta ahi para prevenir mialgia por el arroz rojo, no
+// para bajar ApoB. Decir lo contrario seria inventar una causa.
+const BANDAS = { rojo: 0, amarillo: 1, verde: 2 };
+// Se guarda lo ya consultado para que "ver la lista completa" no vuelva a pedirlo.
+let _estudios = null;
+
+// Posicion del marcador y tramos de color del riel, sobre un eje que va del
+// limite bajo al alto con 25% de margen. Devuelve null si no hay rango.
+function riel(v) {
+  let lo = v.rl; let hi = v.rh;
+  if (lo == null && hi != null) lo = 0;
+  if (hi == null && lo != null) hi = lo * 2.5;
+  if (lo == null || hi == null) return null;
+  const span = hi - lo;
+  if (!(span > 0)) return null;
+  const a = lo - span * 0.25; const b = hi + span * 0.25;
+  const P = (x) => ((x - a) / (b - a)) * 100;
+  const rlo = P(lo); const rhi = P(hi);
+  return {
+    rlo,
+    olo: Math.max(rlo, v.ol != null ? P(v.ol) : rlo),
+    ohi: Math.min(rhi, v.oh != null ? P(v.oh) : rhi),
+    rhi,
+    pos: Math.max(1.5, Math.min(98.5, P(v.valor))),
+  };
+}
+
+const barra = (r) => (r ? `<div class="bar">
+  <span class="z z1" style="width:${r.rlo}%"></span>
+  <span class="z z2" style="width:${Math.max(0, r.olo - r.rlo)}%"></span>
+  <span class="z z3" style="width:${Math.max(0, r.ohi - r.olo)}%"></span>
+  <span class="z z2" style="width:${Math.max(0, r.rhi - r.ohi)}%"></span>
+  <span class="z z1" style="width:${Math.max(0, 100 - r.rhi)}%"></span>
+  <i class="mk" style="left:${r.pos}%"></i></div>` : '');
+
+const ideal = (v) => {
+  if (v.ol != null && v.oh != null) return `Ideal ${n1(v.ol)} a ${n1(v.oh)}`;
+  if (v.oh != null) return `Ideal menos de ${n1(v.oh)}`;
+  if (v.ol != null) return `Ideal más de ${n1(v.ol)}`;
+  return '';
+};
+
+const CAT_ES = {
+  supplement: 'suplemento', peptide: 'péptido', nutrition: 'alimentación',
+  exercise: 'ejercicio', lab_followup: 'estudio de control', referral: 'referencia',
+  sleep: 'sueño', other: 'otro',
+};
+
 async function estudios(p) {
-  const { data: e } = await supabase.rpc('estado_por_sistema', { p_patient: p.id });
-  if (!e?.listo) return cabecera('Mis estudios') + `<div class="w">${vacio('🔬',
-    e?.motivo || 'Tu médica está revisando tus estudios.')}</div>`;
+  const { data: e, error } = await supabase.rpc('estudios_paciente', { p_patient: p.id });
+  if (error) {
+    return cabecera('Mis estudios') + `<div class="w">${vacio('🔬',
+      'No pudimos cargar tus resultados. Intenta de nuevo en un momento.')}</div>`;
+  }
+  if (!e?.listo) {
+    return cabecera('Mis estudios') + `<div class="w">${vacio('🔬',
+      e?.motivo || 'Tu médica está revisando tus estudios.')}</div>`;
+  }
 
-  const { data: vals } = await supabase
-    .from('lab_results')
-    .select('value_numeric,unit,collected_at,biomarkers(code,name_es)')
-    .eq('patient_id', p.id).not('released_at', 'is', null)
-    .order('collected_at', { ascending: false });
+  const vals = e.valores || [];
+  const acc = e.acciones || {};
+  const txt = e.textos || {};
+  const R = e.resumen || {};
+  const fecha = e.fecha
+    ? new Date(`${e.fecha}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
 
-  let html = cabecera('Mis estudios', `${e.n_resultados} resultados`) + '<div class="w">';
-  (e.sistemas || []).forEach((s) => {
-    html += `<div class="sysg"><div class="sysh"><span class="pt ${esc(s.color)}"></span>
-      <b>${esc(s.nombre)}</b><span class="cta ${esc(s.color)}">${s.actuar > 0 ? `${s.actuar} a atender` : s.vigilar > 0 ? 'vigilar' : 'sin alteraciones'}</span></div>
-      <div class="lista">`;
-    (s.hallazgos || []).forEach((h) => {
-      html += `<div class="lv"><div class="t"><b>${esc(h.titulo)}</b></div>
-        ${h.detalle ? `<div class="exp">${esc(h.detalle)}</div>` : ''}</div>`;
+  const rojos = vals.filter((v) => v.banda === 'rojo');
+  // Foco: rojo CON accion ligada en su protocolo. Sin accion ligada no es un
+  // pendiente, es contexto: ahi cae Lp(a), que es genetica.
+  const foco = rojos.filter((v) => (acc[v.code] || []).length)
+    .sort((a, b) => (b.exceso || 0) - (a.exceso || 0)).slice(0, 4);
+  const fijos = rojos.filter((v) => !(acc[v.code] || []).length);
+
+  let html = cabecera('Mis estudios', `${fecha} · ${R.total} resultados`) + '<div class="w">';
+
+  if (foco.length) {
+    html += `<div class="dato"><span class="dic">🎯</span><div>
+      <b>${foco.length === 1 ? 'Esto es lo primero' : `Estas ${foco.length} son lo primero`}.</b>
+      Abajo están tus ${R.total} valores, pero tu plan está construido alrededor de ${foco.length === 1 ? 'éste' : 'éstos'}.</div></div>`;
+
+    foco.forEach((v, i) => {
+      const r = riel(v);
+      const lista = acc[v.code] || [];
+      html += `<div class="foco"><div class="fn">${i + 1}</div><div class="fc">
+        <div class="fh"><b>${esc(v.nombre)}</b>
+          <span class="fv ${esc(v.banda)}">${n1(v.valor)} <small>${esc(v.unidad || '')}</small></span></div>
+        ${barra(r)}<div class="rf">${ideal(v)}</div>
+        ${txt[v.code] ? `<p class="fq">${esc(txt[v.code])}</p>` : ''}
+        <div class="fa"><b>En tu protocolo, por este grupo de resultados:</b><ul>
+          ${lista.map((x) => `<li>${esc(x.titulo)}${x.dosis ? ` — ${esc(x.dosis)}` : ''}
+            <span>${esc(CAT_ES[x.categoria] || x.categoria)}</span></li>`).join('')}
+        </ul></div></div></div>`;
     });
-    html += '</div></div>';
-  });
+  } else if (rojos.length) {
+    html += `<div class="dato alerta"><span class="dic">⏳</span><div>
+      <b>Tus resultados ya están, tu plan todavía no.</b>
+      Tu médica está armando el protocolo. En cuanto lo firme verás aquí qué hacer con cada valor.</div></div>`;
+  } else {
+    html += `<div class="dato"><span class="dic">✅</span><div>
+      <b>Sin pendientes.</b> Ninguno de tus valores está fuera de rango.</div></div>`;
+  }
 
-  if (vals?.length) {
-    html += '<h2 class="s">Todos tus valores</h2><div class="lista">';
-    vals.forEach((v) => {
-      html += `<div class="lv"><div class="t"><b>${esc(v.biomarkers?.name_es || '')}</b>
-        <span class="ds">${n1(v.value_numeric)} <small>${esc(v.unit || '')}</small></span></div></div>`;
+  if (fijos.length) {
+    html += `<div class="fijo"><b>🔎 Fuera de rango, sin una acción dirigida</b>
+      <p>Tu protocolo no tiene hoy ningún renglón apuntado específicamente a
+      ${fijos.length === 1 ? 'este valor' : 'estos valores'}. Algunos, como la Lp(a), son de nacimiento
+      y no se mueven. Otros mejoran de rebote cuando mejora el resto. Si quieres saber cuál es cuál,
+      pregúntale a tu médica desde <b>Dudas y mensajes</b>.</p>`;
+    fijos.forEach((v) => {
+      html += txt[v.code]
+        ? `<details class="fj"><summary><span>${esc(v.nombre)}</span>
+             <b>${n1(v.valor)} ${esc(v.unidad || '')}</b><i>›</i></summary>
+             <p>${esc(txt[v.code])}</p></details>`
+        : `<div class="fj fj-sola"><span>${esc(v.nombre)}</span>
+             <b>${n1(v.valor)} ${esc(v.unidad || '')}</b></div>`;
     });
     html += '</div>';
   }
-  return html + '</div>';
+
+  // Mapa de los valores, ordenado por banda. Da escala sin obligar a leer 62 renglones.
+  const orden = vals.slice().sort((a, b) => BANDAS[a.banda] - BANDAS[b.banda]);
+  html += `<h2 class="s">Tus ${R.total} valores</h2>
+    <div class="mapa">${orden.map((v) => `<span class="cu ${esc(v.banda)}"
+      title="${esc(v.nombre)}: ${n1(v.valor)} ${esc(v.unidad || '')}"></span>`).join('')}</div>
+    <div class="leg">
+      <span><i class="lgr"></i>${R.rojo} a atender</span>
+      <span><i class="lga"></i>${R.amarillo} a vigilar</span>
+      <span><i class="lgv"></i>${R.verde} en rango</span></div>
+    <button class="btn btn-ghost btn-sm btn-block" type="button" id="ver-todos"
+      style="margin-top:12px">Ver la lista completa</button>
+    <div id="lista-todos" class="hidden"></div>
+    <div class="nota-chica">Los rangos "ideales" son más estrechos que los del laboratorio.
+      Un valor en amarillo no es una enfermedad: es margen de mejora.</div></div>`;
+
+  // Se guarda para que el boton pinte la lista sin volver a consultar.
+  _estudios = { vals: orden, acc };
+  return html;
+}
+
+function montarEstudios() {
+  const b = document.getElementById('ver-todos');
+  const caja = document.getElementById('lista-todos');
+  if (!b || !caja) return;
+  b.addEventListener('click', () => {
+    if (!caja.classList.contains('hidden')) {
+      caja.classList.add('hidden'); b.textContent = 'Ver la lista completa'; return;
+    }
+    const vals = _estudios?.vals || [];
+    caja.innerHTML = `<div class="lista">${vals.map((v) => {
+      const r = riel(v);
+      return `<div class="lv"><div class="t"><b>${esc(v.nombre)}</b>
+        <span class="ds pa-${esc(v.banda)}">${n1(v.valor)} <small>${esc(v.unidad || '')}</small></span></div>
+        ${barra(r)}<div class="rf">${ideal(v)}</div></div>`;
+    }).join('')}</div>`;
+    caja.classList.remove('hidden');
+    b.textContent = 'Ocultar la lista';
+  });
 }
 
 /* ============ Estudios pendientes ============ */
@@ -501,6 +631,7 @@ export async function abrirSeccion(id, p, extra) {
   const f = caja.querySelector('#form-msg');
   if (f) f.addEventListener('submit', (ev) => enviarMensaje(ev, p));
   if (id === 'presion') montarPresion(p);
+  if (id === 'estudios') montarEstudios();
   if (id === 'perfil') montarPerfil(p);
 }
 
