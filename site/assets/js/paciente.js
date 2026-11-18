@@ -6,6 +6,7 @@
 //  - Nada se presenta como "firmado" si el protocolo no esta en delivered.
 import { supabase } from './supabase.js';
 import { FRANJAS, NOMBRE_FRANJA, franjaDe, tocaHoy } from './franjas.js';
+import { abrirSeccion, cerrarSeccion } from './secciones.js';
 
 const $ = (id) => document.getElementById(id);
 const CON_TOMA = ['supplement', 'peptide', 'medication'];
@@ -44,6 +45,14 @@ export function montarTabs() {
     });
   });
 }
+
+// Regresar desde una seccion tambien restaura el encabezado de Mi salud.
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.det-bk')) {
+    document.getElementById('salud-hero')?.classList.remove('hidden');
+    cerrarSeccion();
+  }
+});
 
 /* ---------------- Hoy ---------------- */
 function franjaDeItem(i) {
@@ -189,12 +198,12 @@ const ICO = {
   grafica: '<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>',
   perfil: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
 };
-const acceso = (icono, titulo, sub, href, cuenta) => `
-  <a class="acceso" href="${href}">
+const acceso = (icono, titulo, sub, sec, cuenta) => `
+  <button class="acceso" type="button" data-sec="${sec}">
     <span class="ic"><svg viewBox="0 0 24 24">${ICO[icono]}</svg></span>
     <span class="nm"><b>${esc(titulo)}</b><span>${esc(sub)}</span></span>
     ${cuenta ? `<span class="cuenta">${cuenta}</span>` : '<span class="ch">›</span>'}
-  </a>`;
+  </button>`;
 
 async function pintarSalud(nLab, faltantes) {
   const caja = $('semaforo');
@@ -225,19 +234,24 @@ async function pintarSalud(nLab, faltantes) {
   }
 
   const nav = $('salud-nav');
-  const planHref = S.plan ? `plan.html?id=${S.plan.id}` : '#';
   nav.innerHTML = [
-    S.plan
-      ? acceso('plan', 'Mi protocolo', `Versión ${S.plan.version} · firmado por tu médico`, planHref)
-      : acceso('plan', 'Mi protocolo', 'Pendiente de firma médica', '#'),
-    acceso('lab', 'Mis estudios', nLab ? `${nLab} resultados disponibles` : 'Aún no hay resultados liberados', '#'),
-    faltantes ? acceso('pin', 'Estudios pendientes', 'Lo que falta por hacerte', '#', faltantes) : '',
-    acceso('comida', 'Mi alimentación', 'Tus macros y un día de ejemplo', planHref),
-    acceso('pesa', 'Mi entrenamiento', 'Tu programa de la semana', planHref),
-    acceso('chat', 'Dudas y mensajes', 'Escríbele a tu médico', '#'),
-    acceso('grafica', 'Mi avance', 'Peso, cintura y adherencia', '#'),
-    acceso('perfil', 'Mi perfil', 'Datos, acceso y notificaciones', '#'),
+    acceso('plan', 'Mi protocolo', S.plan ? `Versión ${S.plan.version} · firmado por tu médica`
+      : 'Pendiente de firma médica', 'protocolo'),
+    acceso('lab', 'Mis estudios', nLab ? `${nLab} resultados disponibles` : 'Aún no hay resultados liberados', 'estudios'),
+    faltantes ? acceso('pin', 'Estudios pendientes', 'Lo que falta por hacerte', 'pendientes', faltantes) : '',
+    acceso('comida', 'Mi alimentación', 'Tus macros y un día de ejemplo', 'alimentacion'),
+    acceso('pesa', 'Mi entrenamiento', 'Tu programa de la semana', 'entrenamiento'),
+    acceso('chat', 'Dudas y mensajes', 'Escríbele a tu médica', 'mensajes'),
+    acceso('grafica', 'Mi avance', 'Peso, cintura y constancia', 'avance'),
+    acceso('perfil', 'Mi perfil', 'Datos, acceso y notificaciones', 'perfil'),
   ].filter(Boolean).join('');
+
+  nav.querySelectorAll('[data-sec]').forEach((b) => {
+    b.addEventListener('click', () => {
+      $('salud-hero')?.classList.add('hidden');
+      abrirSeccion(b.dataset.sec, S.paciente, S.plan);
+    });
+  });
 }
 
 /* ---------------- arranque ---------------- */
