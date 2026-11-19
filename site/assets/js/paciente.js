@@ -406,12 +406,24 @@ export async function pintarPaciente(patient, extras = {}) {
 
   // El resumen se pide en paralelo con el plan: es una sola llamada y sirve
   // aunque todavia no haya protocolo entregado.
-  const [{ data: planes }, { data: resumen }] = await Promise.all([
+  //
+  // OJO: supabase.rpc() NO devuelve una promesa, devuelve un thenable que solo tiene
+  // .then. Llamarle .catch() directamente revienta con "catch is not a function" y,
+  // como pasa antes de dibujar nada, la app se queda cargando para siempre.
+  // El resumen es opcional: si falla, la pantalla tiene que seguir funcionando.
+  const pedirResumen = async () => {
+    try {
+      const { data, error } = await supabase.rpc('resumen_hoy', { p_patient: patient.id });
+      return error ? null : data;
+    } catch (_) { return null; }
+  };
+
+  const [{ data: planes }, resumen] = await Promise.all([
     supabase.from('protocols')
       .select('id,version,status,signed_at,start_date')
       .eq('patient_id', patient.id).eq('status', 'delivered')
       .order('version', { ascending: false }),
-    supabase.rpc('resumen_hoy', { p_patient: patient.id }).catch(() => ({ data: null })),
+    pedirResumen(),
   ]);
   S.resumen = resumen || null;
 
