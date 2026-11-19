@@ -25,7 +25,7 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const S = { paciente: null, plan: null, items: [], fecha: iso(new Date()),
-            registro: null, guardando: false, pendiente: false };
+            registro: null, guardando: false, pendiente: false, periodico: {} };
 
 /* ---------------- pestanas ---------------- */
 export function montarTabs() {
@@ -60,13 +60,38 @@ function franjaDeItem(i) {
   return FRANJAS.some(([k]) => k === f) ? f : 'indefinido';
 }
 
+// Un renglon periodico que ya se aplico y todavia no le toca NO entra en la
+// lista del dia, ni cuenta en el anillo. Antes la Retatrutida aparecia sin
+// palomear los siete dias de la semana, aunque el paciente ya se la hubiera
+// puesto.
+function esPeriodico(i) { return !!S.periodico[i.id]; }
+function tocaPeriodico(i) { return S.periodico[i.id]?.toca_hoy !== false; }
+
 function delDia() {
   const f = new Date(`${S.fecha}T12:00:00`);
   return S.items.filter((i) => {
+    if (esPeriodico(i)) return tocaPeriodico(i);
     const t = tocaHoy(i, f);
     return t === 'alterno' ? true : t;
   });
 }
+
+function periodicosHechos() {
+  return S.items.filter((i) => esPeriodico(i) && !tocaPeriodico(i));
+}
+
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+// Dos formatos a proposito: uno va a media frase y otro en una etiqueta
+// angosta. Recortar con split() dejaba "Martes 24 de".
+const FECHA_LARGA = (d) => {
+  const f = new Date(`${d}T12:00:00`);
+  return `${DIAS[f.getDay()].toLowerCase()} ${f.getDate()} de ${MESES[f.getMonth()]}`;
+};
+const FECHA_CORTA = (d) => {
+  const f = new Date(`${d}T12:00:00`);
+  return `${DIAS[f.getDay()]} ${f.getDate()}`;
+};
 
 function etiquetas(it) {
   let e = '';
@@ -117,21 +142,42 @@ function pintarHoy() {
     html += `<div class="fr"><h3>${esc(CORTO[clave] || nombre)} <em>· ${n} de ${lista.length}</em></h3><div class="lista">`;
     lista.forEach((i) => {
       const on = S.registro.supplements_taken?.[i.id] ? ' on' : '';
-      const sub = i.reconstitution || '';
+      const per = S.periodico[i.id];
+      // Un atraso en una inyeccion semanal no es lo mismo que olvidar una
+      // capsula: se dice con numero, no con un regano generico.
+      const atraso = per?.atraso > 0
+        ? `<span class="tarde">Van ${per.atraso} ${per.atraso === 1 ? 'día' : 'días'} de retraso</span>`
+        : '';
+      const sub = atraso || (i.reconstitution ? `<span>${esc(i.reconstitution)}</span>` : '');
       html += `<button class="it${on}" type="button" data-id="${esc(i.id)}" aria-pressed="${on ? 'true' : 'false'}">
         <span class="cb">${PALOMA}</span>
-        <span class="nm"><b>${esc(i.title)}${etiquetas(i)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</span>
+        <span class="nm"><b>${esc(i.title)}${etiquetas(i)}</b>${sub}</span>
         ${i.dose ? `<span class="ds">${esc(i.dose)}</span>` : ''}</button>`;
     });
     html += '</div></div>';
   });
 
+  // Si simplemente se oculta, el paciente cree que se perdio su inyeccion.
+  // Se muestra hecha, con la fecha de la siguiente.
+  const hechos2 = periodicosHechos();
+  if (hechos2.length) {
+    html += '<div class="fr"><h3>Ya aplicado</h3><div class="lista">';
+    hechos2.forEach((i) => {
+      const per = S.periodico[i.id];
+      html += `<div class="it on listo"><span class="cb">${PALOMA}</span>
+        <span class="nm"><b>${esc(i.title)}${etiquetas(i)}</b>
+          <span>Te la pusiste el ${esc(FECHA_LARGA(per.ultima))}</span></span>
+        <span class="prox">Siguiente<b>${esc(FECHA_CORTA(per.proxima))}</b></span></div>`;
+    });
+    html += '</div></div>';
+  }
+
   caja.innerHTML = html;
-  caja.querySelectorAll('.it').forEach((b) => b.addEventListener('click', () => alternar(b)));
+  caja.querySelectorAll('.it:not(.listo)').forEach((b) => b.addEventListener('click', () => alternar(b)));
   pintarEntreno();
 }
 
-function alternar(btn) {
+async function alternar(btn) {
   const id = btn.dataset.id;
   if (!S.registro.supplements_taken) S.registro.supplements_taken = {};
   const nuevo = !S.registro.supplements_taken[id];
@@ -139,8 +185,26 @@ function alternar(btn) {
   else delete S.registro.supplements_taken[id];
   btn.classList.toggle('on', nuevo);
   btn.setAttribute('aria-pressed', nuevo ? 'true' : 'false');
+
+  const per = S.periodico[id];
+  if (per && nuevo) {
+    // Al marcarla, pasa a "ya aplicado" en el momento, con su proxima fecha.
+    // El calculo es el mismo que hace el servidor, asi que no hace falta ir.
+    const prox = new Date(`${S.fecha}T12:00:00`);
+    prox.setDate(prox.getDate() + per.intervalo);
+    S.periodico[id] = { ...per, ultima: S.fecha, dias_desde: 0, atraso: 0,
+      toca_hoy: false, proxima: iso(prox) };
+  }
   pintarHoy();
   guardar();
+
+  // Al desmarcarla hay que volver a buscar cual fue la anterior: eso no se
+  // puede calcular aqui.
+  if (per && !nuevo) {
+    const { data } = await supabase.rpc('estado_periodico', { p_patient: S.paciente.id });
+    S.periodico = data || {};
+    pintarHoy();
+  }
 }
 
 let temporizador = null;
@@ -280,6 +344,12 @@ export async function pintarPaciente(patient, extras = {}) {
       .eq('patient_id', patient.id).eq('checkin_date', S.fecha).maybeSingle();
     S.registro = reg || { supplements_taken: {} };
     if (!S.registro.supplements_taken) S.registro.supplements_taken = {};
+
+    // Lo que no se toma a diario (la inyeccion semanal, el hierro en dias
+    // alternos) no se puede resolver con el palomeo del dia: el check-in se
+    // guarda por fecha, asi que marcar el martes no se ve el miercoles.
+    const { data: per } = await supabase.rpc('estado_periodico', { p_patient: patient.id });
+    S.periodico = per || {};
 
     pintarHoy();
   } else {

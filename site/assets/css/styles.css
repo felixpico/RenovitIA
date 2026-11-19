@@ -592,7 +592,7 @@ body.con-tabs { padding-bottom: 86px; }
 .bm u { display: block; height: 100%; }
 .bm .bK { background: var(--accent); } .bm .bC { background: #c7803a; } .bm .bG { background: #8a7bb8; }
 
-.comer-bot { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; margin-top: 13px; }
+.comer-bot { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 13px; }
 .cm-b { min-height: 48px; padding: 0 6px; font-size: 13px; border-radius: 12px; }
 #cm-estado:not(:empty) { margin-top: 12px; }
 
@@ -687,3 +687,12 @@ body.con-tabs { padding-bottom: 86px; }
 .porciones u { font-size: 12.5px; color: var(--muted); text-decoration: none; width: 100%; }
 .afinar { margin-top: 11px; }
 .afinar summary { cursor: pointer; font-size: 13px; color: var(--brand); font-weight: 600; }
+
+/* Tomas que no son diarias */
+.it .tarde { color: var(--danger); font-weight: 700; }
+.it.listo { cursor: default; opacity: .78; }
+.it.listo:hover { background: transparent; }
+.it .prox { flex: none; text-align: right; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .3px; text-transform: uppercase; color: var(--muted); line-height: 1.3; }
+.it .prox b { display: block; font-size: 13px; letter-spacing: 0; text-transform: none;
+  color: var(--brand); font-weight: 700; }

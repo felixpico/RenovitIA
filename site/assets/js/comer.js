@@ -79,6 +79,7 @@ export function panelHoy(d) {
 
   h += `<div class="comer-bot">
     <input type="file" id="cm-foto" accept="image/*" capture="environment" hidden>
+    <button class="btn btn-primary cm-b" type="button" data-modo="codigo">▦ Código</button>
     <button class="btn btn-primary cm-b" type="button" data-modo="etiqueta">🏷️ Etiqueta</button>
     <button class="btn btn-primary cm-b" type="button" data-modo="plato">📷 Mi plato</button>
     <button class="btn btn-ghost cm-b" type="button" data-modo="buscar">🔎 Buscar</button>
@@ -195,6 +196,12 @@ export function montarComer(p, recargar) {
   document.querySelectorAll('.cm-b').forEach((b) => {
     b.addEventListener('click', () => {
       modoActual = b.dataset.modo;
+      if (modoActual === 'codigo') {
+        aviso('');
+        $('cm-form').innerHTML = cajaCodigo();
+        montarCodigo(p, recargar);
+        return;
+      }
       if (modoActual === 'buscar') {
         aviso('');
         $('cm-form').innerHTML = cajaBuscador();
@@ -327,6 +334,19 @@ function enlazarEtiqueta(p, L, documentId, recargar) {
     const m = calcular();
     const x = Number(cant.value || 0);
     if (!(x > 0)) return;
+    // La etiqueta que el paciente acaba de fotografiar vale mas que cualquier
+    // base colaborativa: es el empaque mexicano que tiene en la mano. Se aporta
+    // al catalogo para que el siguiente no la teclee.
+    if (L.codigo_barras) {
+      supabase.functions.invoke('aportar-producto', { body: {
+        codigo_barras: L.codigo_barras, nombre: L.producto, marca: L.marca,
+        base: L.base, porcion_g: L.porcion_g, porcion_texto: L.porcion_texto,
+        kcal: L.kcal, proteina_g: L.proteina_g, carbohidrato_g: L.carbohidrato_g,
+        grasa_g: L.grasa_g, fibra_g: L.fibra_g,
+        azucares_anadidos_g: L.azucares_anadidos_g, sodio_mg: L.sodio_mg,
+        ingredientes: L.ingredientes, sellos: L.sellos,
+      } }).then(() => {}, () => {});
+    }
     await guardar(ev.currentTarget, {
       patient_id: p.id,
       // "Quest Bar (1 pieza (60 g))" se lee mal: si la unidad ya trae
@@ -388,4 +408,112 @@ async function guardar(boton, fila, recargar) {
     return;
   }
   recargar();
+}
+
+
+/* ---------- código de barras ---------- */
+// El codigo es la llave real de un producto empaquetado: no cambia, no tiene
+// acentos y no se escribe de dos formas. Se puede leer de la foto o teclear.
+function cajaCodigo() {
+  return `<div class="confirma">
+    <b>Código de barras</b>
+    <p>Apunta la cámara al código de la parte de atrás, o escribe los números que vienen
+      debajo de las rayas.</p>
+    <input type="file" id="cb-foto" accept="image/*" capture="environment" hidden>
+    <button class="btn btn-primary btn-block" type="button" id="cb-tomar">Tomar foto del código</button>
+    <label class="cmf ancho"><span>O ESCRÍBELO</span>
+      <input id="cb-num" type="text" inputmode="numeric" placeholder="7501030467090" maxlength="14"></label>
+    <button class="btn btn-ghost btn-block" type="button" id="cb-buscar">Buscar producto</button>
+  </div>`;
+}
+
+function montarCodigo(p, recargar) {
+  const $ = (id) => document.getElementById(id);
+  const estado = $('cm-estado');
+  const aviso = (t, malo) => {
+    estado.innerHTML = t
+      ? `<div class="dato ${malo ? 'alerta' : ''}"><span class="dic">${malo ? '⚠️' : 'ℹ️'}</span><div>${t}</div></div>`
+      : '';
+  };
+
+  const resolver = async (codigo) => {
+    aviso('Buscando el producto…');
+    const { data: r, error } = await supabase.functions
+      .invoke('buscar-producto', { body: { codigo } });
+    if (error || !r) { aviso('No se pudo buscar. Intenta de nuevo.', true); return; }
+    if (!r.ok) {
+      aviso(esc(r.aviso), true);
+      // Si no esta en ninguna base, el camino es la etiqueta: y al confirmarla
+      // el producto queda guardado con su codigo.
+      $('cm-form').innerHTML = `<div class="confirma"><b>No lo encontramos</b>
+        <p>${esc(r.aviso)}</p>
+        <button class="btn btn-primary btn-block" type="button" id="cb-a-etiqueta">
+          Tomar foto de la tabla nutrimental</button></div>`;
+      $('cb-a-etiqueta')?.addEventListener('click', () => {
+        document.querySelector('[data-modo="etiqueta"]')?.click();
+      });
+      return;
+    }
+    aviso(r.aviso ? esc(r.aviso) : '', !!r.requiere_revision);
+    const d = r.producto;
+    // Se reusa el panel del buscador: ya sabe pedir cuanto comiste.
+    $('cm-form').innerHTML = panelBase({
+      code: d.code, nombre: d.marca ? `${d.nombre} · ${d.marca}` : d.nombre,
+      kcal: d.kcal, protein_g: d.protein_g, carb_g: d.carb_g, fat_g: d.fat_g,
+      fiber_g: d.fiber_g, medida: d.medida, medida_g: d.medida_g,
+      fuente: d.fuente === 'openfoodfacts' ? 'OpenFoodFacts' : d.fuente,
+    });
+    const s = document.getElementById('cm-franja');
+    if (s) {
+      s.innerHTML = FRANJAS.map(([k, n]) =>
+        `<option value="${k}"${k === franjaAhora() ? ' selected' : ''}>${n}</option>`).join('');
+    }
+    montarBase({ ...d, nombre: d.nombre }, async (boton, fila, code) => {
+      await guardar(boton, { patient_id: p.id, origen: 'etiqueta', ...fila }, recargar);
+      supabase.rpc('usar_alimento', { p_code: code }).then(() => {}, () => {});
+    });
+  };
+
+  $('cb-buscar')?.addEventListener('click', () => {
+    const c = ($('cb-num')?.value || '').replace(/\D/g, '');
+    if (c.length < 8) { aviso('Faltan dígitos. Un código suele traer 13.', true); return; }
+    resolver(c);
+  });
+  $('cb-num')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('cb-buscar').click(); });
+  $('cb-tomar')?.addEventListener('click', () => $('cb-foto').click());
+
+  $('cb-foto')?.addEventListener('change', async (ev) => {
+    const f = ev.target.files?.[0];
+    ev.target.value = '';
+    if (!f) return;
+    let ruta = null;
+    try {
+      aviso('Leyendo el código…');
+      ruta = `${p.id}/comida/${Date.now()}-cb.jpg`;
+      const up = await supabase.storage.from('patient-documents')
+        .upload(ruta, f, { contentType: f.type || 'image/jpeg' });
+      if (up.error) throw up.error;
+      const { data: doc, error: eDoc } = await supabase.from('documents').insert({
+        patient_id: p.id, kind: 'other', storage_path: ruta,
+        original_filename: f.name || 'codigo.jpg', mime_type: f.type || 'image/jpeg',
+        extraction_status: 'pending',
+      }).select('id').single();
+      if (eDoc) { await supabase.storage.from('patient-documents').remove([ruta]).catch(() => {}); throw eDoc; }
+
+      const { data: r, error: eFn } = await supabase.functions
+        .invoke('leer-alimento', { body: { document_id: doc.id, modo: 'codigo' } });
+      if (eFn || r?.error) throw new Error(r?.error || eFn.message);
+      if (!r.ok) { aviso(esc(r.aviso), true); return; }
+
+      // Se muestra el numero leido antes de buscar: un digito mal cambia de
+      // producto, y el paciente tiene el empaque enfrente para comprobarlo.
+      const num = document.getElementById('cb-num');
+      if (num) num.value = r.lectura.codigo;
+      if (r.requiere_revision) { aviso(esc(r.aviso), true); return; }
+      resolver(r.lectura.codigo);
+    } catch (e) {
+      console.error(e);
+      aviso('No pudimos leer el código. Escribe los números a mano.', true);
+    }
+  });
 }
