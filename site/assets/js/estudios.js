@@ -33,8 +33,16 @@ export function renderStudiesTab(root, ctx) {
   const load = async () => {
     root.innerHTML = '';
     root.append(h('div', { class: 'spinner' }));
-    let data;
-    try { data = await api.studies(patient.id); } catch (e) { root.innerHTML = ''; root.append(h('div', { class: 'notice danger', text: e.message })); return; }
+    let data; let convertidos = [];
+    try {
+      // Los valores los convierte la base, no esta pantalla. Una sola maquina de
+      // conversion: si se reimplementa aqui, tarde o temprano las dos difieren.
+      [data, convertidos] = await Promise.all([
+        api.studies(patient.id),
+        api.valoresConvertidos(patient.id).catch(() => []),
+      ]);
+    } catch (e) { root.innerHTML = ''; root.append(h('div', { class: 'notice danger', text: e.message })); return; }
+    convertidos = convertidos || [];
     root.innerHTML = '';
     const { orders, items, providers, documents, results, bodycomp, biomarkers, ranges } = data;
     const bmById = new Map(biomarkers.map((b) => [b.id, b]));
@@ -230,12 +238,26 @@ export function renderStudiesTab(root, ctx) {
 
       Object.values(ultimo).forEach((r) => { if (/^Calculado:/.test(r.raw_name || '')) r.derivado = true; });
 
+      const conv = new Map(convertidos.map((c) => [c.code, c]));
+      // Mismo filtro que usa el motor de alertas. Si la pantalla colorea con un rango
+      // que el motor ignora, la medica ve un color que nadie va a respaldar.
+      const rangosActivos = ranges.filter((g) => (g.approved_by || g.pilot_enabled)
+        && (g.reference_low != null || g.reference_high != null
+            || g.optimal_low != null || g.optimal_high != null));
+
+      // Antes esto terminaba en .filter((x) => x && x.ev), y cualquier marcador que no
+      // se pudiera colorear DESAPARECIA de la hoja. En una mujer eso borraba estradiol,
+      // FSH, LH y progesterona: justo los que la medica tiene que interpretar a mano.
       const filas = Object.entries(ultimo).map(([code, r]) => {
         const bm = bmPorCodigo.get(code);
         if (!bm) return null;
-        const rango = rangoDe(ranges, bm.id, sex, edad);
-        return { bm, r, ev: evaluar(r.value_numeric, rango) };
-      }).filter((x) => x && x.ev);
+        const c = conv.get(code);
+        const valor = c ? (c.evaluable ? Number(c.valor) : null) : r.value_numeric;
+        const rango = valor === null ? null : rangoDe(rangosActivos, bm.id, sex, edad);
+        const ev = valor === null ? null : evaluar(valor, rango);
+        const motivo = valor === null ? 'unidad' : (!rango ? 'sin_rango' : (!ev ? 'sin_optimo' : null));
+        return { bm, r, c, valor, rango, ev, motivo };
+      }).filter(Boolean);
 
       const caja = h('section', { class: 'semaforo' });
       if (!filas.length) {
@@ -246,42 +268,62 @@ export function renderStudiesTab(root, ctx) {
       }
 
       const cuenta = { verde: 0, amarillo: 0, rojo: 0 };
-      filas.forEach((f) => { cuenta[f.ev.color] += 1; });
-      const pendientes = filas.filter((f) => f.ev.pendiente).length;
+      filas.forEach((f) => { if (f.ev) cuenta[f.ev.color] += 1; });
+      const sinEvaluar = filas.filter((f) => !f.ev).length;
+      const pendientes = filas.filter((f) => f.ev?.pendiente).length;
 
       caja.append(h('div', { class: 'semaforo-top' },
         h('h3', { class: 'block-title', style: 'margin:0', text: 'Resumen funcional' }),
         h('div', { class: 'semaforo-cuenta' },
           h('span', { class: 'pill rojo' }, h('b', { text: String(cuenta.rojo) }), ' fuera de límite'),
           h('span', { class: 'pill amarillo' }, h('b', { text: String(cuenta.amarillo) }), ' en el límite'),
-          h('span', { class: 'pill verde' }, h('b', { text: String(cuenta.verde) }), ' en óptimo'))));
+          h('span', { class: 'pill verde' }, h('b', { text: String(cuenta.verde) }), ' en óptimo'),
+          sinEvaluar ? h('span', { class: 'pill neutro' }, h('b', { text: String(sinEvaluar) }), ' sin evaluar') : null)));
       caja.append(h('p', { class: 'muted small', style: 'margin:2px 0 10px' },
         'Comparado contra rangos de medicina funcional, no contra el rango del laboratorio.'));
       if (pendientes) {
-        const enPrueba = filas.filter((f) => f.ev.enPrueba).length;
+        const enPrueba = filas.filter((f) => f.ev?.enPrueba).length;
         caja.append(h('div', { class: 'notice small', text: enPrueba
           ? `${enPrueba} de estos rangos están activos en modo prueba, sin firma médica. Las alertas que generan se marcan como tales.`
           : `${pendientes} de estos rangos todavía no los aprueba un médico. No generan alerta.` }));
       }
 
       const orden = { rojo: 0, amarillo: 1, verde: 2 };
+      const num = (v) => { const x = Number(v); return Number.isFinite(x) ? String(Math.round(x * 10000) / 10000) : String(v); };
       ORDEN_CAT.forEach((cat) => {
         const dentro = filas.filter((f) => f.bm.category === cat)
-          .sort((a, b) => orden[a.ev.color] - orden[b.ev.color] || a.bm.name_es.localeCompare(b.bm.name_es));
+          .sort((a, b) => (orden[a.ev?.color] ?? 3) - (orden[b.ev?.color] ?? 3) || a.bm.name_es.localeCompare(b.bm.name_es));
         if (!dentro.length) return;
         const rejilla = h('div', { class: 'semaforo-grid' });
-        dentro.forEach(({ bm, r, ev }) => {
-          const u = bm.default_unit && bm.default_unit !== 'indice' ? bm.default_unit : '';
-          const chip = h('article', { class: `sem-card ${ev.color}${ev.pendiente ? ' pendiente' : ''}` },
+        dentro.forEach(({ bm, r, c, valor, rango, ev, motivo }) => {
+          const uCanon = c?.unidad || (bm.default_unit && bm.default_unit !== 'indice' ? bm.default_unit : '');
+          // Si no se pudo convertir, se muestra el numero TAL COMO lo mando el
+          // laboratorio. Ponerle la etiqueta de nuestra unidad a un valor sin convertir
+          // es peor que no mostrarlo: parece un dato y es una mentira.
+          const mostrado = motivo === 'unidad' ? (c?.valor_lab ?? r.value_numeric) : (valor ?? r.value_numeric);
+          const uMostrada = motivo === 'unidad' ? (c?.unidad_lab || '') : uCanon;
+          const pie = [];
+          if (r.derivado) pie.push(h('span', { class: 'sem-tag', text: 'calculado' }));
+          if (ev?.rango?.evidence_level) pie.push(h('span', { class: `sem-ev ev-${ev.rango.evidence_level}`, title: EVIDENCIA[ev.rango.evidence_level], text: ev.rango.evidence_level }));
+          if (ev?.pendiente) pie.push(h('span', { class: 'sem-tag pendiente', text: ev.enPrueba ? 'en prueba' : 'sin aprobar' }));
+          if (!ev) pie.push(h('span', { class: 'sem-tag neutro', text: 'sin evaluar' }));
+
+          let linea;
+          if (ev) linea = `Óptimo ${textoRango(ev.rango.optimal_low, ev.rango.optimal_high, uCanon)}`;
+          else if (motivo === 'unidad') linea = `El laboratorio lo midió en ${c?.unidad_lab || 'una unidad sin especificar'} y no equivale a ${uCanon}. No se evaluó.`;
+          else if (motivo === 'sin_optimo') linea = `Dentro del límite ${textoRango(rango?.reference_low, rango?.reference_high, uCanon)}, pero sin óptimo definido.`;
+          else linea = `Sin rango funcional para este sexo o edad. Lo interpretas tú.`;
+
+          const chip = h('article', { class: `sem-card ${ev ? ev.color : 'neutro'}${ev?.pendiente ? ' pendiente' : ''}` },
             h('header', { class: 'sem-head' },
               h('span', { class: 'sem-nombre', text: bm.name_es }),
-              ev.direccion ? h('span', { class: 'sem-dir', text: ev.direccion === 'alto' ? '▲' : '▼' }) : null),
-            h('div', { class: 'sem-valor' }, h('b', { text: String(r.value_numeric) }), u ? h('span', { class: 'sem-unidad', text: u }) : null),
-            h('div', { class: 'sem-rango small', text: `Óptimo ${textoRango(ev.rango.optimal_low, ev.rango.optimal_high, u)}` }),
-            h('div', { class: 'sem-pie small' },
-              r.derivado ? h('span', { class: 'sem-tag', text: 'calculado' }) : null,
-              ev.rango.evidence_level ? h('span', { class: `sem-ev ev-${ev.rango.evidence_level}`, title: EVIDENCIA[ev.rango.evidence_level], text: ev.rango.evidence_level }) : null,
-              ev.pendiente ? h('span', { class: 'sem-tag pendiente', text: ev.enPrueba ? 'en prueba' : 'sin aprobar' }) : null));
+              ev?.direccion ? h('span', { class: 'sem-dir', text: ev.direccion === 'alto' ? '▲' : '▼' }) : null),
+            h('div', { class: 'sem-valor' }, h('b', { text: num(mostrado) }), uMostrada ? h('span', { class: 'sem-unidad', text: uMostrada }) : null),
+            h('div', { class: 'sem-rango small', text: linea }),
+            h('div', { class: 'sem-pie small' }, ...pie));
+          if (c?.convertido) {
+            chip.append(h('p', { class: 'sem-nota small', text: `El laboratorio reportó ${num(c.valor_lab)} ${c.unidad_lab || ''}.` }));
+          }
           if (r.nota) chip.append(h('p', { class: 'sem-nota small', text: r.nota }));
           rejilla.append(chip);
         });

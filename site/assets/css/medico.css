@@ -121,6 +121,11 @@ table.data tr.clickable:hover td { background: var(--surface-2); }
 .sem-card.amarillo { border-left-color: var(--sem-amar);  background: var(--sem-amar-bg); }
 .sem-card.rojo     { border-left-color: var(--sem-rojo);  background: var(--sem-rojo-bg); }
 .sem-card.pendiente { border-style: dashed; }
+/* Sin color NO es verde. Es un valor que nadie evaluo y que la medica tiene que leer. */
+.sem-card.neutro { border-left-color: var(--muted, #8b8b8b); background: var(--surface-2, #f6f6f5); }
+.sem-card.neutro .sem-valor b { color: var(--muted, #6b6b6b); }
+.sem-tag.neutro { background: var(--surface-3, #ececea); color: var(--muted, #6b6b6b); }
+.pill.neutro { background: var(--surface-3, #ececea); color: var(--muted, #6b6b6b); }
 .sem-head { display: flex; align-items: flex-start; gap: 6px; justify-content: space-between; }
 .sem-nombre { font-size: .82rem; font-weight: 600; line-height: 1.25; }
 .sem-dir { font-size: .8rem; }

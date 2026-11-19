@@ -205,6 +205,10 @@ const liveApi = {
     const { data, error } = await supabase.rpc('evaluate_labs', { p_patient: patientId });
     if (error) throw error; return data;
   },
+  async valoresConvertidos(patientId) {
+    const { data, error } = await supabase.rpc('valores_convertidos', { p_patient: patientId });
+    if (error) throw error; return data;
+  },
   async reevaluarTodo() {
     const { data, error } = await supabase.rpc('reevaluar_todo');
     if (error) throw error; return data;
