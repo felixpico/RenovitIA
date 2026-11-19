@@ -205,6 +205,10 @@ const liveApi = {
     const { data, error } = await supabase.rpc('evaluate_labs', { p_patient: patientId });
     if (error) throw error; return data;
   },
+  async reevaluarTodo() {
+    const { data, error } = await supabase.rpc('reevaluar_todo');
+    if (error) throw error; return data;
+  },
   async suggestions(patientId) {
     const { data, error } = await supabase.rpc('sugerir_plan', { p_patient: patientId });
     if (error) throw error; return data || [];

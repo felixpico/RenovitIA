@@ -194,9 +194,17 @@ const ideal = (v) => {
   if (v.oh != null) return `Ideal menos de ${n1(v.oh)}`;
   if (v.ol != null) return `Ideal más de ${n1(v.ol)}`;
   // Decirlo, no callarlo: el silencio se lee como "está bien".
+  if (v.motivo === 'unidad') return 'Tu laboratorio usó otra unidad: lo revisa tu médica';
   if (v.banda === 'sin_rango') return 'Sin rango automático: lo interpreta tu médica';
   return '';
 };
+
+// El paciente va a comparar contra su PDF del laboratorio. Si el sistema convirtió
+// la unidad hay que decirle el número original, o va a pensar que nos equivocamos.
+const comoVino = (v) => (v.convertido
+  ? `<div class="rf rf-conv">Tu laboratorio lo reportó como ${n1(v.valor_lab)} ${esc(v.unidad_lab || '')}:
+      es el mismo resultado, en otra unidad.</div>`
+  : '');
 
 const CAT_ES = {
   supplement: 'suplemento', peptide: 'péptido', nutrition: 'alimentación',
@@ -243,7 +251,7 @@ async function estudios(p) {
       html += `<div class="foco"><div class="fn">${i + 1}</div><div class="fc">
         <div class="fh"><b>${esc(v.nombre)}</b>
           <span class="fv ${esc(v.banda)}">${n1(v.valor)} <small>${esc(v.unidad || '')}</small></span></div>
-        ${barra(r)}<div class="rf">${ideal(v)}</div>
+        ${barra(r)}<div class="rf">${ideal(v)}</div>${comoVino(v)}
         ${txt[v.code] ? `<p class="fq">${esc(txt[v.code])}</p>` : ''}
         <div class="fa"><b>En tu protocolo, por este grupo de resultados:</b><ul>
           ${lista.map((x) => `<li>${esc(x.titulo)}${x.dosis ? ` — ${esc(x.dosis)}` : ''}
@@ -280,7 +288,21 @@ async function estudios(p) {
   const orden = vals.slice().sort((a, b) => BANDAS[a.banda] - BANDAS[b.banda]);
   // Los que nadie pudo evaluar se dicen aparte. Antes salian verdes, es decir
   // "en rango", y eso es tranquilizar a alguien sin haberlo mirado.
-  const sinRango = vals.filter((v) => v.banda === 'sin_rango');
+  const sinUnidad = vals.filter((v) => v.motivo === 'unidad');
+  if (sinUnidad.length) {
+    html += `<div class="fijo"><b>⚠️ ${sinUnidad.length === 1
+      ? 'Un valor que no pudimos comparar' : `${sinUnidad.length} valores que no pudimos comparar`}</b>
+      <p>Tu laboratorio los midió en una unidad que no equivale exactamente a la nuestra,
+      y preferimos no convertirla a la fuerza: un número mal convertido es peor que ninguno.
+      Tu médica los lee directo del estudio original.</p>`;
+    sinUnidad.forEach((v) => {
+      html += `<div class="fj fj-sola"><span>${esc(v.nombre)}</span>
+        <b class="gris">${n1(v.valor_lab)} ${esc(v.unidad_lab || 'sin unidad')}</b></div>`;
+    });
+    html += '</div>';
+  }
+
+  const sinRango = vals.filter((v) => v.banda === 'sin_rango' && v.motivo !== 'unidad');
   if (sinRango.length) {
     html += `<div class="fijo"><b>🔍 ${sinRango.length === 1 ? 'Un valor que no' : `${sinRango.length} valores que no`}
       ${sinRango.length === 1 ? 'tiene' : 'tienen'} rango automático</b>
@@ -325,7 +347,7 @@ function montarEstudios() {
       const r = riel(v);
       return `<div class="lv"><div class="t"><b>${esc(v.nombre)}</b>
         <span class="ds pa-${esc(v.banda)}">${n1(v.valor)} <small>${esc(v.unidad || '')}</small></span></div>
-        ${barra(r)}<div class="rf">${ideal(v)}</div></div>`;
+        ${barra(r)}<div class="rf">${ideal(v)}</div>${comoVino(v)}</div>`;
     }).join('')}</div>`;
     caja.classList.remove('hidden');
     b.textContent = 'Ocultar la lista';

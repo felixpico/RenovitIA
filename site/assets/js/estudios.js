@@ -48,7 +48,25 @@ export function renderStudiesTab(root, ctx) {
       h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '⟳ Evaluar laboratorios', onclick: async () => {
         try {
           const res = await api.evaluateLabs(patient.id);
-          toast(`${res?.rojos ?? 0} marcador(es) fuera de límite · ${res?.alertas_nuevas ?? 0} alerta(s) nueva(s)`);
+          const sinU = res?.sin_unidad_util ?? 0;
+          toast(`${res?.rojos ?? 0} marcador(es) fuera de límite · ${res?.alertas_nuevas ?? 0} alerta(s) nueva(s)`
+            + (sinU ? ` · ${sinU} sin unidad interpretable` : ''));
+          load(); refresh?.();
+        } catch (e) { toast(`Error: ${e.message}`, true); }
+      } }),
+      // Las alertas se GUARDAN, no se recalculan al abrir la pantalla. Cuando se
+      // corrige un rango o una unidad, lo ya escrito se queda viejo. Esto lo rehace.
+      h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '⟳ Recalcular todo el panel', onclick: async () => {
+        const ok = await modal('Recalcular el panel completo',
+          h('p', { text: 'Vuelve a evaluar los laboratorios de todos tus pacientes contra los rangos y las unidades de hoy. '
+            + 'Sirve después de corregir un rango: las alertas viejas no se actualizan solas. No borra nada que hayas escrito.' }),
+          'Recalcular');
+        if (!ok) return;
+        try {
+          const res = await api.reevaluarTodo();
+          const sinU = res?.sin_unidad_util ?? 0;
+          toast(`${res?.pacientes ?? 0} paciente(s) · ${res?.alertas_nuevas ?? 0} alerta(s) nueva(s) · `
+            + `${res?.resueltas ?? 0} cerrada(s)` + (sinU ? ` · ${sinU} sin unidad interpretable` : ''));
           load(); refresh?.();
         } catch (e) { toast(`Error: ${e.message}`, true); }
       } })));
