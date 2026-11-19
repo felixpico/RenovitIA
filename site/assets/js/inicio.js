@@ -225,7 +225,28 @@ $('btn-otro-correo').addEventListener('click', () => {
   $('btn-codigo').disabled = false; $('btn-codigo').textContent = 'Entrar';
 });
 
+// Regreso de la pantalla de permisos de WHOOP. Se avisa el resultado y se limpia la
+// direccion, para que recargar no vuelva a mostrar el mismo mensaje.
+function avisoWearable() {
+  const q = new URLSearchParams(location.search);
+  const r = q.get('whoop');
+  if (!r) return;
+  const texto = {
+    ok: 'Listo, tu WHOOP quedó conectado. El primer dato puede tardar hasta un día en llegar.',
+    parcial: 'Se conectó, pero WHOOP no entregó permiso de larga duración y la conexión se vencerá pronto. Desconéctala y vuelve a conectarla.',
+    cancelado: 'No se conectó: cancelaste los permisos en WHOOP.',
+    error: `No se pudo conectar. ${q.get('m') || ''}`.trim(),
+  }[r] || 'No se pudo conectar.';
+  const caja = document.createElement('div');
+  caja.className = `notice${r === 'ok' ? '' : r === 'cancelado' ? '' : ' danger'}`;
+  caja.style.cssText = 'margin:12px';
+  caja.textContent = texto;
+  document.body.prepend(caja);
+  try { history.replaceState(null, '', location.pathname); } catch { /* da igual */ }
+}
+
 async function init() {
+  avisoWearable();
   const { data: { session } } = await supabase.auth.getSession();
   if (session) { await renderPatient(session); return; }
   show('view-login');

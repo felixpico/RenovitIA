@@ -503,10 +503,13 @@ async function perfil(p) {
   const accion = (t, s, id) => `<button class="row row-btn" type="button" id="${id}">
     <span class="l"><b>${esc(t)}</b>${s ? `<span>${esc(s)}</span>` : ''}</span><span class="r">›</span></button>`;
   const edad = p.birth_date ? Math.floor((Date.now() - new Date(p.birth_date)) / 31557600000) : null;
-  const [estado, prefs] = await Promise.all([
+  const [estado, prefs, conex] = await Promise.all([
     Rec.estadoPush().catch(() => 'no-soportado'),
     Rec.cargarPrefs(p.id).catch(() => null),
+    supabase.from('conexiones_wearable').select('*').eq('patient_id', p.id)
+      .then((r) => r.data || []).catch(() => []),
   ]);
+  const whoop = conex.find((c) => c.proveedor === 'whoop');
   return cabecera('Mi perfil') + `<div class="w">
     ${fila(`${p.first_name} ${p.last_name}`, edad ? `${edad} años` : '')}
     ${fila('Correo', p.email || '')}
@@ -516,9 +519,40 @@ async function perfil(p) {
       cambian solos.</p>
     <h2 class="s">Avisos</h2>
     ${Rec.cajaHTML(estado, prefs)}
+    <h2 class="s">Tu reloj</h2>
+    ${cajaWhoop(whoop)}
     <h2 class="s">Tu cuenta</h2>
     ${accion('Cerrar sesión', 'En este teléfono', 'pf-salir')}
   </div>`;
+}
+
+const fechaCorta = (t) => (t ? new Date(t).toLocaleDateString('es-MX',
+  { day: 'numeric', month: 'short' }) : null);
+
+// Se dice exactamente qué se lee y qué no. Un permiso que el paciente no entiende
+// es un permiso que va a revocar en cuanto se arrepienta.
+function cajaWhoop(c) {
+  if (!c) {
+    return `<div class="dato"><span class="dic">⌚</span><div>
+        <b>Conecta tu WHOOP.</b> Tu médica vería tu sueño, tu actividad y tu recuperación
+        junto a tus estudios, sin que tengas que capturar nada.
+        <br><b>Sólo eso:</b> no pedimos tu nombre, tu correo ni tus medidas corporales.
+        Puedes desconectarlo cuando quieras y los datos dejan de llegar.</div></div>
+      <button class="btn btn-primary btn-block" type="button" id="wh-conectar"
+        style="margin-top:10px">Conectar WHOOP</button>`;
+  }
+  const sync = fechaCorta(c.ultima_sync);
+  const alta = fechaCorta(c.conectado_en);
+  const malo = c.estado !== 'activa' || c.con_problema;
+  return `<div class="row"><div class="l"><b>WHOOP</b>
+      <span>${malo ? 'Conexión con problema' : 'Conectado'}${alta ? ` desde el ${esc(alta)}` : ''}</span></div>
+      <div class="r">${sync ? esc(sync) : 'sin sincronizar'}</div></div>
+    ${malo ? `<div class="dato alerta"><span class="dic">⚠️</span><div>
+        Esta conexión dejó de funcionar. Desconéctala y vuelve a conectarla.</div></div>` : ''}
+    ${!sync ? `<p class="nota-chica">Todavía no llega el primer dato. La primera
+        sincronización puede tardar hasta un día.</p>` : ''}
+    <button class="btn btn-ghost btn-block" type="button" id="wh-desconectar"
+      style="margin-top:10px">Desconectar WHOOP</button>`;
 }
 
 
@@ -691,6 +725,34 @@ function montarPerfil(p) {
         : 'No se pudo activar. Intenta de nuevo.';
       caja.insertAdjacentHTML('beforeend',
         `<div class="dato alerta"><span class="dic">\u26a0\uFE0F</span><div>${t}</div></div>`);
+    }
+  });
+
+  document.getElementById('wh-conectar')?.addEventListener('click', async (ev) => {
+    const b = ev.currentTarget;
+    b.disabled = true; b.textContent = 'Abriendo WHOOP…';
+    try {
+      const { data, error } = await supabase.functions.invoke('oauth-whoop', { body: { accion: 'iniciar' } });
+      if (error || !data?.url) throw new Error(data?.error || error?.message || 'No se pudo iniciar');
+      window.location.href = data.url;
+    } catch (e) {
+      b.disabled = false; b.textContent = 'Conectar WHOOP';
+      b.insertAdjacentHTML('afterend',
+        `<div class="dato alerta"><span class="dic">\u26a0\uFE0F</span><div>${esc(String(e.message || e))}</div></div>`);
+    }
+  });
+
+  document.getElementById('wh-desconectar')?.addEventListener('click', async (ev) => {
+    const b = ev.currentTarget;
+    b.disabled = true; b.textContent = 'Desconectando…';
+    try {
+      const { data, error } = await supabase.functions.invoke('oauth-whoop', { body: { accion: 'desconectar' } });
+      if (error || !data?.desconectado) throw new Error(data?.error || error?.message || 'No se pudo desconectar');
+      refrescar();
+    } catch (e) {
+      b.disabled = false; b.textContent = 'Desconectar WHOOP';
+      b.insertAdjacentHTML('afterend',
+        `<div class="dato alerta"><span class="dic">\u26a0\uFE0F</span><div>${esc(String(e.message || e))}</div></div>`);
     }
   });
 
