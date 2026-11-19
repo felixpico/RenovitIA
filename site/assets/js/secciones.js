@@ -551,8 +551,10 @@ function cajaWhoop(c) {
         Esta conexión dejó de funcionar. Desconéctala y vuelve a conectarla.</div></div>` : ''}
     ${!sync ? `<p class="nota-chica">Todavía no llega el primer dato. La primera
         sincronización puede tardar hasta un día.</p>` : ''}
+    <button class="btn btn-ghost btn-block" type="button" id="wh-sync"
+      style="margin-top:10px">Sincronizar ahora</button>
     <button class="btn btn-ghost btn-block" type="button" id="wh-desconectar"
-      style="margin-top:10px">Desconectar WHOOP</button>`;
+      style="margin-top:8px">Desconectar WHOOP</button>`;
 }
 
 
@@ -737,6 +739,23 @@ function montarPerfil(p) {
       window.location.href = data.url;
     } catch (e) {
       b.disabled = false; b.textContent = 'Conectar WHOOP';
+      b.insertAdjacentHTML('afterend',
+        `<div class="dato alerta"><span class="dic">\u26a0\uFE0F</span><div>${esc(String(e.message || e))}</div></div>`);
+    }
+  });
+
+  document.getElementById('wh-sync')?.addEventListener('click', async (ev) => {
+    const b = ev.currentTarget;
+    b.disabled = true; b.textContent = 'Sincronizando…';
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-whoop', { body: {} });
+      if (error) throw new Error(error.message);
+      const d = (data?.detalle || [])[0];
+      if (d?.error) throw new Error(d.error);
+      b.textContent = d ? `Listo: ${d.dias} día(s)` : 'Sin datos todavía';
+      refrescar();
+    } catch (e) {
+      b.disabled = false; b.textContent = 'Sincronizar ahora';
       b.insertAdjacentHTML('afterend',
         `<div class="dato alerta"><span class="dic">\u26a0\uFE0F</span><div>${esc(String(e.message || e))}</div></div>`);
     }
