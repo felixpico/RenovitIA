@@ -5,6 +5,7 @@ import { supabase } from './supabase.js';
 import { COMIDAS, armarComida } from './comidas.js';
 import * as Rec from './recordatorios.js';
 import { cajaSubir, montarSubir } from './subir.js';
+import { panelHoy, montarComer } from './comer.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const n1 = (x) => (x === null || x === undefined ? '—' : Number(x).toLocaleString('es-MX'));
@@ -29,12 +30,20 @@ const vacio = (icono, texto) => `
 
 /* ============ Mi alimentación ============ */
 async function alimentacion(p) {
-  const { data: m } = await supabase.rpc('macros_objetivo', { p_patient: p.id });
+  // Las dos consultas van juntas: la pantalla no sirve de nada a medias.
+  const [{ data: m }, { data: d }] = await Promise.all([
+    supabase.rpc('macros_objetivo', { p_patient: p.id }),
+    supabase.rpc('consumo_del_dia', { p_patient: p.id }).then((r) => r, () => ({ data: null })),
+  ]);
   if (!m?.ok) return cabecera('Mi alimentación') + `<div class="w">${vacio('🍽️',
     'Tu meta de macros se calcula cuando tu médica complete tu peso y estatura.')}</div>`;
 
   const modo = m.enfoque_carbos && m.enfoque_carbos !== 'estandar';
+  // El registro va primero: una vez que se puede registrar, el paciente entra
+  // a registrar, no a releer su meta.
   return cabecera('Mi alimentación', `${p.first_name} · ${m.supuestos?.peso_kg ?? '—'} kg`) + `<div class="w">
+    ${d ? panelHoy(d) : ''}
+    <h2 class="s">Tu meta del día</h2>
     <div class="kcalbox"><div class="lb">TU META DEL DÍA</div>
       <div class="bg">${n1(m.kcal)}</div>
       <div class="un">kilocalorías · ${esc(m.supuestos?.ajuste || '')}</div></div>
@@ -656,6 +665,7 @@ export async function abrirSeccion(id, p, extra) {
   if (f) f.addEventListener('submit', (ev) => enviarMensaje(ev, p));
   if (id === 'presion') montarPresion(p);
   if (id === 'estudios') montarEstudios();
+  if (id === 'alimentacion') montarComer(p, () => abrirSeccion('alimentacion', p));
   if (id === 'pendientes') montarSubir(p, 'sub-general');
   if (id === 'perfil') montarPerfil(p);
 }

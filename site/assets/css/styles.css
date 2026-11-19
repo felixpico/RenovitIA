@@ -571,3 +571,68 @@ body.con-tabs { padding-bottom: 86px; }
 .row-btn .l b { display: block; font-size: 15px; }
 .row-btn .l span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .row-btn .r { color: var(--muted); font-size: 19px; }
+
+/* Registro de comidas */
+.hoybox { display: flex; gap: 14px; align-items: center; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.hoyl { flex: none; }
+.hoyr { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px; }
+.anp { width: 116px; height: 116px; display: block; }
+.anp .apb { fill: none; stroke: var(--surface-2); stroke-width: 11; }
+.anp .apf { fill: none; stroke: var(--brand); stroke-width: 11; stroke-linecap: round; }
+.anp .apf.sobra { stroke: var(--accent); }
+.anp .apn { font-size: 27px; font-weight: 800; text-anchor: middle; fill: var(--text); }
+.anp .apu { font-size: 12px; text-anchor: middle; fill: var(--muted); }
+.anp .apl { font-size: 9px; font-weight: 800; letter-spacing: .7px; text-anchor: middle; fill: var(--brand); }
+.mn2 span { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .4px;
+  text-transform: uppercase; color: var(--muted); }
+.mn2 b { font-size: 15px; } .mn2 b small { font-weight: 600; color: var(--muted); font-size: 12px; }
+.bm { display: block; height: 6px; border-radius: 99px; background: var(--surface-2);
+  overflow: hidden; margin-top: 4px; }
+.bm u { display: block; height: 100%; }
+.bm .bK { background: var(--accent); } .bm .bC { background: #c7803a; } .bm .bG { background: #8a7bb8; }
+
+.comer-bot { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; margin-top: 13px; }
+.cm-b { min-height: 48px; padding: 0 6px; font-size: 13px; border-radius: 12px; }
+#cm-estado:not(:empty) { margin-top: 12px; }
+
+.cm-row .m { display: flex; align-items: center; gap: 6px; }
+.cm-del { margin-left: auto; width: 26px; height: 26px; border-radius: 8px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; }
+.cm-del:hover { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+
+.cmf { display: block; margin-top: 10px; }
+.cmf span { display: block; font-size: 10.5px; font-weight: 800; letter-spacing: .5px;
+  color: var(--muted); margin-bottom: 4px; }
+.cmf input, .cmf select { width: 100%; box-sizing: border-box; padding: 11px 10px; font-size: 16px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text); }
+.cmf.ancho { grid-column: 1 / -1; }
+.cmg { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 4px; }
+.cmg .cmf input { font-weight: 700; text-align: center; }
+.sup { margin-top: 12px; background: var(--warn-soft); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; }
+.sup ul { margin: 5px 0; padding-left: 16px; } .sup li { margin: 3px 0; line-height: 1.4; }
+
+.tabla-et { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 10px 0; }
+.tabla-et > div { background: var(--surface-2); border-radius: 9px; padding: 8px 10px; }
+.tabla-et span { display: block; font-size: 10.5px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .4px; }
+.tabla-et b { font-size: 17px; }
+.sellos { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0; }
+.sellos i { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .4px;
+  background: #1c2521; color: #fff; padding: 4px 8px; border-radius: 6px; }
+.cm-tot { margin-top: 9px; font-size: 13px; background: var(--brand-soft); border-radius: 9px; padding: 9px 11px; }
+.cm-tot b { color: var(--brand-strong); }
+.ingr { margin-top: 10px; font-size: 12.5px; }
+.ingr summary { cursor: pointer; color: var(--brand); font-weight: 600; }
+.ingr p { margin: 6px 0 0; color: var(--muted); line-height: 1.45; }
+
+.sem7 { display: flex; gap: 6px; align-items: flex-end; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 10px; }
+.d7 { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+/* El riel da la altura fija contra la que se mide el porcentaje de la barra.
+   Sin el, todas las barras salen iguales. */
+.riel7 { width: 100%; max-width: 30px; height: 68px; display: flex; align-items: flex-end; }
+.riel7 i { display: block; width: 100%; border-radius: 5px 5px 2px 2px; min-height: 4px; }
+.riel7 .ok { background: var(--brand); } .riel7 .med { background: #d99a4e; } .riel7 .bajo { background: #d8a3a0; }
+.d7 span { font-size: 11px; font-weight: 700; color: var(--muted); }
+.d7 u { font-size: 10px; text-decoration: none; color: var(--muted); }
