@@ -503,13 +503,6 @@ async function perfil(p) {
   const accion = (t, s, id) => `<button class="row row-btn" type="button" id="${id}">
     <span class="l"><b>${esc(t)}</b>${s ? `<span>${esc(s)}</span>` : ''}</span><span class="r">›</span></button>`;
   const edad = p.birth_date ? Math.floor((Date.now() - new Date(p.birth_date)) / 31557600000) : null;
-  const [estado, prefs, conex] = await Promise.all([
-    Rec.estadoPush().catch(() => 'no-soportado'),
-    Rec.cargarPrefs(p.id).catch(() => null),
-    supabase.from('conexiones_wearable').select('*').eq('patient_id', p.id)
-      .then((r) => r.data || []).catch(() => []),
-  ]);
-  const whoop = conex.find((c) => c.proveedor === 'whoop');
   return cabecera('Mi perfil') + `<div class="w">
     ${fila(`${p.first_name} ${p.last_name}`, edad ? `${edad} años` : '')}
     ${fila('Correo', p.email || '')}
@@ -517,12 +510,28 @@ async function perfil(p) {
     <p class="nota-chica">Para cambiar tu correo o tu teléfono, escríbele a tu médica
       desde <b>Dudas y mensajes</b>. Son los datos con los que entras, así que no se
       cambian solos.</p>
+    <h2 class="s">Tu cuenta</h2>
+    ${accion('Cerrar sesión', 'En este teléfono', 'pf-salir')}
+  </div>`;
+}
+
+/* ============ Ajustes ============
+   Se separo de "Mi perfil" a proposito: perfil es QUIEN eres, ajustes es COMO se
+   comporta la app. Dos iconos en el encabezado que llevaran a la misma pantalla
+   serian dos botones para una sola cosa. */
+async function ajustes(p) {
+  const [estado, prefs, conex] = await Promise.all([
+    Rec.estadoPush().catch(() => 'no-soportado'),
+    Rec.cargarPrefs(p.id).catch(() => null),
+    supabase.from('conexiones_wearable').select('*').eq('patient_id', p.id)
+      .then((r) => r.data || []).catch(() => []),
+  ]);
+  const whoop = conex.find((c) => c.proveedor === 'whoop');
+  return cabecera('Ajustes') + `<div class="w">
     <h2 class="s">Avisos</h2>
     ${Rec.cajaHTML(estado, prefs)}
     <h2 class="s">Tu reloj</h2>
     ${cajaWhoop(whoop)}
-    <h2 class="s">Tu cuenta</h2>
-    ${accion('Cerrar sesión', 'En este teléfono', 'pf-salir')}
   </div>`;
 }
 
@@ -709,9 +718,11 @@ function montarPerfil(p) {
     await supabase.auth.signOut().catch(() => {});
     window.location.replace('acceso.html');
   });
+}
 
+function montarAjustes(p) {
   const sw = document.getElementById('rec-sw');
-  const refrescar = () => abrirSeccion('perfil', p);
+  const refrescar = () => abrirSeccion('ajustes', p);
   sw?.addEventListener('click', async () => {
     sw.disabled = true;
     const apagar = sw.textContent.trim().startsWith('Desactivar');
@@ -787,7 +798,7 @@ function montarPerfil(p) {
   });
 }
 
-const SECCIONES = { alimentacion, entrenamiento, estudios, pendientes, protocolo, mensajes, avance, perfil, presion };
+const SECCIONES = { alimentacion, entrenamiento, estudios, pendientes, protocolo, mensajes, avance, perfil, ajustes, presion };
 
 export async function abrirSeccion(id, p, extra) {
   const caja = document.getElementById('detalle');
@@ -812,6 +823,7 @@ export async function abrirSeccion(id, p, extra) {
   if (id === 'alimentacion') montarComer(p, () => abrirSeccion('alimentacion', p));
   if (id === 'pendientes') montarSubir(p, 'sub-general');
   if (id === 'perfil') montarPerfil(p);
+  if (id === 'ajustes') montarAjustes(p);
 }
 
 export function cerrarSeccion() {

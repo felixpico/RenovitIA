@@ -282,6 +282,9 @@ async function init() {
   const { data: { session } } = await supabase.auth.getSession();
   if (session) { await renderPatient(session); return; }
   show('view-login');
+  // Sin sesion, el encabezado ofrece entrar. Es el mismo bloque de abajo, pero
+  // visible desde arriba sin tener que leer toda la pagina.
+  $('btn-entrar')?.classList.remove('hidden');
   if (leerToken()) {
     $('resume-box').classList.remove('hidden');
     $('form-start').classList.add('hidden');

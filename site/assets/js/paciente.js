@@ -388,7 +388,8 @@ async function pintarSalud(nLab, faltantes) {
     acceso('pesa', 'Mi entrenamiento', 'Tu programa de la semana', 'entrenamiento'),
     acceso('chat', 'Dudas y mensajes', 'Escríbele a tu médica', 'mensajes'),
     acceso('grafica', 'Mi avance', 'Peso, cintura y constancia', 'avance'),
-    acceso('perfil', 'Mi perfil', 'Datos, acceso y notificaciones', 'perfil'),
+    acceso('perfil', 'Mi perfil', 'Tus datos y tu cuenta', 'perfil'),
+    acceso('perfil', 'Ajustes', 'Avisos y tu reloj', 'ajustes'),
   ].filter(Boolean).join('');
 
   nav.querySelectorAll('[data-sec]').forEach((b) => {
@@ -459,4 +460,31 @@ export async function pintarPaciente(patient, extras = {}) {
   }
 
   await pintarSalud(extras.nLab || 0, extras.faltantes || 0);
+  montarAccesosEncabezado(patient);
+}
+
+// Engrane y persona del encabezado. Llevan a la pestaña "Mi salud" y abren la
+// seccion directo, sin que el paciente tenga que bajar a buscarla en la lista.
+function montarAccesosEncabezado(patient) {
+  const irA = (seccion) => {
+    document.querySelector('.tb[data-pg="salud"]')?.click();
+    abrirSeccion(seccion, patient);
+  };
+  const perfil = document.getElementById('btn-perfil');
+  const ajustes = document.getElementById('btn-ajustes');
+  const logout = document.getElementById('btn-logout');
+
+  if (perfil && !perfil.dataset.listo) {
+    perfil.dataset.listo = '1';
+    perfil.addEventListener('click', () => irA('perfil'));
+  }
+  if (ajustes && !ajustes.dataset.listo) {
+    ajustes.dataset.listo = '1';
+    ajustes.addEventListener('click', () => irA('ajustes'));
+  }
+  perfil?.classList.remove('hidden');
+  ajustes?.classList.remove('hidden');
+  // Cerrar sesion ya vive dentro de Mi perfil. Tres controles en el encabezado de
+  // un telefono es uno de mas.
+  logout?.classList.add('hidden');
 }

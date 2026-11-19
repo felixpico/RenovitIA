@@ -20,7 +20,16 @@
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="index.html" aria-label="RenovitIA, inicio"><picture><source srcset="assets/brand/logo-header-oscuro.svg" media="(prefers-color-scheme: dark)"><img class="brand-logo" src="assets/brand/logo-header.svg" alt="RenovitIA" width="172" height="32"></picture></a>
-      <button id="btn-logout" class="btn-link hidden" type="button">Cerrar sesión</button>
+      <div class="topbar-acc">
+        <a id="btn-entrar" class="btn btn-primary btn-sm hidden" href="#box-entrar">Entrar</a>
+        <button id="btn-ajustes" class="ico-btn hidden" type="button" title="Ajustes" aria-label="Ajustes">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 000-3l2-1.6-2-3.4-2.4 1a7.6 7.6 0 00-2.6-1.5L14 2h-4l-.4 2.6A7.6 7.6 0 007 6.1l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 000 3l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 002.6 1.5l.4 2.4h4l.4-2.4a7.6 7.6 0 002.6-1.5l2.4 1 2-3.4z"/></svg>
+        </button>
+        <button id="btn-perfil" class="ico-btn hidden" type="button" title="Mi perfil" aria-label="Mi perfil">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-3.6 3.4-5.6 7.5-5.6s7.5 2 7.5 5.6"/></svg>
+        </button>
+        <button id="btn-logout" class="btn-link hidden" type="button">Cerrar sesión</button>
+      </div>
     </div>
   </header>
 
