@@ -502,7 +502,7 @@ async function viewPatients(root) {
     && p.email && String(p.email).trim());
   const salidaMasiva = h('div', { style: 'display:none;margin-bottom:12px' });
 
-  root.append(h('div', { class: 'page-head' }, h('h1', { text: `Pacientes (${patients.length})` }),
+  root.append(h('div', { class: 'page-head' }, h('h1', { text: `Pacientes (${patients.filter((p) => p.status !== 'excluded').length})` }),
     h('div', { class: 'toolbar' },
       sinCuenta.length ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button',
         text: `Generar ${sinCuenta.length} acceso(s) faltante(s)`,
@@ -550,7 +550,17 @@ async function viewPatients(root) {
   root.append(salidaMasiva);
 
   const search = h('input', { class: 'input', type: 'search', placeholder: 'Buscar por nombre o correo', style: 'max-width:320px' });
-  root.append(h('div', { class: 'toolbar', style: 'margin-bottom:12px' }, search));
+
+  // Los expedientes marcados como excluidos (duplicados consolidados, no elegibles)
+  // se esconden por omision. NO se borran: debajo de un duplicado suele haber
+  // respuestas que el expediente bueno no tiene, y un borrado aqui es en cascada.
+  const excluidos = patients.filter((p) => p.status === 'excluded');
+  const verExc = h('input', { type: 'checkbox' });
+  const casilla = excluidos.length
+    ? h('label', { class: 'chip', title: 'Duplicados consolidados y no elegibles' },
+        verExc, h('span', { text: `Ver ${excluidos.length} excluido(s)` }))
+    : null;
+  root.append(h('div', { class: 'toolbar', style: 'margin-bottom:12px' }, search, casilla));
   const wrap = h('div', { class: 'table-wrap' });
   root.append(wrap);
 
@@ -559,7 +569,9 @@ async function viewPatients(root) {
     const table = h('table', { class: 'data' });
     table.append(h('thead', {}, h('tr', {}, ...['Paciente', 'Programa', 'Historia clínica', 'Alertas abiertas', 'Última actividad', isAdmin() ? 'Médico' : null].filter(Boolean).map((t) => h('th', { text: t })))));
     const tb = h('tbody');
-    const rows = patients.filter((p) => !term || fullName(p).toLowerCase().includes(term) || (p.email || '').includes(term));
+    const rows = patients
+      .filter((p) => verExc.checked || p.status !== 'excluded')
+      .filter((p) => !term || fullName(p).toLowerCase().includes(term) || (p.email || '').includes(term));
     if (!rows.length) tb.append(h('tr', {}, h('td', { colspan: 6, class: 'empty-state', text: 'Sin pacientes todavía. Invita al primero.' })));
     rows.forEach((p) => {
       const it = intakes.find((i) => i.patient_id === p.id);
@@ -580,6 +592,7 @@ async function viewPatients(root) {
     wrap.innerHTML = ''; wrap.append(table);
   };
   search.oninput = draw;
+  verExc.onchange = draw;
   draw();
 }
 
