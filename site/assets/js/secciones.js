@@ -155,7 +155,8 @@ async function entrenamiento(p) {
 // dispara con ApoB tambien dispara con TG y LDL, y reparte sus sugerencias
 // entre los tres. CoQ10 esta ahi para prevenir mialgia por el arroz rojo, no
 // para bajar ApoB. Decir lo contrario seria inventar una causa.
-const BANDAS = { rojo: 0, amarillo: 1, verde: 2 };
+// sin_rango va al final: no es un problema, pero tampoco es "estás bien".
+const BANDAS = { rojo: 0, amarillo: 1, sin_rango: 2, verde: 3 };
 // Se guarda lo ya consultado para que "ver la lista completa" no vuelva a pedirlo.
 let _estudios = null;
 
@@ -192,6 +193,8 @@ const ideal = (v) => {
   if (v.ol != null && v.oh != null) return `Ideal ${n1(v.ol)} a ${n1(v.oh)}`;
   if (v.oh != null) return `Ideal menos de ${n1(v.oh)}`;
   if (v.ol != null) return `Ideal más de ${n1(v.ol)}`;
+  // Decirlo, no callarlo: el silencio se lee como "está bien".
+  if (v.banda === 'sin_rango') return 'Sin rango automático: lo interpreta tu médica';
   return '';
 };
 
@@ -275,13 +278,29 @@ async function estudios(p) {
 
   // Mapa de los valores, ordenado por banda. Da escala sin obligar a leer 62 renglones.
   const orden = vals.slice().sort((a, b) => BANDAS[a.banda] - BANDAS[b.banda]);
+  // Los que nadie pudo evaluar se dicen aparte. Antes salian verdes, es decir
+  // "en rango", y eso es tranquilizar a alguien sin haberlo mirado.
+  const sinRango = vals.filter((v) => v.banda === 'sin_rango');
+  if (sinRango.length) {
+    html += `<div class="fijo"><b>🔍 ${sinRango.length === 1 ? 'Un valor que no' : `${sinRango.length} valores que no`}
+      ${sinRango.length === 1 ? 'tiene' : 'tienen'} rango automático</b>
+      <p>No quiere decir que estén bien ni mal: quiere decir que dependen de cosas que
+      el sistema no decide solo, como tu ciclo o tu edad. Tu médica los interpreta.</p>`;
+    sinRango.forEach((v) => {
+      html += `<div class="fj fj-sola"><span>${esc(v.nombre)}</span>
+        <b class="gris">${n1(v.valor)} ${esc(v.unidad || '')}</b></div>`;
+    });
+    html += '</div>';
+  }
+
   html += `<h2 class="s">Tus ${R.total} valores</h2>
     <div class="mapa">${orden.map((v) => `<span class="cu ${esc(v.banda)}"
       title="${esc(v.nombre)}: ${n1(v.valor)} ${esc(v.unidad || '')}"></span>`).join('')}</div>
     <div class="leg">
       <span><i class="lgr"></i>${R.rojo} a atender</span>
       <span><i class="lga"></i>${R.amarillo} a vigilar</span>
-      <span><i class="lgv"></i>${R.verde} en rango</span></div>
+      <span><i class="lgv"></i>${R.verde} en rango</span>
+      ${R.sin_rango ? `<span><i class="lgs"></i>${R.sin_rango} sin rango</span>` : ''}</div>
     <button class="btn btn-ghost btn-sm btn-block" type="button" id="ver-todos"
       style="margin-top:12px">Ver la lista completa</button>
     <div id="lista-todos" class="hidden"></div>
