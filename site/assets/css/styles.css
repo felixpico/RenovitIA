@@ -739,3 +739,17 @@ body.con-tabs { padding-bottom: 86px; }
 .sm-f b { display: block; font-size: 14px; font-weight: 600; }
 .sm-f em { display: block; font-style: normal; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
 .sm-f .rs-p { margin-top: 0; flex: none; }
+
+
+/* ===== Botón de Google =====
+   Blanco con borde, como pide la guía de marca de Google. Nunca verde RenovitIA:
+   un botón de "continuar con Google" que no parece de Google se siente a trampa. */
+.btn-google { background: #fff; color: #1f1f1f; border: 1px solid #dadce0;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  font-weight: 600; }
+.btn-google:hover { background: #f8f9fa; }
+.btn-google:disabled { opacity: .6; }
+.g-ico { width: 18px; height: 18px; flex: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn-google { background: #fff; color: #1f1f1f; }
+}

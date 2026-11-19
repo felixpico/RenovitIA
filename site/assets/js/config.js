@@ -1,5 +1,7 @@
 // Configuración pública. La publishable key es segura en el navegador: el acceso real lo controlan las políticas RLS.
 export const CONFIG = {
+  // Entrar con Google. Apagarlo aqui esconde el boton sin tocar nada mas.
+  GOOGLE_LOGIN: true,
   APP_NAME: 'RenovitIA',
   TAGLINE: 'Regenera – Reconstruye – Renace',
   SUPABASE_URL: 'https://pvexfqdqrepxtnljypav.supabase.co',

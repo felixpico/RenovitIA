@@ -1,5 +1,6 @@
 import { pintarPaciente } from './paciente.js';
 import { supabase, applyBranding } from './supabase.js';
+import { CONFIG } from './config.js';
 
 const $ = (id) => document.getElementById(id);
 const show = (id) => {
@@ -245,8 +246,39 @@ function avisoWearable() {
   try { history.replaceState(null, '', location.pathname); } catch { /* da igual */ }
 }
 
+// Entrar con Google. Es una SEGUNDA puerta, no la principal: la liga de WhatsApp
+// sigue siendo la entrada de un toque. Esto resuelve al paciente que cambio de
+// telefono o limpio el navegador y hoy depende de que le llegue un correo.
+function montarGoogle() {
+  const b = $('btn-google');
+  const o = $('google-o');
+  if (!b || !CONFIG.GOOGLE_LOGIN) return;
+  b.classList.remove('hidden');
+  o?.classList.remove('hidden');
+  b.addEventListener('click', async () => {
+    b.disabled = true;
+    const texto = b.querySelector('span');
+    const antes = texto.textContent;
+    texto.textContent = 'Abriendo Google…';
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${location.origin}/index.html` },
+      });
+      if (error) throw error;
+      // Si no hubo error, el navegador ya se esta yendo a Google.
+    } catch (e) {
+      b.disabled = false;
+      texto.textContent = antes;
+      const msg = $('otp-msg') || $('start-msg');
+      if (msg) { msg.className = 'notice danger'; msg.textContent = `No se pudo abrir Google: ${e.message}`; }
+    }
+  });
+}
+
 async function init() {
   avisoWearable();
+  montarGoogle();
   const { data: { session } } = await supabase.auth.getSession();
   if (session) { await renderPatient(session); return; }
   show('view-login');
