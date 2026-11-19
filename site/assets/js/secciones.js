@@ -4,6 +4,7 @@
 import { supabase } from './supabase.js';
 import { COMIDAS, armarComida } from './comidas.js';
 import * as Rec from './recordatorios.js';
+import { cajaSubir, montarSubir } from './subir.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const n1 = (x) => (x === null || x === undefined ? '—' : Number(x).toLocaleString('es-MX'));
@@ -21,9 +22,10 @@ const cabecera = (titulo, sub) => `
   <div class="det-nav"><button class="det-bk" type="button" aria-label="Regresar">‹</button>
     <div><b>${esc(titulo)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div></div>`;
 
-const vacio = (icono, texto, boton) => `
-  <div class="vacio"><span class="vic">${icono}</span>${esc(texto)}
-  ${boton ? `<div style="margin-top:13px"><button class="btn btn-primary btn-sm" type="button">${esc(boton)}</button></div>` : ''}</div>`;
+// Sin boton a proposito: una pantalla vacia con un boton que no hace nada
+// es peor que una pantalla vacia. Si hace falta una accion, se pone al lado.
+const vacio = (icono, texto) => `
+  <div class="vacio"><span class="vic">${icono}</span>${esc(texto)}</div>`;
 
 /* ============ Mi alimentación ============ */
 async function alimentacion(p) {
@@ -305,8 +307,14 @@ function montarEstudios() {
 /* ============ Estudios pendientes ============ */
 async function pendientes(p) {
   const { data: f } = await supabase.rpc('estudios_faltantes', { p_patient: p.id });
-  if (!f?.length) return cabecera('Estudios pendientes') + `<div class="w">${vacio('✅',
-    'No tienes estudios pendientes. Bien ahí.')}</div>`;
+  // Aun sin pendientes el paciente puede traer un estudio de otro lado, asi que
+  // el subidor se queda en las dos pantallas.
+  if (!f?.length) {
+    return cabecera('Estudios pendientes') + `<div class="w">
+      ${vacio('✅', 'No tienes estudios pendientes. Bien ahí.')}
+      <h2 class="s">¿Te hiciste otro estudio?</h2>
+      ${cajaSubir('sub-general')}</div>`;
+  }
 
   const U = { inmediato: 'AHORA', antes_de_iniciar: 'ANTES DE SEGUIR', conviene: 'CONVIENE' };
   let html = cabecera('Estudios pendientes', `${f.length} por hacerte`) +
@@ -317,8 +325,9 @@ async function pendientes(p) {
       <b>${esc(r.titulo)}</b>
       <p>${esc(r.para_el_paciente || r.por_que || '')}</p>
       ${(r.faltan || []).length ? `<p class="falta">Falta: ${(r.faltan || []).map(esc).join(' · ')}</p>` : ''}
-      <div class="act"><button class="btn btn-primary btn-sm" type="button">Subir resultado</button></div></div>`;
+      </div>`;
   });
+  html += `<h2 class="s">Subir un resultado</h2>${cajaSubir('sub-general')}`;
   return html + '</div>';
 }
 
@@ -415,8 +424,12 @@ async function avance(p) {
 
 /* ============ Mi perfil ============ */
 async function perfil(p) {
+  // La flecha solo aparece donde hay algo que pasa al tocar. Un renglon con
+  // flecha que no hace nada es el mismo error que un boton sin codigo detras.
   const fila = (t, s, r) => `<div class="row"><div class="l"><b>${esc(t)}</b>${s ? `<span>${esc(s)}</span>` : ''}</div>
     ${r ? `<div class="r">${esc(r)}</div>` : ''}</div>`;
+  const accion = (t, s, id) => `<button class="row row-btn" type="button" id="${id}">
+    <span class="l"><b>${esc(t)}</b>${s ? `<span>${esc(s)}</span>` : ''}</span><span class="r">›</span></button>`;
   const edad = p.birth_date ? Math.floor((Date.now() - new Date(p.birth_date)) / 31557600000) : null;
   const [estado, prefs] = await Promise.all([
     Rec.estadoPush().catch(() => 'no-soportado'),
@@ -424,13 +437,15 @@ async function perfil(p) {
   ]);
   return cabecera('Mi perfil') + `<div class="w">
     ${fila(`${p.first_name} ${p.last_name}`, edad ? `${edad} años` : '')}
-    ${fila('Correo', p.email || '', 'Cambiar ›')}
-    ${fila('Teléfono', p.phone || 'sin registrar', 'Cambiar ›')}
+    ${fila('Correo', p.email || '')}
+    ${fila('Teléfono', p.phone || 'sin registrar')}
+    <p class="nota-chica">Para cambiar tu correo o tu teléfono, escríbele a tu médica
+      desde <b>Dudas y mensajes</b>. Son los datos con los que entras, así que no se
+      cambian solos.</p>
     <h2 class="s">Avisos</h2>
     ${Rec.cajaHTML(estado, prefs)}
-    <h2 class="s">Tus datos</h2>
-    ${fila('Descargar mi expediente', 'Todo lo que tenemos de ti', '›')}
-    ${fila('Cerrar sesión', '', '›')}
+    <h2 class="s">Tu cuenta</h2>
+    ${accion('Cerrar sesión', 'En este teléfono', 'pf-salir')}
   </div>`;
 }
 
@@ -578,6 +593,11 @@ function enlazarGuardar(p) {
 }
 
 function montarPerfil(p) {
+  document.getElementById('pf-salir')?.addEventListener('click', async () => {
+    await supabase.auth.signOut().catch(() => {});
+    window.location.replace('acceso.html');
+  });
+
   const sw = document.getElementById('rec-sw');
   const refrescar = () => abrirSeccion('perfil', p);
   sw?.addEventListener('click', async () => {
@@ -632,6 +652,7 @@ export async function abrirSeccion(id, p, extra) {
   if (f) f.addEventListener('submit', (ev) => enviarMensaje(ev, p));
   if (id === 'presion') montarPresion(p);
   if (id === 'estudios') montarEstudios();
+  if (id === 'pendientes') montarSubir(p, 'sub-general');
   if (id === 'perfil') montarPerfil(p);
 }
 

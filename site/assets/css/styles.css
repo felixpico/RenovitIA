@@ -375,6 +375,7 @@ body.con-tabs { padding-bottom: 86px; }
 .dato { display: flex; gap: 11px; align-items: flex-start; background: var(--brand-soft);
   border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; font-size: 13.5px; }
 .dato.alerta { background: var(--danger-soft); }
+.dato.alerta b { color: var(--danger); }
 .dato .dic { font-size: 19px; line-height: 1.2; }
 .dato b { color: var(--brand-strong); }
 
@@ -553,3 +554,20 @@ body.con-tabs { padding-bottom: 86px; }
 .leg span { display: flex; align-items: center; gap: 5px; }
 .leg i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
 .lgr { background: var(--danger); } .lga { background: #d99a4e; } .lgv { background: #5fae83; }
+
+/* Subir un estudio */
+.subir { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.subir .nota-chica { margin-top: 9px; }
+.subir .sb-estado:not(:empty) { margin-top: 12px; }
+.subir .sb-estado ul { margin: 6px 0 0; padding-left: 17px; }
+.subir .sb-estado li { font-size: 12px; line-height: 1.4; margin: 3px 0; }
+
+/* Renglon que sí hace algo al tocarlo */
+.row-btn { display: flex; align-items: center; width: 100%; text-align: left;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 13px 14px; cursor: pointer; gap: 12px; }
+.row-btn:hover { background: var(--surface-2); }
+.row-btn .l { flex: 1; }
+.row-btn .l b { display: block; font-size: 15px; }
+.row-btn .l span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.row-btn .r { color: var(--muted); font-size: 19px; }
