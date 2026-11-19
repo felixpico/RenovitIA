@@ -195,6 +195,13 @@ const ideal = (v) => {
   if (v.ol != null) return `Ideal más de ${n1(v.ol)}`;
   // Decirlo, no callarlo: el silencio se lee como "está bien".
   if (v.motivo === 'unidad') return 'Tu laboratorio usó otra unidad: lo revisa tu médica';
+  // Sin rango propio se enseña el del laboratorio, dicho con todas sus letras: es
+  // el rango de "la mayoría de la gente", no el rango en el que conviene estar.
+  if (v.motivo === 'rango_lab') {
+    const r = v.lab_bajo != null && v.lab_alto != null ? `${n1(v.lab_bajo)} a ${n1(v.lab_alto)}`
+      : (v.lab_alto != null ? `menos de ${n1(v.lab_alto)}` : `más de ${n1(v.lab_bajo)}`);
+    return `${v.dentro_lab === false ? 'Fuera del' : 'Dentro del'} rango de tu laboratorio (${r})`;
+  }
   if (v.banda === 'sin_rango') return 'Sin rango automático: lo interpreta tu médica';
   return '';
 };
@@ -302,7 +309,22 @@ async function estudios(p) {
     html += '</div>';
   }
 
-  const sinRango = vals.filter((v) => v.banda === 'sin_rango' && v.motivo !== 'unidad');
+  const porLab = vals.filter((v) => v.motivo === 'rango_lab');
+  if (porLab.length) {
+    const fuera = porLab.filter((v) => v.dentro_lab === false).length;
+    html += `<div class="fijo"><b>🧪 ${porLab.length === 1
+      ? 'Un valor comparado contra el rango de tu laboratorio' : `${porLab.length} valores comparados contra el rango de tu laboratorio`}</b>
+      <p>Para ${porLab.length === 1 ? 'éste' : 'éstos'} todavía no tenemos un rango ideal propio, así que se muestran
+      contra el rango que imprime tu laboratorio. Ese rango dice dónde cae <b>la mayoría de la gente</b>,
+      no dónde conviene estar. Tu médica es quien los interpreta.${fuera ? ` ${fuera === 1 ? 'Uno está' : `${fuera} están`} fuera de ese rango.` : ''}</p>`;
+    porLab.forEach((v) => {
+      html += `<div class="fj fj-sola"><span>${esc(v.nombre)}</span>
+        <b class="${v.dentro_lab === false ? 'ds pa-amarillo' : 'gris'}">${n1(v.valor)} ${esc(v.unidad || '')}</b></div>`;
+    });
+    html += '</div>';
+  }
+
+  const sinRango = vals.filter((v) => v.banda === 'sin_rango' && v.motivo !== 'unidad' && v.motivo !== 'rango_lab');
   if (sinRango.length) {
     html += `<div class="fijo"><b>🔍 ${sinRango.length === 1 ? 'Un valor que no' : `${sinRango.length} valores que no`}
       ${sinRango.length === 1 ? 'tiene' : 'tienen'} rango automático</b>

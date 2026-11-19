@@ -125,6 +125,13 @@ table.data tr.clickable:hover td { background: var(--surface-2); }
 .sem-card.neutro { border-left-color: var(--muted, #8b8b8b); background: var(--surface-2, #f6f6f5); }
 .sem-card.neutro .sem-valor b { color: var(--muted, #6b6b6b); }
 .sem-tag.neutro { background: var(--surface-3, #ececea); color: var(--muted, #6b6b6b); }
+/* Rango del laboratorio: referencia, no veredicto. Nunca usa verde/amarillo/rojo. */
+.sem-card.lab { border-left-color: #6b8ea8; background: #f2f6f9; }
+.sem-card.lab-fuera { border-left-color: #a8703f; background: #fbf4ec; }
+.sem-card.lab-fuera .sem-valor b, .sem-card.lab-fuera .sem-dir { color: #8d5a2b; }
+.sem-tag.lab { background: #e3edf4; color: #41637c; }
+.sem-nota.lab { color: #5b7f99; }
+.pill.lab { background: #fbf4ec; color: #8d5a2b; }
 .pill.neutro { background: var(--surface-3, #ececea); color: var(--muted, #6b6b6b); }
 .sem-head { display: flex; align-items: flex-start; gap: 6px; justify-content: space-between; }
 .sem-nombre { font-size: .82rem; font-weight: 600; line-height: 1.25; }

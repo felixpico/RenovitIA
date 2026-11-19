@@ -255,8 +255,12 @@ export function renderStudiesTab(root, ctx) {
         const valor = c ? (c.evaluable ? Number(c.valor) : null) : r.value_numeric;
         const rango = valor === null ? null : rangoDe(rangosActivos, bm.id, sex, edad);
         const ev = valor === null ? null : evaluar(valor, rango);
-        const motivo = valor === null ? 'unidad' : (!rango ? 'sin_rango' : (!ev ? 'sin_optimo' : null));
-        return { bm, r, c, valor, rango, ev, motivo };
+        // Sin rango propio se usa el que reportó el laboratorio, pero como REFERENCIA:
+        // es un rango estadístico de población leído de un PDF, no un óptimo funcional.
+        const hayLab = !!c && (c.lab_bajo != null || c.lab_alto != null);
+        const motivo = valor === null ? 'unidad'
+          : (!rango ? (hayLab ? 'rango_lab' : 'sin_rango') : (!ev ? 'sin_optimo' : null));
+        return { bm, r, c, valor, rango, ev, motivo, hayLab };
       }).filter(Boolean);
 
       const caja = h('section', { class: 'semaforo' });
@@ -270,6 +274,7 @@ export function renderStudiesTab(root, ctx) {
       const cuenta = { verde: 0, amarillo: 0, rojo: 0 };
       filas.forEach((f) => { if (f.ev) cuenta[f.ev.color] += 1; });
       const sinEvaluar = filas.filter((f) => !f.ev).length;
+      const fueraLab = filas.filter((f) => f.motivo === 'rango_lab' && f.c?.dentro_lab === false).length;
       const pendientes = filas.filter((f) => f.ev?.pendiente).length;
 
       caja.append(h('div', { class: 'semaforo-top' },
@@ -278,7 +283,8 @@ export function renderStudiesTab(root, ctx) {
           h('span', { class: 'pill rojo' }, h('b', { text: String(cuenta.rojo) }), ' fuera de límite'),
           h('span', { class: 'pill amarillo' }, h('b', { text: String(cuenta.amarillo) }), ' en el límite'),
           h('span', { class: 'pill verde' }, h('b', { text: String(cuenta.verde) }), ' en óptimo'),
-          sinEvaluar ? h('span', { class: 'pill neutro' }, h('b', { text: String(sinEvaluar) }), ' sin evaluar') : null)));
+          sinEvaluar ? h('span', { class: 'pill neutro' }, h('b', { text: String(sinEvaluar) }), ' sin evaluar') : null,
+          fueraLab ? h('span', { class: 'pill lab' }, h('b', { text: String(fueraLab) }), ' fuera del rango del laboratorio') : null)));
       caja.append(h('p', { class: 'muted small', style: 'margin:2px 0 10px' },
         'Comparado contra rangos de medicina funcional, no contra el rango del laboratorio.'));
       if (pendientes) {
@@ -295,7 +301,7 @@ export function renderStudiesTab(root, ctx) {
           .sort((a, b) => (orden[a.ev?.color] ?? 3) - (orden[b.ev?.color] ?? 3) || a.bm.name_es.localeCompare(b.bm.name_es));
         if (!dentro.length) return;
         const rejilla = h('div', { class: 'semaforo-grid' });
-        dentro.forEach(({ bm, r, c, valor, rango, ev, motivo }) => {
+        dentro.forEach(({ bm, r, c, valor, rango, ev, motivo, hayLab }) => {
           const uCanon = c?.unidad || (bm.default_unit && bm.default_unit !== 'indice' ? bm.default_unit : '');
           // Si no se pudo convertir, se muestra el numero TAL COMO lo mando el
           // laboratorio. Ponerle la etiqueta de nuestra unidad a un valor sin convertir
@@ -306,21 +312,30 @@ export function renderStudiesTab(root, ctx) {
           if (r.derivado) pie.push(h('span', { class: 'sem-tag', text: 'calculado' }));
           if (ev?.rango?.evidence_level) pie.push(h('span', { class: `sem-ev ev-${ev.rango.evidence_level}`, title: EVIDENCIA[ev.rango.evidence_level], text: ev.rango.evidence_level }));
           if (ev?.pendiente) pie.push(h('span', { class: 'sem-tag pendiente', text: ev.enPrueba ? 'en prueba' : 'sin aprobar' }));
-          if (!ev) pie.push(h('span', { class: 'sem-tag neutro', text: 'sin evaluar' }));
+          if (!ev && motivo !== 'rango_lab') pie.push(h('span', { class: 'sem-tag neutro', text: 'sin evaluar' }));
+          if (motivo === 'rango_lab') pie.push(h('span', { class: 'sem-tag lab', text: 'rango del laboratorio' }));
+
+          const fueraDelLab = motivo === 'rango_lab' && c?.dentro_lab === false;
+          const flecha = ev?.direccion || (fueraDelLab && c?.lab_alto != null && Number(valor) > Number(c.lab_alto) ? 'alto'
+            : (fueraDelLab ? 'bajo' : null));
 
           let linea;
           if (ev) linea = `Óptimo ${textoRango(ev.rango.optimal_low, ev.rango.optimal_high, uCanon)}`;
           else if (motivo === 'unidad') linea = `El laboratorio lo midió en ${c?.unidad_lab || 'una unidad sin especificar'} y no equivale a ${uCanon}. No se evaluó.`;
           else if (motivo === 'sin_optimo') linea = `Dentro del límite ${textoRango(rango?.reference_low, rango?.reference_high, uCanon)}, pero sin óptimo definido.`;
+          else if (motivo === 'rango_lab') linea = `${fueraDelLab ? 'FUERA del' : 'Dentro del'} rango del laboratorio ${textoRango(c.lab_bajo, c.lab_alto, uCanon)}. No tenemos rango funcional propio.`;
           else linea = `Sin rango funcional para este sexo o edad. Lo interpretas tú.`;
 
-          const chip = h('article', { class: `sem-card ${ev ? ev.color : 'neutro'}${ev?.pendiente ? ' pendiente' : ''}` },
+          const chip = h('article', { class: `sem-card ${ev ? ev.color : 'neutro'}${ev?.pendiente ? ' pendiente' : ''}${motivo === 'rango_lab' ? ' lab' : ''}${fueraDelLab ? ' lab-fuera' : ''}` },
             h('header', { class: 'sem-head' },
               h('span', { class: 'sem-nombre', text: bm.name_es }),
-              ev?.direccion ? h('span', { class: 'sem-dir', text: ev.direccion === 'alto' ? '▲' : '▼' }) : null),
+              flecha ? h('span', { class: 'sem-dir', text: flecha === 'alto' ? '▲' : '▼' }) : null),
             h('div', { class: 'sem-valor' }, h('b', { text: num(mostrado) }), uMostrada ? h('span', { class: 'sem-unidad', text: uMostrada }) : null),
             h('div', { class: 'sem-rango small', text: linea }),
             h('div', { class: 'sem-pie small' }, ...pie));
+          if (hayLab && motivo !== 'rango_lab') {
+            chip.append(h('p', { class: 'sem-nota small lab', text: `Laboratorio: ${textoRango(c.lab_bajo, c.lab_alto, uCanon)}` }));
+          }
           if (c?.convertido) {
             chip.append(h('p', { class: 'sem-nota small', text: `El laboratorio reportó ${num(c.valor_lab)} ${c.unidad_lab || ''}.` }));
           }
