@@ -496,9 +496,58 @@ async function viewPatients(root) {
   setNav('pacientes');
   const [{ patients, intakes, alerts }, docs] = await Promise.all([api.patients(), isAdmin() ? api.physicians() : Promise.resolve([])]);
   const docName = Object.fromEntries(docs.map((d) => [d.user_id, d.full_name]));
+  // Un paciente sin user_id NUNCA ha podido entrar a la app. Es el cuello de botella
+  // mas caro del piloto y hasta hoy habia que descubrirlo paciente por paciente.
+  const sinCuenta = patients.filter((p) => !p.user_id && p.status === 'active'
+    && p.email && String(p.email).trim());
+  const salidaMasiva = h('div', { style: 'display:none;margin-bottom:12px' });
+
   root.append(h('div', { class: 'page-head' }, h('h1', { text: `Pacientes (${patients.length})` }),
     h('div', { class: 'toolbar' },
+      sinCuenta.length ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button',
+        text: `Generar ${sinCuenta.length} acceso(s) faltante(s)`,
+        onclick: async (ev) => {
+          const b2 = ev.currentTarget;
+          const cuerpo = h('div', { class: 'stack' },
+            h('p', {}, h('b', { text: `${sinCuenta.length} paciente(s) activo(s) nunca han entrado a la app.` }),
+              ' Se genera una liga para cada uno, válida 3 días.'),
+            h('ul', { style: 'margin:0 0 0 18px' },
+              ...sinCuenta.map((p) => h('li', { class: 'small', text: `${fullName(p)} — ${p.email}` }))),
+            h('div', { class: 'notice warn small' },
+              'Quien tenga una liga entra a ese expediente. Mándaselas una por una al teléfono del paciente, nunca a un grupo.'));
+          if (!(await modal('Generar los accesos que faltan', cuerpo, 'Generar'))) return;
+          b2.disabled = true; b2.textContent = 'Generando…';
+          const listas = []; const fallos = [];
+          for (const p of sinCuenta) {
+            try {
+              const r = await api.generarAcceso(p.id, 72);
+              listas.push({ nombre: fullName(p), correo: p.email, tel: p.phone || null,
+                liga: `${location.origin}/acceso.html?t=${r.token}` });
+            } catch (e) { fallos.push(`${fullName(p)}: ${e.message}`); }
+          }
+          const texto = listas.map((x) => `${x.nombre} (${x.correo})\n${x.liga}`).join('\n\n');
+          salidaMasiva.innerHTML = ''; salidaMasiva.style.display = '';
+          salidaMasiva.append(
+            h('div', { class: 'notice small' }, h('b', { text: `${listas.length} liga(s) generada(s). ` }),
+              'Vencen en 3 días. Cada una es personal.'),
+            ...listas.map((x) => h('div', { class: 'row-card' },
+              h('div', { class: 'row-top' }, h('strong', { text: x.nombre }),
+                h('span', { class: 'grow muted small', text: x.correo })),
+              h('p', { class: 'muted small', style: 'word-break:break-all;margin:4px 0 6px', text: x.liga }),
+              h('div', { class: 'row-actions' },
+                x.tel ? h('a', { class: 'btn btn-primary btn-sm', target: '_blank', rel: 'noopener',
+                  href: `${waLink(x.tel)}?text=${encodeURIComponent(`Hola ${x.nombre.split(' ')[0]}, aquí está tu acceso a RenovitIA: ${x.liga} La liga es sólo para ti y se vence en 3 días.`)}`,
+                  text: 'WhatsApp' }) : null,
+                h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Copiar liga',
+                  onclick: async () => { try { await navigator.clipboard.writeText(x.liga); toast('Copiada'); } catch { toast('No se pudo copiar', true); } } })))),
+            h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Copiar las ' + listas.length + ' ligas',
+              onclick: async () => { try { await navigator.clipboard.writeText(texto); toast('Copiadas'); } catch { toast('No se pudo copiar', true); } } }),
+            ...(fallos.length ? [h('div', { class: 'notice danger small' },
+              h('b', { text: 'No se pudo con: ' }), fallos.join(' · '))] : []));
+          b2.disabled = false; b2.textContent = 'Volver a generar';
+        } }) : null,
       h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: '+ Invitar paciente', onclick: () => inviteDialog(() => route()) }))));
+  root.append(salidaMasiva);
 
   const search = h('input', { class: 'input', type: 'search', placeholder: 'Buscar por nombre o correo', style: 'max-width:320px' });
   root.append(h('div', { class: 'toolbar', style: 'margin-bottom:12px' }, search));

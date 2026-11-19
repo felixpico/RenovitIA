@@ -706,3 +706,36 @@ body.con-tabs { padding-bottom: 86px; }
 .lgs { background: repeating-linear-gradient(45deg, #b9c2bd, #b9c2bd 2px, #fff 2px, #fff 4px); }
 .lv .t .ds.pa-sin_rango { color: var(--muted); }
 .fijo .fj b.gris { color: var(--muted); }
+
+
+/* ===== Resumen del día (tablero del paciente) =====
+   Rejilla de 2 columnas. La tarjeta que no tiene dato no se dibuja, asi que la
+   rejilla nunca sale con huecos: sale con una, con dos o con cuatro. */
+.rs { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 10px 0; }
+.rs-c { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+        padding: 11px 12px; }
+/* Con una o tres tarjetas, la ultima ocupa el ancho completo. Si no, queda un hueco
+   al lado que se lee como "aqui falta algo" en vez de "aqui no hay nada que decir". */
+.rs-c:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.rs-c h4 { margin: 0 0 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+           text-transform: uppercase; color: var(--muted); }
+.rs-n { font-size: 27px; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+.rs-n small { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 2px; }
+.rs-p { display: inline-block; margin-top: 7px; font-size: 10.5px; font-weight: 700;
+        padding: 2px 8px; border-radius: 20px; }
+.rs-p.v { background: var(--sem-verde-bg, #e3efe9); color: var(--sem-verde, #2f6b58); }
+.rs-p.a { background: var(--sem-amar-bg, #fbf0e3); color: #9a5f22; }
+.rs-p.r { background: var(--sem-rojo-bg, #f8e7e5); color: #9b3a31; }
+.rs-s { margin: 6px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
+
+/* ===== La semana ===== */
+.sm { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 12px 13px; margin: 12px 0 4px; }
+.sm h3 { margin: 0 0 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+         text-transform: uppercase; color: var(--muted); }
+.sm-f { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        padding: 9px 0; border-bottom: 1px dashed var(--border); }
+.sm-f:last-child { border-bottom: none; padding-bottom: 0; }
+.sm-f b { display: block; font-size: 14px; font-weight: 600; }
+.sm-f em { display: block; font-style: normal; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.sm-f .rs-p { margin-top: 0; flex: none; }

@@ -25,7 +25,7 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const S = { paciente: null, plan: null, items: [], fecha: iso(new Date()),
-            registro: null, guardando: false, pendiente: false, periodico: {} };
+            registro: null, guardando: false, pendiente: false, periodico: {}, resumen: null };
 
 /* ---------------- pestanas ---------------- */
 export function montarTabs() {
@@ -102,6 +102,83 @@ function etiquetas(it) {
   return e;
 }
 
+/* ---------- resumen del dia ----------
+   Regla dura: la tarjeta SIN dato no se dibuja. Nunca un guion, nunca un cero
+   inventado. Quien no trae reloj ve una pantalla mas corta que sigue teniendo
+   sentido, no una rejilla rota.                                              */
+const hhmm = (min) => `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')}`;
+const miles = (n) => Number(n).toLocaleString('es-MX');
+
+function tarjeta(titulo, valor, unidad, pill, nota) {
+  return `<div class="rs-c"><h4>${esc(titulo)}</h4>
+    <div class="rs-n">${valor}${unidad ? `<small>${esc(unidad)}</small>` : ''}</div>
+    ${pill ? `<span class="rs-p ${pill[0]}">${esc(pill[1])}</span>` : ''}
+    ${nota ? `<p class="rs-s">${nota}</p>` : ''}</div>`;
+}
+
+function tarjetasResumen(r) {
+  if (!r) return '';
+  const t = [];
+
+  if (r.sueno?.min) {
+    const e = r.sueno.eficiencia;
+    const pill = e == null ? null
+      : e >= 85 ? ['v', `${Math.round(e)}% eficiencia`]
+      : ['a', `${Math.round(e)}% eficiencia`];
+    const desp = r.sueno.despierto_min >= 45
+      ? `${hhmm(r.sueno.despierto_min)} despierto.` : '';
+    const vs = r.sueno.media_min
+      ? `Media ${hhmm(r.sueno.media_min)} h.` : '';
+    t.push(tarjeta('Anoche', hhmm(r.sueno.min), 'h', pill, `${desp} ${vs}`.trim()));
+  }
+
+  if (r.actividad?.pasos != null) {
+    const m = r.actividad.media_pasos;
+    const pill = !m ? null
+      : r.actividad.pasos >= m * 0.9 ? ['v', 'En tu media'] : ['a', 'Bajo tu media'];
+    t.push(tarjeta('Pasos', miles(r.actividad.pasos), '', pill,
+      m ? `Tu media: ${miles(m)}.` : ''));
+  }
+
+  if (r.alimentacion) {
+    const n = r.alimentacion.comidas || 0;
+    // Sin meta medica no se inventa una. Se dice lo que hay: gramos y cuantas comidas.
+    t.push(tarjeta('Proteína', n ? miles(r.alimentacion.proteina_g) : '—', n ? 'g' : '',
+      n ? null : ['a', 'Sin registrar'],
+      n ? `En ${n} ${n === 1 ? 'comida' : 'comidas'} de hoy.`
+        : 'Hoy no has registrado nada.'));
+  }
+
+  if (r.recuperacion?.pct != null) {
+    const v = r.recuperacion.pct;
+    const pill = v >= 67 ? ['v', 'Buena'] : v >= 34 ? ['a', 'Media'] : ['r', 'Baja'];
+    t.push(tarjeta('Recuperación', Math.round(v), '%', pill,
+      r.recuperacion.fc_reposo ? `Reposo ${r.recuperacion.fc_reposo} lpm.` : ''));
+  }
+
+  if (!t.length) return '';
+  return `<div class="rs">${t.join('')}</div>`;
+}
+
+function tiraSemana(sem) {
+  if (!sem) return '';
+  const f = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+  const fila = (t, d, pill) => `<div class="sm-f"><span><b>${esc(t)}</b><em>${esc(d)}</em></span>
+    <span class="rs-p ${pill[0]}">${esc(pill[1])}</span></div>`;
+  let h = '<div class="sm"><h3>Estos 7 días</h3>';
+  h += fila('Protocolo', f(sem.dias_con_tomas, 'día con tomas', 'días con tomas'),
+    sem.dias_con_tomas >= 6 ? ['v', 'Firme'] : sem.dias_con_tomas >= 3 ? ['a', 'A medias'] : ['r', 'Flojo']);
+  h += fila('Entrenamientos', f(sem.entrenos, 'sesión', 'sesiones'),
+    sem.entrenos >= 3 ? ['v', 'Bien'] : sem.entrenos >= 1 ? ['a', 'Pocos'] : ['r', 'Ninguno']);
+  h += fila('Comidas registradas', f(sem.comidas, 'captura', 'capturas'),
+    sem.comidas >= 14 ? ['v', 'Bien'] : sem.comidas >= 5 ? ['a', 'A medias'] : ['r', 'Casi nada']);
+  if (sem.dias_reloj) {
+    h += fila('Reloj', f(sem.dias_reloj, 'día con datos', 'días con datos'),
+      sem.dias_reloj >= 6 ? ['v', 'Al día'] : ['a', 'Con huecos']);
+  }
+  return `${h}</div>`;
+}
+
 function pintarHoy() {
   const caja = $('hoy-contenido');
   const items = delDia();
@@ -126,7 +203,7 @@ function pintarHoy() {
           ? `Te faltan ${items.length - hechos} de ${items.length} tomas.`
           : 'Palomeaste todo lo de hoy.'}</p>
       </div>
-    </div>`;
+    </div>` + tarjetasResumen(S.resumen);
 
   const porFranja = new Map();
   items.forEach((i) => {
@@ -171,6 +248,8 @@ function pintarHoy() {
     });
     html += '</div></div>';
   }
+
+  html += tiraSemana(S.resumen?.semana);
 
   caja.innerHTML = html;
   caja.querySelectorAll('.it:not(.listo)').forEach((b) => b.addEventListener('click', () => alternar(b)));
@@ -325,10 +404,16 @@ export async function pintarPaciente(patient, extras = {}) {
   S.paciente = patient;
   montarTabs();
 
-  const { data: planes } = await supabase.from('protocols')
-    .select('id,version,status,signed_at,start_date')
-    .eq('patient_id', patient.id).eq('status', 'delivered')
-    .order('version', { ascending: false });
+  // El resumen se pide en paralelo con el plan: es una sola llamada y sirve
+  // aunque todavia no haya protocolo entregado.
+  const [{ data: planes }, { data: resumen }] = await Promise.all([
+    supabase.from('protocols')
+      .select('id,version,status,signed_at,start_date')
+      .eq('patient_id', patient.id).eq('status', 'delivered')
+      .order('version', { ascending: false }),
+    supabase.rpc('resumen_hoy', { p_patient: patient.id }).catch(() => ({ data: null })),
+  ]);
+  S.resumen = resumen || null;
 
   if (planes?.length) {
     S.plan = planes[0];
@@ -354,6 +439,11 @@ export async function pintarPaciente(patient, extras = {}) {
     pintarHoy();
   } else {
     $('hoy-sub').textContent = 'Aquí verás tus tomas diarias cuando tu médico entregue tu plan.';
+    // Sin plan todavia puede haber comidas o reloj. Mas vale enseñar eso que
+    // una pantalla en blanco.
+    const tarjetas = tarjetasResumen(S.resumen);
+    const caja = $('hoy-contenido');
+    if (caja && tarjetas) caja.innerHTML = tarjetas + tiraSemana(S.resumen?.semana);
   }
 
   await pintarSalud(extras.nLab || 0, extras.faltantes || 0);
