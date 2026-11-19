@@ -588,7 +588,11 @@ function renderControl(q) {
       case 'consent': {
         const input = h('input', { type: 'checkbox' }); input.checked = val === true;
         input.addEventListener('change', () => setAnswer(q, input.checked || null));
+        // Pedir que acepte un aviso que no puede leer no es consentimiento informado.
+        const liga = h('a', { href: 'privacidad.html', target: '_blank', rel: 'noopener',
+          text: 'Leer el aviso de privacidad completo' });
         return h('div', { class: 'stack' }, h('p', { class: 'notice small', text: ov.text }),
+          h('p', { class: 'small' }, liga),
           h('label', { class: 'chip' }, input, h('span', { text: 'He leído y acepto' })),
           h('p', { class: 'small muted', text: `Versión del aviso: ${CONFIG.PRIVACY_NOTICE_VERSION}` }));
       }
