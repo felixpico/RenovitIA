@@ -539,7 +539,11 @@ function montarPresion(p) {
         original_filename: f.name || 'presion.jpg', mime_type: f.type || 'image/jpeg',
         extraction_status: 'pending',
       }).select('id').single();
-      if (eDoc) throw eDoc;
+      // Mismo cuidado que al subir estudios: si la fila falla, la foto no se queda tirada.
+      if (eDoc) {
+        await supabase.storage.from('patient-documents').remove([ruta]).catch(() => {});
+        throw eDoc;
+      }
 
       aviso('Leyendo los números…');
       const { data: r, error: eFn } = await supabase.functions.invoke('leer-presion', { body: { document_id: doc.id } });

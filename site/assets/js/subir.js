@@ -71,7 +71,12 @@ export function montarSubir(p, id = 'sub') {
           original_filename: f.name.slice(0, 200), mime_type: f.type || null,
           extraction_status: 'pending',
         }).select('id').single();
-        if (eDoc) throw eDoc;
+        // El archivo ya esta arriba. Si la fila no se crea, ese archivo queda
+        // huerfano y nadie lo va a ver nunca: se borra en el momento.
+        if (eDoc) {
+          await supabase.storage.from('patient-documents').remove([ruta]).catch(() => {});
+          throw eDoc;
+        }
 
         aviso(caja, `Leyendo <b>${esc(f.name)}</b>${cual}… Esto puede tardar medio minuto.`);
         const { data: r, error: eFn } = await supabase.functions
