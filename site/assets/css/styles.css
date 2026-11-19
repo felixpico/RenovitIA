@@ -636,3 +636,54 @@ body.con-tabs { padding-bottom: 86px; }
 .riel7 .ok { background: var(--brand); } .riel7 .med { background: #d99a4e; } .riel7 .bajo { background: #d8a3a0; }
 .d7 span { font-size: 11px; font-weight: 700; color: var(--muted); }
 .d7 u { font-size: 10px; text-decoration: none; color: var(--muted); }
+
+/* Buscador de alimentos */
+.busca { margin-top: 13px; }
+.bu-in { width: 100%; box-sizing: border-box; padding: 13px 14px; font-size: 16px;
+  border: 2px solid var(--brand); border-radius: 12px; background: var(--surface); color: var(--text); }
+.bu-res { margin-top: 8px; }
+.bu-res:not(:empty) { background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; max-height: 340px; overflow-y: auto; }
+.bu-it { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+  padding: 11px 13px; border: 0; border-bottom: 1px solid var(--border);
+  background: transparent; cursor: pointer; }
+.bu-it:last-child { border-bottom: 0; }
+.bu-it:hover { background: var(--surface-2); }
+.bu-it .bi { font-size: 19px; flex: none; }
+.bu-it .bn { flex: 1; min-width: 0; }
+.bu-it .bn b { display: block; font-size: 14.5px; }
+.bu-it .bn > span { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.bu-est { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--warn-soft);
+  color: var(--accent); font-weight: 800; display: grid; place-items: center; font-size: 13px; }
+.bu-nada { font-size: 13px; color: var(--muted); padding: 12px 4px; margin: 0; }
+.bu-mano { display: block; width: 100%; margin-top: 10px; font-size: 13px; }
+
+.cuanto { display: flex; gap: 8px; margin-top: 10px; }
+.cuanto input { width: 92px; flex: none; padding: 12px 10px; font-size: 18px; font-weight: 700;
+  text-align: center; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-2); color: var(--text); }
+.cuanto select { flex: 1; min-width: 0; padding: 12px 10px; font-size: 15px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text); }
+.cm-tot span { color: var(--muted); }
+
+.ingr-lista { margin-top: 11px; display: flex; flex-direction: column; gap: 6px; }
+.ing { display: flex; align-items: center; gap: 9px; }
+.ing span { flex: 1; min-width: 0; font-size: 13.5px; }
+.ing input { width: 74px; flex: none; padding: 8px 6px; font-size: 15px; font-weight: 700;
+  text-align: center; border: 1px solid var(--border); border-radius: 9px;
+  background: var(--surface-2); color: var(--text); }
+.ing u { flex: none; width: 16px; font-size: 12px; color: var(--muted); text-decoration: none; }
+
+/* Platillo: cuántas porciones */
+.porciones { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--surface-2); border-radius: 11px; padding: 10px 12px; margin-top: 11px; }
+.porciones > span { font-size: 13.5px; font-weight: 600; flex: 1; }
+.pmas { display: flex; align-items: center; gap: 2px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.pmas button { width: 38px; height: 38px; border: 0; background: transparent; color: var(--brand);
+  font-size: 21px; font-weight: 700; cursor: pointer; line-height: 1; }
+.pmas button:hover { background: var(--brand-soft); }
+.pmas b { min-width: 34px; text-align: center; font-size: 17px; font-weight: 800; }
+.porciones u { font-size: 12.5px; color: var(--muted); text-decoration: none; width: 100%; }
+.afinar { margin-top: 11px; }
+.afinar summary { cursor: pointer; font-size: 13px; color: var(--brand); font-weight: 600; }

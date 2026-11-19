@@ -3,7 +3,7 @@
 // 2) que si el paciente abre el icono sin senal, vea la pantalla y un aviso,
 //    en lugar del dinosaurio del navegador.
 // NUNCA cachea datos del paciente: todo lo que sale de Supabase va a la red.
-const CACHE = 'renovitia-v7';
+const CACHE = 'renovitia-v8';
 const SHELL = [
   './',
   './index.html',

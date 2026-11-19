@@ -8,6 +8,10 @@
 //   manual   -> lo que el paciente teclea.
 // Nada se guarda sin que el paciente confirme los numeros.
 import { supabase } from './supabase.js';
+import {
+  cajaBuscador, montarBuscador, panelBase, montarBase,
+  panelPlatillo, montarPlatillo, traerBase,
+} from './buscador.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const n0 = (x) => (x === null || x === undefined ? '—' : Math.round(Number(x)).toLocaleString('es-MX'));
@@ -77,7 +81,7 @@ export function panelHoy(d) {
     <input type="file" id="cm-foto" accept="image/*" capture="environment" hidden>
     <button class="btn btn-primary cm-b" type="button" data-modo="etiqueta">🏷️ Etiqueta</button>
     <button class="btn btn-primary cm-b" type="button" data-modo="plato">📷 Mi plato</button>
-    <button class="btn btn-ghost cm-b" type="button" data-modo="manual">✍️ A mano</button>
+    <button class="btn btn-ghost cm-b" type="button" data-modo="buscar">🔎 Buscar</button>
   </div>
   <div id="cm-estado"></div><div id="cm-form"></div>`;
 
@@ -145,6 +149,38 @@ function formulario(datos, origen, extra) {
   </div>`;
 }
 
+// Guardar lo que vino del catálogo. Se separa de la foto porque aquí los
+// números no son una estimación: salen de una tabla, y el renglón queda
+// marcado como 'manual', no como 'foto'.
+async function elegido(p, r, recargar) {
+  const caja = document.getElementById('cm-form');
+  const llenarFranja = () => {
+    const s = document.getElementById('cm-franja');
+    if (!s) return;
+    s.innerHTML = FRANJAS.map(([k, n]) =>
+      `<option value="${k}"${k === franjaAhora() ? ' selected' : ''}>${n}</option>`).join('');
+  };
+  const alGuardar = async (boton, fila, code) => {
+    await guardar(boton, {
+      patient_id: p.id, origen: 'manual', ...fila,
+    }, recargar);
+    // El buscador aprende qué come esta clínica, sin que nadie lo configure.
+    supabase.rpc('usar_alimento', { p_code: code }).then(() => {}, () => {});
+  };
+
+  if (r.tipo === 'platillo') {
+    const codes = (r.componentes || []).map((c) => c.code);
+    const base = await traerBase(codes);
+    caja.innerHTML = panelPlatillo(r, base);
+    llenarFranja();
+    montarPlatillo(r, base, alGuardar);
+    return;
+  }
+  caja.innerHTML = panelBase(r);
+  llenarFranja();
+  montarBase(r, alGuardar);
+}
+
 /* ---------- montaje ---------- */
 export function montarComer(p, recargar) {
   const $ = (id) => document.getElementById(id);
@@ -159,11 +195,15 @@ export function montarComer(p, recargar) {
   document.querySelectorAll('.cm-b').forEach((b) => {
     b.addEventListener('click', () => {
       modoActual = b.dataset.modo;
-      if (modoActual === 'manual') {
+      if (modoActual === 'buscar') {
         aviso('');
-        $('cm-form').innerHTML = formulario({}, 'manual');
-        enlazar(p, 'manual', {}, recargar);
-        $('cm-desc')?.focus();
+        $('cm-form').innerHTML = cajaBuscador();
+        montarBuscador((r) => elegido(p, r, recargar));
+        document.getElementById('bu-mano')?.addEventListener('click', () => {
+          $('cm-form').innerHTML = formulario({}, 'manual');
+          enlazar(p, 'manual', {}, recargar);
+          $('cm-desc')?.focus();
+        });
         return;
       }
       $('cm-foto').click();
