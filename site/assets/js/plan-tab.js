@@ -57,6 +57,9 @@ export function renderPlanTab(root, ctx) {
       return;
     }
 
+    // Hay un plan entregado ANTERIOR a este borrador: entonces el paciente ya
+    // esta siguiendo algo, y firmar sin entregar lo deja con la version vieja.
+    const yaTeniaPlan = plans.some((x) => x.id !== vigente.id && x.delivered_at);
     const mios = items.filter((i) => i.protocol_id === vigente.id && i.is_active);
     const firmado = ['approved', 'delivered'].includes(vigente.status);
     const [etiqueta, color] = ESTADO[vigente.status] || ['—', ''];
@@ -528,11 +531,30 @@ export function renderPlanTab(root, ctx) {
           h('label', { class: 'field', style: 'margin-top:6px;flex-direction:row;gap:8px;align-items:flex-start' }, ck,
             h('span', { class: 'small', text: 'Lo reconozco y firmo de todas formas.' }))));
       }
+      if (yaTeniaPlan) {
+        cuerpo.append(h('p', { class: 'small', style: 'margin-top:10px;font-weight:600',
+          text: 'Tu paciente ya tiene un plan entregado. Al firmar, este reemplaza al anterior en su teléfono y se conserva su historial de tomas.' }));
+      }
       if (!(await modal('Firmar plan', cuerpo, 'Firmar'))) return;
       if (sinDosis.length && !ck.checked) { toast('Marca el reconocimiento o corrige las dosis antes de firmar', true); return; }
       try {
         const r = await api.signPlan(plan.id, sinDosis.length > 0);
-        toast(r?.sin_dosis_auditable ? `Plan firmado · ${r.sin_dosis_auditable} renglón(es) sin dosis auditable, queda registrado` : 'Plan firmado');
+        // Si el paciente YA traia un plan entregado, firmar y no entregar lo
+        // deja siguiendo el plan viejo sin que nadie lo note. Se entrega en el
+        // mismo acto, y el historial de tomas lo hereda la base.
+        let extra = '';
+        if (yaTeniaPlan) {
+          try {
+            const d = await api.deliverPlan(plan.id);
+            const h = d?.herencia || {};
+            extra = h.dias_reescritos > 0
+              ? ` y entregado · se conservó el historial de ${h.renglones_mapeados} renglón(es)`
+              : ' y entregado';
+          } catch (e2) { extra = ` · NO se pudo entregar: ${e2.message}`; }
+        }
+        toast(r?.sin_dosis_auditable
+          ? `Plan firmado${extra} · ${r.sin_dosis_auditable} renglón(es) sin dosis auditable, queda registrado`
+          : `Plan firmado${extra}`);
         load();
       } catch (e) { toast(e.message, true); }
     }

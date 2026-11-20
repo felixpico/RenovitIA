@@ -519,11 +519,12 @@ export async function pintarPaciente(patient, extras = {}) {
 
   if (planes?.length) {
     S.plan = planes[0];
+    vigilarPlan(patient, extras);
     $('onboarding').classList.add('hidden');
     $('hoy-sub').textContent = 'Esto es lo que te toca hoy.';
 
     const { data: items } = await supabase.from('protocol_items')
-      .select('id,category,title,dose,reconstitution,timing,frequency,instructions,sort_order')
+      .select('id,category,title,dose,reconstitution,timing,frequency,instructions,sort_order,dose_un,vial_mg,vial_ml,syringe,days_of_week')
       .eq('protocol_id', S.plan.id).eq('is_active', true).order('sort_order');
     S.items = (items || []).filter((i) => CON_TOMA.includes(i.category));
 
@@ -550,6 +551,54 @@ export async function pintarPaciente(patient, extras = {}) {
 
   await pintarSalud(extras.nLab || 0, extras.faltantes || 0);
   montarAccesosEncabezado(patient);
+}
+
+/* ---------- cuando la médica cambia el plan ----------
+   El plan se vuelve a leer cada vez que la app se abre, asi que el caso normal
+   ya funciona. Lo que faltaba es el telefono que se queda abierto: el paciente
+   lo deja en la mesa, la medica entrega una version nueva, y el ve la vieja.
+   No se escucha la base en vivo a proposito: lo unico que hay que saber es si
+   cambio el id del plan entregado, y eso es una consulta de una fila. */
+let vigilante = null;
+
+function vigilarPlan(patient, extras) {
+  if (vigilante) return;
+  let recargando = false;
+
+  const revisar = async () => {
+    if (recargando || document.hidden || !S.plan) return;
+    try {
+      const { data, error } = await supabase.from('protocols')
+        .select('id,version')
+        .eq('patient_id', patient.id).eq('status', 'delivered')
+        .order('version', { ascending: false }).limit(1);
+      if (error || !data?.length) return;
+      if (data[0].id === S.plan.id) return;
+      recargando = true;
+      // El aviso va DESPUES de repintar: pintarPaciente reescribe el contenedor
+      // y se llevaba el aviso por delante.
+      await pintarPaciente(patient, extras);
+      avisarPlanNuevo();
+      recargando = false;
+    } catch (_) { recargando = false; }
+  };
+
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) revisar(); });
+  vigilante = setInterval(revisar, 90000);
+}
+
+// Un plan que cambia solo, sin avisar, se siente como un error de la app. Se
+// dice qué pasó y quién lo hizo.
+function avisarPlanNuevo() {
+  if (document.getElementById('aviso-plan')) return;
+  const c = document.createElement('div');
+  c.id = 'aviso-plan';
+  c.className = 'notice';
+  c.style.cssText = 'margin:12px';
+  c.textContent = 'Tu médica actualizó tu plan. Esto es lo que te toca ahora.';
+  const caja = document.getElementById('hoy-contenido') || document.body;
+  caja.prepend(c);
+  setTimeout(() => c.remove(), 12000);
 }
 
 // Engrane y persona del encabezado. Llevan a la pestaña "Mi salud" y abren la
