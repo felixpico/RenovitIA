@@ -6,6 +6,7 @@ import { demoApi } from './medico-demo.js';
 import { renderStudiesTab } from './estudios.js';
 import { viewRanges } from './rangos.js';
 import { renderPlanTab } from './plan-tab.js';
+import { viewCatalogs } from './catalogos.js';
 
 const $ = (id) => document.getElementById(id);
 const DEMO = isDemo();
@@ -264,6 +265,23 @@ const liveApi = {
     ]);
     for (const x of [sup, pep, ejer]) if (x.error) throw x.error;
     return { supplements: sup.data, peptides: pep.data, exercises: ejer.data };
+  },
+  // Catalogos completos: aqui SI entran los desactivados, porque esta pantalla
+  // es justamente donde se vuelven a prender.
+  async catalogRows(tabla, orden) {
+    const { data, error } = await supabase.from(tabla).select('*').order(orden || 'name_es');
+    if (error) throw error;
+    return data || [];
+  },
+  async catalogSave(tabla, fila) {
+    const { id, ...resto } = fila;
+    if (id) {
+      const { error } = await supabase.from(tabla).update(resto).eq('id', id);
+      if (error) throw error;
+      return;
+    }
+    const { error } = await supabase.from(tabla).insert(resto);
+    if (error) throw error;
   },
   async plans(patientId) {
     const { data, error } = await supabase.from('protocols').select('*').eq('patient_id', patientId)
@@ -856,6 +874,7 @@ async function route() {
     if (name === 'paciente' && id) await viewPatient(fresh, id);
     else if (name === 'pacientes') await viewPatients(fresh);
     else if (name === 'rangos') await viewRanges(fresh, { h, badge, modal, toast, api, me: S.me, setNav });
+    else if (name === 'catalogos') await viewCatalogs(fresh, { h, badge, modal, toast, api, me: S.me, setNav });
     else await viewAlerts(fresh);
     app.innerHTML = ''; app.append(fresh);
     if (name !== 'alertas' && !(hash === '#/alertas' || !location.hash)) api.alerts().then(updateAlertCount).catch(() => {});
