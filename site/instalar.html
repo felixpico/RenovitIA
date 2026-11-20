@@ -36,6 +36,7 @@
   </header>
 
   <main class="container stack">
+    <div id="aviso-navegador"></div>
     <div class="hero">
       <div class="eyebrow">Tu programa, en tu teléfono</div>
       <h1>Instala RenovitIA</h1>
@@ -48,6 +49,7 @@
 
     <div class="card stack">
       <button id="btn-instalar" class="btn btn-primary btn-block hidden" type="button">Instalar ahora</button>
+      <div id="sin-boton" class="notice small hidden">Este navegador no trae el botón automático. No pasa nada: hazlo a mano con los pasos de abajo, queda igual.</div>
       <div class="tabs" role="tablist">
         <button id="tab-android" role="tab" aria-selected="false" aria-controls="p-android" type="button">Android</button>
         <button id="tab-ios" role="tab" aria-selected="false" aria-controls="p-ios" type="button">iPhone</button>
@@ -61,7 +63,7 @@
       </section>
 
       <section id="p-ios" role="tabpanel" class="plataformas hidden">
-        <div class="notice warn small">En iPhone sólo funciona desde <strong>Safari</strong>. Si abriste esta página desde Chrome, WhatsApp o Instagram, ciérrala y vuelve a abrirla en Safari.</div>
+        <div id="ios-navegador" class="notice small"></div>
         <div class="paso"><span class="paso-n">1</span><span class="paso-txt">Abre esta página en <strong>Safari</strong>.</span></div>
         <div class="paso"><span class="paso-n">2</span><span class="paso-txt">Toca el botón de compartir <svg class="ico-in" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg> en la barra de abajo.</span></div>
         <div class="paso"><span class="paso-n">3</span><span class="paso-txt">Desliza y elige <strong>Agregar a inicio</strong>.</span></div>
@@ -73,6 +75,7 @@
       <strong>Para abrirla desde otro teléfono</strong>
       <p class="muted small" style="margin:0">Escanea este código con la cámara.</p>
       <div id="qr"></div>
+      <button id="btn-copiar" class="btn btn-ghost btn-block" type="button">Copiar la liga</button>
       <p class="muted small" id="url-texto" style="margin:0;word-break:break-all"></p>
     </div>
 
