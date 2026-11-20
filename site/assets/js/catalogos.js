@@ -9,11 +9,14 @@
 // recetas ya firmadas. protocol_items guarda su propia copia del título y la
 // dosis al momento de capturar. La pantalla lo dice en voz alta.
 
+import { FRANJAS } from './franjas.js';
+
 export const CATALOGOS = [
   {
     id: 'peptides', tabla: 'catalog_peptides', nombre: 'Péptidos',
     riesgo: 'alto',
     orden: 'name_es',
+    franjas: true,
     nota: 'La dosis que escribas aquí se prellena en cada plan futuro. Para los que no tienen dosis establecida en humanos, el renglón debe decirlo, no traer un número.',
     exigeFuente: true,
     campos: [
@@ -31,13 +34,14 @@ export const CATALOGOS = [
       ['cautions', 'Precauciones', 'area'],
       ['monitoring', 'Monitoreo', 'area'],
     ],
-    resumen: (r) => [r.route, r.typical_dose, r.frequency].filter(Boolean).join(' · '),
+    resumen: (r) => [r.route, r.typical_dose, etiquetaFranjas(r.default_slots), r.frequency].filter(Boolean).join(' · '),
     sello: (r) => ESTATUS[r.regulatory_status] || r.regulatory_status,
   },
   {
     id: 'supplements', tabla: 'catalog_supplements', nombre: 'Suplementos',
     riesgo: 'medio',
     orden: 'name_es',
+    franjas: true,
     nota: 'Una dosis por omisión mal puesta se repite en todos los planes que se generen después.',
     exigeFuente: true,
     campos: [
@@ -45,14 +49,14 @@ export const CATALOGOS = [
       ['name_es', 'Nombre', 'texto', true],
       ['category', 'Categoría', 'texto'],
       ['default_dose', 'Dosis por omisión', 'texto'],
-      ['default_timing', 'Horario por omisión', 'texto'],
+      ['default_timing', 'Nota de horario', 'texto'],
       ['frequency', 'Frecuencia', 'texto'],
       ['purpose', 'Para qué', 'texto'],
       ['evidence_grade', 'Evidencia', 'enum', false, ['', 'A', 'B', 'C', 'D']],
       ['cautions', 'Precauciones', 'area'],
       ['interactions', 'Interacciones', 'area'],
     ],
-    resumen: (r) => [r.default_dose, r.default_timing, r.frequency].filter(Boolean).join(' · '),
+    resumen: (r) => [r.default_dose, etiquetaFranjas(r.default_slots) || r.default_timing, r.frequency].filter(Boolean).join(' · '),
     sello: (r) => (r.evidence_grade ? `Evidencia ${r.evidence_grade}` : null),
   },
   {
@@ -115,6 +119,11 @@ const ESTATUS = {
   investigacion: 'En investigación',
   no_aprobado_uso_humano: 'Sin aprobación',
 };
+
+// Las franjas del catalogo, en corto, para el renglon de la lista.
+const etiquetaFranjas = (slots) => (Array.isArray(slots) && slots.length
+  ? slots.map((k) => (FRANJAS.find(([c]) => c === k) || [])[2] || k).join(' + ')
+  : null);
 
 const FECHA = (t) => (t ? new Date(t).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : null);
 const sinAcentos = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -261,6 +270,31 @@ export async function viewCatalogs(root, ctx) {
         partes.push(campo(requerido ? `${etiqueta} *` : etiqueta, el));
       });
 
+      /* Las franjas se ELIGEN. Este es el valor por omision del producto: al
+         recetarlo, la pantalla del plan llega con estas marcadas, y la medica
+         las cambia si ese paciente las necesita distintas. */
+      const slots = new Set(Array.isArray(r?.default_slots) ? r.default_slots : []);
+      const chipsFr = h('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' });
+      const notaFr = h('p', { class: 'muted small', style: 'margin:4px 0 0' });
+      const pintarFr = () => {
+        chipsFr.innerHTML = '';
+        FRANJAS.forEach(([clave, , corto]) => {
+          const on = slots.has(clave);
+          chipsFr.append(h('button', {
+            type: 'button', text: corto, 'aria-pressed': on ? 'true' : 'false',
+            style: 'font:inherit;font-size:12.5px;font-weight:600;padding:9px 12px;border-radius:9px;cursor:pointer;'
+              + (on ? 'border:1px solid #0f241d;background:#0f241d;color:#fff;'
+                    : 'border:1px solid #c9cfcb;background:#fff;color:#5c6660;'),
+            onclick: () => { if (slots.has(clave)) slots.delete(clave); else slots.add(clave); pintarFr(); },
+          }));
+        });
+        notaFr.textContent = slots.size > 1
+          ? `Al recetarlo, el paciente lo verá ${slots.size} veces al día.`
+          : (slots.size === 1 ? 'Llega marcada al recetarlo. Se puede cambiar por paciente.'
+                              : 'Sin franja, al recetarlo hay que elegirla a mano cada vez.');
+      };
+      if (actual.franjas) pintarFr();
+
       // La fuente va al final y con su propia explicacion: es el campo que
       // separa un dato de una ocurrencia.
       const fuente = h('textarea', { class: 'input', rows: 2,
@@ -269,8 +303,17 @@ export async function viewCatalogs(root, ctx) {
       const revisado = h('input', { class: 'input', type: 'date' });
       revisado.value = r?.revisado_en ?? '';
 
+      // Cuando se toma va ARRIBA, junto al nombre: es un atributo del producto,
+      // no una nota al pie. Al fondo del formulario hay que pasar diez campos
+      // para llegar, y lo que cuesta llegar no se llena.
+      const bloqueFr = actual.franjas ? [
+        h('p', { class: 'small', style: 'margin:6px 0 0;font-weight:700', text: '¿Cuándo se toma? (franja por omisión)' }),
+        chipsFr, notaFr,
+      ] : [];
       const cuerpoForm = h('div', { class: 'stack' },
-        ...partes,
+        ...partes.slice(0, 2),
+        ...bloqueFr,
+        ...partes.slice(2),
         h('hr', { style: 'border:0;border-top:1px solid var(--border);margin:6px 0' }),
         campo(actual.exigeFuente ? 'De dónde salió *' : 'De dónde salió', fuente),
         h('p', { class: 'muted small', style: 'margin:-4px 0 0',
@@ -295,6 +338,7 @@ export async function viewCatalogs(root, ctx) {
         const v = String(controles[clave].el.value).trim();
         fila[clave] = v === '' ? null : (tipo === 'numero' ? Number(v) : v);
       });
+      if (actual.franjas) fila.default_slots = slots.size ? [...slots] : null;
       fila.fuente = fuente.value.trim() || null;
       fila.revisado_en = revisado.value || null;
       if (!r) fila.is_active = true;

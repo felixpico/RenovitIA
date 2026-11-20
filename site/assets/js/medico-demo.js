@@ -249,11 +249,11 @@ export const demoApi = {
   async catalogRows(tabla) {
     const muestra = {
       catalog_peptides: [
-        { id: 'c1', code: 'TESAMORELINA', name_es: 'Tesamorelina', route: 'subcutanea', typical_dose: '1 mg', frequency: 'Diario, noche', purpose: 'Grasa visceral', evidence_grade: 'A', regulatory_status: 'aprobado', fuente: 'Etiqueta del producto aprobado', revisado_en: '2026-10-01', updated_at: '2026-10-01T10:00:00Z', is_active: true },
+        { id: 'c1', code: 'TESAMORELINA', name_es: 'Tesamorelina', route: 'subcutanea', typical_dose: '1 mg', default_slots: ['dormir'], frequency: 'Diario, noche', purpose: 'Grasa visceral', evidence_grade: 'A', regulatory_status: 'aprobado', fuente: 'Etiqueta del producto aprobado', revisado_en: '2026-10-01', updated_at: '2026-10-01T10:00:00Z', is_active: true },
         { id: 'c2', code: 'BPC157', name_es: 'BPC-157', route: 'subcutanea', typical_dose: 'Sin dosis establecida en humanos', frequency: null, purpose: 'Reparacion de tejido', evidence_grade: 'D', regulatory_status: 'no_aprobado_uso_humano', fuente: null, revisado_en: null, updated_at: null, is_active: true },
       ],
       catalog_supplements: [
-        { id: 's1', code: 'VITD', name_es: 'Vitamina D3 + K2', default_dose: '5,000 UI', default_timing: 'Con el desayuno', frequency: 'Diario', purpose: 'Vitamina D baja', evidence_grade: 'A', fuente: 'Guia de practica clinica', revisado_en: '2026-09-15', updated_at: '2026-09-15T10:00:00Z', is_active: true },
+        { id: 's1', code: 'VITD', name_es: 'Vitamina D3 + K2', default_dose: '5,000 UI', default_timing: 'Con el desayuno', default_slots: ['desayuno'], frequency: 'Diario', purpose: 'Vitamina D baja', evidence_grade: 'A', fuente: 'Guia de practica clinica', revisado_en: '2026-09-15', updated_at: '2026-09-15T10:00:00Z', is_active: true },
       ],
       catalog_exercises: [
         { id: 'e1', code: 'DOM_ASIST', name_es: 'Dominadas asistidas', modality: 'fuerza', equipment: 'Maquina asistida', sets_reps_hint: '4 x 8', level: 'intermedio', cautions: 'Nada de jalon por detras de la nuca.', fuente: null, revisado_en: null, updated_at: null, is_active: true },
