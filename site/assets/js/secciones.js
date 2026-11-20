@@ -527,12 +527,49 @@ async function ajustes(p) {
       .then((r) => r.data || []).catch(() => []),
   ]);
   const whoop = conex.find((c) => c.proveedor === 'whoop');
+  const google = conex.find((c) => c.proveedor === 'google');
   return cabecera('Ajustes') + `<div class="w">
     <h2 class="s">Avisos</h2>
     ${Rec.cajaHTML(estado, prefs)}
     <h2 class="s">Tu reloj</h2>
     ${cajaWhoop(whoop)}
+    <h2 class="s">Google Health</h2>
+    ${cajaGoogle(google)}
   </div>`;
+}
+
+// Google Health tiene un estado que WHOOP no tiene: autorizaste, pero no tienes
+// perfil creado en la app de Google Health. Se ve igual que "conectado" y no llega
+// un solo dato. Por eso se dice aparte y con instrucciones, no como "error".
+function cajaGoogle(c) {
+  if (!c) {
+    return `<div class="dato"><span class="dic">📱</span><div>
+        <b>Conecta Google Health.</b> Si tu teléfono es Android, o si migraste tu
+        Fitbit a Google, de ahí salen tu sueño y tus pasos.
+        <br><b>Antes de conectar:</b> abre la app de Google Health en tu teléfono e
+        inicia sesión al menos una vez. Si no, la conexión queda a medias.</div></div>
+      <button class="btn btn-primary btn-block" type="button" id="gh-conectar"
+        style="margin-top:10px">Conectar Google Health</button>`;
+  }
+  const sync = fechaCorta(c.ultima_sync);
+  const alta = fechaCorta(c.conectado_en);
+  const sinVinculo = c.estado === 'sin_vincular';
+  const malo = c.estado !== 'activa' || c.con_problema;
+  return `<div class="row"><div class="l"><b>Google Health</b>
+      <span>${sinVinculo ? 'Falta un paso' : malo ? 'Conexión con problema' : 'Conectado'}${alta ? ` desde el ${esc(alta)}` : ''}</span></div>
+      <div class="r">${sync ? esc(sync) : 'sin sincronizar'}</div></div>
+    ${sinVinculo ? `<div class="dato alerta"><span class="dic">📱</span><div>
+        <b>Diste el permiso, pero falta crear tu perfil.</b> Abre la app de
+        <b>Google Health</b> en tu teléfono, inicia sesión con la misma cuenta y
+        regresa a conectar aquí. Sin ese paso no llegan datos.</div></div>`
+      : malo ? `<div class="dato alerta"><span class="dic">⚠️</span><div>
+        Esta conexión dejó de funcionar. Desconéctala y vuelve a conectarla.</div></div>` : ''}
+    ${!sync && !malo ? `<p class="nota-chica">Todavía no llega el primer dato. La primera
+        sincronización puede tardar hasta un día.</p>` : ''}
+    ${!sinVinculo ? `<button class="btn btn-ghost btn-block" type="button" id="gh-sync"
+      style="margin-top:10px">Sincronizar ahora</button>` : ''}
+    <button class="btn btn-ghost btn-block" type="button" id="gh-desconectar"
+      style="margin-top:8px">Desconectar Google Health</button>`;
 }
 
 const fechaCorta = (t) => (t ? new Date(t).toLocaleDateString('es-MX',
@@ -785,6 +822,42 @@ function montarAjustes(p) {
         `<div class="dato alerta"><span class="dic">\u26a0\uFE0F</span><div>${esc(String(e.message || e))}</div></div>`);
     }
   });
+
+  // Google Health: misma mecanica que WHOOP, distinto proveedor y distintos textos.
+  const engancha = (id, fn, textoBase) => {
+    document.getElementById(id)?.addEventListener('click', async (ev) => {
+      const b = ev.currentTarget;
+      b.disabled = true;
+      const antes = b.textContent;
+      b.textContent = textoBase;
+      try { await fn(b); } catch (e) {
+        b.disabled = false; b.textContent = antes;
+        b.insertAdjacentHTML('afterend',
+          `<div class="dato alerta"><span class="dic">\u26a0\uFE0F</span><div>${esc(String(e.message || e))}</div></div>`);
+      }
+    });
+  };
+
+  engancha('gh-conectar', async () => {
+    const { data, error } = await supabase.functions.invoke('oauth-google', { body: { accion: 'iniciar' } });
+    if (error || !data?.url) throw new Error(data?.error || error?.message || 'No se pudo iniciar');
+    window.location.href = data.url;
+  }, 'Abriendo Google…');
+
+  engancha('gh-sync', async (b) => {
+    const { data, error } = await supabase.functions.invoke('sync-google', { body: {} });
+    if (error) throw new Error(error.message);
+    const d = (data?.detalle || [])[0];
+    if (d?.error) throw new Error(d.error);
+    b.textContent = d ? `Listo: ${d.dias} día(s)` : 'Sin datos todavía';
+    refrescar();
+  }, 'Sincronizando…');
+
+  engancha('gh-desconectar', async () => {
+    const { data, error } = await supabase.functions.invoke('oauth-google', { body: { accion: 'desconectar' } });
+    if (error || !data?.desconectado) throw new Error(data?.error || error?.message || 'No se pudo desconectar');
+    refrescar();
+  }, 'Desconectando…');
 
   document.getElementById('rec-horas')?.addEventListener('click', async (ev) => {
     const horas = {};

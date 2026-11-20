@@ -230,6 +230,23 @@ $('btn-otro-correo').addEventListener('click', () => {
 // direccion, para que recargar no vuelva a mostrar el mismo mensaje.
 function avisoWearable() {
   const q = new URLSearchParams(location.search);
+  const g = q.get('google');
+  if (g) {
+    const t = {
+      ok: 'Listo, Google Health quedó conectado. El primer dato puede tardar hasta un día.',
+      parcial: 'Se conectó, pero Google no entregó permiso de larga duración. Desconéctala y vuelve a conectarla.',
+      sin_vincular: 'Diste el permiso, pero todavía no tienes perfil en Google Health. Abre la app de Google Health en tu teléfono, inicia sesión, y vuelve a conectar aquí.',
+      cancelado: 'No se conectó: cancelaste los permisos en Google.',
+      error: `No se pudo conectar. ${q.get('m') || ''}`.trim(),
+    }[g] || 'No se pudo conectar.';
+    const c = document.createElement('div');
+    c.className = `notice${g === 'ok' ? '' : ' danger'}`;
+    c.style.cssText = 'margin:12px';
+    c.textContent = t;
+    document.body.prepend(c);
+    try { history.replaceState(null, '', location.pathname); } catch { /* da igual */ }
+    return;
+  }
   const r = q.get('whoop');
   if (!r) return;
   const texto = {
