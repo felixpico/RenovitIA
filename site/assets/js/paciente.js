@@ -7,6 +7,10 @@
 import { supabase } from './supabase.js';
 import { FRANJAS, NOMBRE_FRANJA, franjaDe, tocaHoy } from './franjas.js';
 import { abrirSeccion, cerrarSeccion } from './secciones.js';
+import {
+  DIAS as DIAS_SEMANA, hoyISO, etiquetaDias, mgDeUnidades, mlDeUnidades, concentracion,
+  textoMg, textoMl, textoConc, jeringaVertical,
+} from './peptido.js';
 
 const $ = (id) => document.getElementById(id);
 const CON_TOMA = ['supplement', 'peptide', 'medication'];
@@ -84,11 +88,16 @@ const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 // Dos formatos a proposito: uno va a media frase y otro en una etiqueta
 // angosta. Recortar con split() dejaba "Martes 24 de".
+// Sin fecha se dice "—", no "undefined NaN de noviembre". Un renglon roto en la
+// pantalla del paciente le quita credibilidad a los que si estan bien.
+const valida = (d) => d && !Number.isNaN(new Date(`${d}T12:00:00`).getTime());
 const FECHA_LARGA = (d) => {
+  if (!valida(d)) return '—';
   const f = new Date(`${d}T12:00:00`);
   return `${DIAS[f.getDay()].toLowerCase()} ${f.getDate()} de ${MESES[f.getMonth()]}`;
 };
 const FECHA_CORTA = (d) => {
+  if (!valida(d)) return '—';
   const f = new Date(`${d}T12:00:00`);
   return `${DIAS[f.getDay()]} ${f.getDate()}`;
 };
@@ -230,6 +239,7 @@ function pintarHoy() {
         <span class="cb">${PALOMA}</span>
         <span class="nm"><b>${esc(i.title)}${etiquetas(i)}</b>${sub}</span>
         ${i.dose ? `<span class="ds">${esc(i.dose)}</span>` : ''}</button>`;
+      html += chipsDias(i) + botonJeringa(i);
     });
     html += '</div></div>';
   });
@@ -245,6 +255,7 @@ function pintarHoy() {
         <span class="nm"><b>${esc(i.title)}${etiquetas(i)}</b>
           <span>Te la pusiste el ${esc(FECHA_LARGA(per.ultima))}</span></span>
         <span class="prox">Siguiente<b>${esc(FECHA_CORTA(per.proxima))}</b></span></div>`;
+      html += chipsDias(i);
     });
     html += '</div></div>';
   }
@@ -253,7 +264,85 @@ function pintarHoy() {
 
   caja.innerHTML = html;
   caja.querySelectorAll('.it:not(.listo)').forEach((b) => b.addEventListener('click', () => alternar(b)));
+  caja.querySelectorAll('.pep-ver').forEach((b) => b.addEventListener('click', () => {
+    const it = (S.items || []).find((x) => x.id === b.dataset.pep);
+    if (it) abrirJeringa(it);
+  }));
   pintarEntreno();
+}
+
+/* ---------- péptidos en unidades ---------- */
+// Los días van en su propia fila, debajo del renglón: el renglón es un <button>
+// y meterle otro botón adentro deja el HTML inválido.
+function chipsDias(i) {
+  if (!Array.isArray(i.days_of_week) || !i.days_of_week.length) return '';
+  const hoy = hoyISO();
+  const marcados = i.days_of_week.map(Number);
+  return '<div class="pep-dias">' + DIAS_SEMANA.map(([n, corto, largo]) => {
+    const on = marcados.includes(n);
+    const clase = `${on ? 'on' : ''}${on && n === hoy ? ' hoy' : ''}`.trim();
+    return `<span class="${clase}" title="${esc(largo)}">${corto}</span>`;
+  }).join('') + '</div>';
+}
+
+// El botón sólo aparece cuando la dosis está COMPLETA. Una jeringa dibujada a
+// partir de un vial que no conocemos sería peor que no dibujar nada: el
+// paciente la seguiría al pie de la letra.
+function botonJeringa(i) {
+  if (!(Number(i.dose_un) > 0) || !i.syringe || !(Number(i.vial_mg) > 0) || !(Number(i.vial_ml) > 0)) return '';
+  return `<button class="pep-ver" type="button" data-pep="${esc(i.id)}">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+         stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+      <path d="M19 3l2 2"/><path d="M17.5 5.5l1 1"/><path d="M20 4l-9.5 9.5"/>
+      <path d="M14.5 6.5l3 3"/><path d="M11.5 9.5l3 3"/><path d="M10.5 13.5L3 21"/><path d="M5.5 16.5l2 2"/>
+    </svg>
+    Ver la dosis en la jeringa</button>`;
+}
+
+function abrirJeringa(i) {
+  const un = Number(i.dose_un);
+  const mg = mgDeUnidades({ un, vial_mg: i.vial_mg, vial_ml: i.vial_ml, jeringa: i.syringe });
+  const ml = mlDeUnidades(un, i.syringe);
+  const dias = etiquetaDias((i.days_of_week || []).map(Number));
+  const hoy = hoyISO();
+
+  const fondo = document.createElement('div');
+  fondo.className = 'jer-fondo';
+  fondo.innerHTML = `<div class="jer-hoja" role="dialog" aria-modal="true" aria-label="Dosis de ${esc(i.title)}">
+    <div class="jer-asa"></div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+      <h2 style="margin:0;font-size:19px;font-weight:700">${esc(i.title)}</h2>
+      <button type="button" id="jer-x" style="font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);background:none;border:0;cursor:pointer">Cerrar</button>
+    </div>
+    <div class="jer-fila">
+      ${jeringaVertical(un, i.syringe)}
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:12px">
+        <div>
+          <div style="display:flex;align-items:baseline;gap:7px">
+            <span class="jer-num">${un}</span>
+            <span style="font-size:17px;font-weight:700;color:var(--muted)">UN</span>
+          </div>
+          <p style="margin:5px 0 0;font-size:14px;line-height:1.4">Jala el émbolo hasta la <b style="color:#c0521a">raya naranja</b>.</p>
+        </div>
+        <div class="jer-eq">Son <b>${esc(textoMl(ml))}</b><br>= <b>${esc(textoMg(mg))}</b> de ${esc(i.title)}</div>
+        <p class="muted small" style="margin:0">Jeringa <b>${esc(i.syringe)}</b>. Si la tuya dice otra cosa, no la uses.</p>
+      </div>
+    </div>
+    <div class="jer-ojo"><b>Tu vial dice ${esc(String(i.vial_mg))} mg en ${esc(String(i.vial_ml))} mL</b>
+      (${esc(textoConc(concentracion(i.vial_mg, i.vial_ml)))}). Compruébalo en la etiqueta antes de cargar.
+      Si el tuyo dice otra cosa, <b>no te la pongas</b>: las mismas ${un} unidades serían otra dosis.
+      Avísale a tu médica desde Dudas y mensajes.</div>
+    ${dias ? `<div style="margin-top:14px">
+      <p class="muted small" style="margin:0 0 7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Tus días</p>
+      ${chipsDias(i)}
+      ${(i.days_of_week || []).map(Number).includes(hoy) ? '<p class="muted small" style="margin:6px 0 0">Hoy te toca.</p>' : ''}
+    </div>` : ''}
+  </div>`;
+
+  const cerrar = () => fondo.remove();
+  fondo.addEventListener('click', (e) => { if (e.target === fondo) cerrar(); });
+  fondo.querySelector('#jer-x').addEventListener('click', cerrar);
+  document.body.append(fondo);
 }
 
 async function alternar(btn) {

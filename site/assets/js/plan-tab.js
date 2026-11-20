@@ -1,5 +1,10 @@
 // Pestaña "Plan": genera el borrador desde el semáforo, deja que el médico capture
 // las indicaciones y lo firma. Sin dosis concreta no se puede firmar: lo bloquea la base.
+import {
+  JERINGAS, DIAS, mgDeUnidades, mlDeUnidades, concentracion,
+  textoMg, textoMl, textoConc, etiquetaDias, jeringaHorizontal, faltaParaAuditar,
+} from './peptido.js';
+
 const CATEGORIAS = [
   ['peptide', 'Péptidos'], ['medication', 'Medicamentos'], ['supplement', 'Suplementos'],
   ['nutrition', 'Alimentación'], ['exercise', 'Ejercicio'], ['sleep', 'Sueño'],
@@ -364,7 +369,84 @@ export function renderPlanTab(root, ctx) {
       });
       llenarPicker();
 
-      const cuerpoForm = h('div', { class: 'stack' }, campo('Categoría', cat), campo('Del catálogo', picker), avisoReg, campo('Qué', titulo), campo('Dosis', dosis), campo('Reconstitución del vial', recon),
+      /* ---------- péptidos: el vial, las unidades y los días ----------
+         Las unidades solas no son una dosis. Mientras falten los mg y los mL
+         del vial, lo que se teclee aquí NO se guarda como dosis estructurada:
+         se guarda como texto, igual que antes, y el plan no se va a poder
+         firmar. Así se captura rápido sin inventar un dato que no existe. */
+      const nIn = (ph, paso) => h('input', { class: 'input', type: 'number', min: '0', step: paso, placeholder: ph });
+      const vialMg = nIn('40', '0.5'); vialMg.value = item?.vial_mg ?? '';
+      const vialMl = nIn('3', '0.1'); vialMl.value = item?.vial_ml ?? '';
+      const unidades = nIn('30', '1'); unidades.value = item?.dose_un ?? '';
+      const jeringa = h('select', { class: 'input' },
+        h('option', { value: '', text: '— elegir —' }),
+        ...JERINGAS.map(([v, n]) => h('option', { value: v, text: n })));
+      jeringa.value = item?.syringe || 'U-100';
+      const vistaPep = h('div', { style: 'border:1px solid var(--line,#dfe4e0);border-radius:10px;padding:10px;background:#fff' });
+      const chips = h('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' });
+      const dias = new Set((item?.days_of_week || []).map(Number));
+
+      const pintarChips = () => {
+        chips.innerHTML = '';
+        DIAS.forEach(([n, corto, largo]) => {
+          const on = dias.has(n);
+          const b = h('button', {
+            type: 'button', text: corto, title: largo, 'aria-pressed': on ? 'true' : 'false',
+            style: `font:inherit;font-size:12px;font-weight:700;letter-spacing:.03em;min-width:52px;padding:9px 0;border-radius:9px;cursor:pointer;`
+              + (on ? 'border:1px solid #0f241d;background:#0f241d;color:#fff;'
+                    : 'border:1px solid #c9cfcb;background:#fff;color:#5c6660;'),
+            onclick: () => { if (dias.has(n)) dias.delete(n); else dias.add(n); pintarChips(); repintarPep(); },
+          });
+          chips.append(b);
+        });
+      };
+
+      const repintarPep = () => {
+        const it = { dose_un: unidades.value, vial_mg: vialMg.value, vial_ml: vialMl.value, syringe: jeringa.value };
+        const falta = faltaParaAuditar(it);
+        const mg = mgDeUnidades({ un: unidades.value, vial_mg: vialMg.value, vial_ml: vialMl.value, jeringa: jeringa.value });
+        const ml = mlDeUnidades(unidades.value, jeringa.value);
+        const c = concentracion(vialMg.value, vialMl.value);
+        const marcados = [...dias].sort((a, b) => a - b);
+        vistaPep.innerHTML = '';
+        if (!String(unidades.value).trim()) {
+          vistaPep.append(h('p', { class: 'muted small', style: 'margin:0',
+            text: 'Si la dosis va en miligramos, deja las unidades vacías y usa la casilla de Dosis.' }));
+          return;
+        }
+        vistaPep.insertAdjacentHTML('beforeend', jeringaHorizontal(unidades.value, jeringa.value || 'U-100'));
+        if (falta.length) {
+          vistaPep.append(h('p', { style: 'margin:8px 0 0;font-size:13px;font-weight:600;color:var(--danger,#c0521a)',
+            text: `${unidades.value} UN no es una dosis todavía: ${falta.length > 1 ? 'faltan' : 'falta'} ${falta.join(' y ')}.` }));
+          vistaPep.append(h('p', { class: 'muted small', style: 'margin:4px 0 0',
+            text: 'Se guarda como texto y el plan no se podrá firmar con este renglón.' }));
+        } else {
+          vistaPep.append(h('p', { style: 'margin:8px 0 0;font-size:15px;font-weight:700',
+            text: `${unidades.value} UN = ${textoMl(ml)} = ${textoMg(mg)}` }));
+          vistaPep.append(h('p', { class: 'muted small', style: 'margin:4px 0 0',
+            text: `Vial de ${textoConc(c)}. ${marcados.length ? etiquetaDias(marcados) : 'Faltan los días.'}` }));
+        }
+      };
+      [vialMg, vialMl, unidades].forEach((el) => el.addEventListener('input', repintarPep));
+      jeringa.addEventListener('change', repintarPep);
+      pintarChips();
+      repintarPep();
+
+      const bloquePep = h('div', { class: 'stack', style: 'border-left:3px solid #0f241d;padding-left:12px' },
+        h('p', { class: 'small', style: 'margin:0;font-weight:700', text: 'El vial que vas a entregar' }),
+        h('div', { class: 'fields-grid' }, campo('mg por vial', vialMg), campo('mL de diluyente', vialMl)),
+        h('div', { class: 'fields-grid' }, campo('Jeringa', jeringa), campo('Unidades (UN)', unidades)),
+        vistaPep,
+        h('p', { class: 'small', style: 'margin:8px 0 0;font-weight:700', text: 'Qué días se la aplica' }),
+        chips,
+        h('p', { class: 'muted small', style: 'margin:0',
+          text: 'Si un día marcado no se cumple, el renglón NO desaparece: le sigue apareciendo al paciente con los días de retraso.' }));
+
+      const verBloquePep = () => { bloquePep.style.display = cat.value === 'peptide' ? '' : 'none'; };
+      cat.addEventListener('change', verBloquePep);
+      verBloquePep();
+
+      const cuerpoForm = h('div', { class: 'stack' }, campo('Categoría', cat), campo('Del catálogo', picker), avisoReg, campo('Qué', titulo), bloquePep, campo('Dosis', dosis), campo('Reconstitución del vial', recon),
         h('div', { class: 'fields-grid' }, campo('Horario', horario), campo('Frecuencia', frec)),
         campo('Para qué', motivo), campo('Instrucciones', instr), aviso);
 
@@ -377,16 +459,42 @@ export function renderPlanTab(root, ctx) {
         // Guardar no exige una dosis auditable, sólo que la casilla traiga algo:
         // el médico captura primero y afina después. La dosis se vuelve requisito
         // al firmar, no al escribir.
-        if (CON_DOSIS.includes(cat.value) && !dosis.value.trim()) {
+        const hayUnidades = cat.value === 'peptide' && String(unidades.value).trim() !== '';
+        if (CON_DOSIS.includes(cat.value) && !dosis.value.trim() && !hayUnidades) {
           toast('Escribe algo en la dosis. Si aún no la defines, anota qué falta, p. ej. "por definir: escalamiento"', true);
           continue;
         }
         break;
       }
       try {
+        // Los campos estructurados solo se guardan cuando estan COMPLETOS. A
+        // medias no se guardan: una dosis en unidades sin su vial es la que
+        // hoy tiene un paciente puesta sin que nadie sepa cuantos mg son.
+        const esPep = cat.value === 'peptide';
+        const completo = esPep && String(unidades.value).trim() !== ''
+          && faltaParaAuditar({ dose_un: unidades.value, vial_mg: vialMg.value, vial_ml: vialMl.value, syringe: jeringa.value }).length === 0;
+        const mgCalc = completo
+          ? mgDeUnidades({ un: unidades.value, vial_mg: vialMg.value, vial_ml: vialMl.value, jeringa: jeringa.value })
+          : null;
+        const marcados = [...dias].sort((a, b) => a - b);
+
+        // El texto se escribe solo desde los numeros, para que la hoja del
+        // paciente, los PDF y todo lo que ya lee `dose` sigan funcionando.
+        const doseTexto = completo
+          ? `${Number(unidades.value)} UN (${textoMg(mgCalc)})`
+          : (dosis.value.trim() || null);
+        const reconTexto = completo
+          ? `${Number(vialMg.value)} mg en ${Number(vialMl.value)} mL (${textoConc(concentracion(vialMg.value, vialMl.value))}) · jeringa ${jeringa.value}`
+          : (recon.value.trim() || null);
+
         await api.savePlanItem(planId, {
-          id: item?.id, category: cat.value, title: titulo.value.trim(), dose: dosis.value.trim() || null,
-          reconstitution: recon.value.trim() || null,
+          id: item?.id, category: cat.value, title: titulo.value.trim(), dose: doseTexto,
+          reconstitution: reconTexto,
+          dose_un: completo ? Number(unidades.value) : null,
+          vial_mg: completo ? Number(vialMg.value) : null,
+          vial_ml: completo ? Number(vialMl.value) : null,
+          syringe: completo ? jeringa.value : null,
+          days_of_week: esPep && marcados.length ? marcados : null,
           timing: horario.value.trim() || null, frequency: frec.value.trim() || null,
           rationale: motivo.value.trim() || null, instructions: instr.value.trim() || null,
           sort_order: item?.sort_order ?? 50,

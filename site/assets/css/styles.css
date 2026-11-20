@@ -446,6 +446,17 @@ body.con-tabs { padding-bottom: 86px; }
 .row .l span { font-size: 12.5px; color: var(--muted); }
 .row .r { font-size: 13.5px; color: var(--brand); font-weight: 700; }
 
+/* Tira de la semana en Mi entrenamiento. Sin esto los siete recuadros salian
+   como texto corrido: "LUNjalon MARpierna". */
+.wk { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 14px; }
+.wk > div { background: var(--surface-2); border-radius: 10px; padding: 7px 2px 7px;
+            text-align: center; font-size: 11px; line-height: 1.3; color: var(--muted);
+            overflow: hidden; text-overflow: ellipsis; text-transform: capitalize; }
+.wk > div b { display: block; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase;
+              color: var(--muted); font-weight: 700; margin-bottom: 3px; }
+.wk > div.on { background: var(--brand-soft); color: var(--brand-strong); font-weight: 600; }
+.wk > div.on b { color: var(--brand-strong); }
+
 .day { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   overflow: hidden; margin-bottom: 12px; }
 .day img { width: 100%; display: block; background: var(--surface-2); }
@@ -764,3 +775,34 @@ body.con-tabs { padding-bottom: 86px; }
 .ico-btn:active { transform: scale(.94); }
 .ico-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor;
   stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ===== Péptidos: días fijos y la jeringa ===== */
+/* Los días viven DEBAJO del renglón, no dentro: el renglón es un <button> y
+   meterle otro botón adentro deja el HTML inválido y el toque impredecible. */
+.pep-dias { display: flex; gap: 4px; padding: 0 14px 10px 53px; }
+.pep-dias span { flex: 1; text-align: center; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .04em; padding: 5px 0; border-radius: 7px;
+  background: var(--chip, #eef2ef); color: var(--muted); }
+.pep-dias span.on { background: var(--brand); color: #fff; }
+.pep-dias span.hoy { outline: 2px solid var(--accent, #d9823c); outline-offset: 2px; }
+
+.pep-ver { display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: calc(100% - 28px); margin: 0 14px 12px; padding: 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--chip, #eef2ef);
+  font: inherit; font-size: 13.5px; font-weight: 700; color: var(--brand); cursor: pointer; }
+.pep-ver:active { transform: scale(.99); }
+
+.jer-fondo { position: fixed; inset: 0; z-index: 90; background: rgba(12,26,21,.55);
+  display: flex; flex-direction: column; justify-content: flex-end; }
+.jer-hoja { background: var(--surface, #fff); border-radius: 22px 22px 0 0;
+  padding: 10px 20px calc(20px + env(safe-area-inset-bottom)); max-height: 92vh; overflow-y: auto;
+  box-shadow: 0 -10px 40px rgba(0,0,0,.25); }
+.jer-asa { width: 44px; height: 4px; border-radius: 999px; background: var(--line);
+  margin: 0 auto 12px; }
+.jer-fila { display: flex; gap: 16px; align-items: stretch; }
+.jer-num { font-size: 46px; font-weight: 800; letter-spacing: -.03em; line-height: 1;
+  color: var(--brand); }
+.jer-eq { padding: 11px 13px; border-radius: 11px; background: var(--chip, #eef2ef);
+  font-size: 13px; line-height: 1.5; }
+.jer-ojo { padding: 13px 15px; border-radius: 12px; background: #fdf3ea;
+  border: 1px solid #f0d6bd; color: #6b3d14; font-size: 13px; line-height: 1.5; margin-top: 14px; }
