@@ -59,7 +59,42 @@ export function renderPlanTab(root, ctx) {
 
     // Hay un plan entregado ANTERIOR a este borrador: entonces el paciente ya
     // esta siguiendo algo, y firmar sin entregar lo deja con la version vieja.
-    const yaTeniaPlan = plans.some((x) => x.id !== vigente.id && x.delivered_at);
+    const anterior = plans.filter((x) => x.id !== vigente.id && x.delivered_at)
+      .sort((a, b) => b.version - a.version)[0] || null;
+    const yaTeniaPlan = !!anterior;
+
+    /* Lo que el paciente GANA y lo que PIERDE al entregar esta version.
+       Un plan regenerado no copia lo capturado, asi que es facil firmar una
+       version de cinco renglones encima de una de diecinueve y quitarle al
+       paciente siete suplementos sin darse cuenta. */
+    const llaveDe = (i) => String(i.catalog_code || '').trim().toLowerCase()
+      || String(i.title || '').trim().toLowerCase();
+    const conToma = (i) => CON_DOSIS.includes(i.category);
+    const antes = anterior
+      ? items.filter((i) => i.protocol_id === anterior.id && i.is_active && conToma(i))
+      : [];
+    const ahora = items.filter((i) => i.protocol_id === vigente.id && i.is_active && conToma(i));
+    const llavesAhora = new Set(ahora.map(llaveDe));
+    const llavesAntes = new Set(antes.map(llaveDe));
+    const seVan = antes.filter((i) => !llavesAhora.has(llaveDe(i)));
+    const llegan = ahora.filter((i) => !llavesAntes.has(llaveDe(i)));
+
+    const cuadroCambios = () => {
+      if (!anterior) return null;
+      const lista = (titulo, filas, clase) => (filas.length
+        ? h('div', { style: 'margin-top:8px' },
+            h('b', { class: clase || '', text: `${titulo} (${filas.length})` }),
+            h('ul', { style: 'margin:4px 0 0' },
+              ...filas.map((i) => h('li', { text: `${i.title}${i.dose ? ` — ${i.dose}` : ''}` }))))
+        : null);
+      return h('div', { class: 'stack' },
+        h('p', { class: 'small', style: 'margin:0',
+          text: `Comparado con la versión ${anterior.version}, que es la que trae hoy en su teléfono:` }),
+        lista('Deja de tomar', seVan, 'rojo'),
+        lista('Empieza a tomar', llegan, ''),
+        (!seVan.length && !llegan.length)
+          ? h('p', { class: 'small', style: 'margin:6px 0 0', text: 'Las tomas no cambian.' }) : null);
+    };
     const mios = items.filter((i) => i.protocol_id === vigente.id && i.is_active);
     const firmado = ['approved', 'delivered'].includes(vigente.status);
     const [etiqueta, color] = ESTADO[vigente.status] || ['—', ''];
@@ -534,6 +569,11 @@ export function renderPlanTab(root, ctx) {
       if (yaTeniaPlan) {
         cuerpo.append(h('p', { class: 'small', style: 'margin-top:10px;font-weight:600',
           text: 'Tu paciente ya tiene un plan entregado. Al firmar, este reemplaza al anterior en su teléfono y se conserva su historial de tomas.' }));
+        cuerpo.append(cuadroCambios());
+        if (seVan.length) {
+          cuerpo.append(h('p', { class: 'small', style: 'margin-top:6px;color:var(--danger);font-weight:600',
+            text: `Ojo: ${seVan.length} renglón(es) que hoy toma dejarían de aparecerle. Si los quiere seguir tomando, tienen que estar también en esta versión.` }));
+        }
       }
       if (!(await modal('Firmar plan', cuerpo, 'Firmar'))) return;
       if (sinDosis.length && !ck.checked) { toast('Marca el reconocimiento o corrige las dosis antes de firmar', true); return; }
@@ -560,9 +600,24 @@ export function renderPlanTab(root, ctx) {
     }
 
     async function entregar(plan) {
-      if (!(await modal('Entregar al paciente', h('p', { text: 'El plan queda disponible para el paciente.' }), 'Entregar'))) return;
-      try { await api.deliverPlan(plan.id); toast('Entregado'); load(); }
-      catch (e) { toast(`Error: ${e.message}`, true); }
+      const cuerpo = h('div', { class: 'stack' },
+        h('p', { text: 'El plan queda disponible para el paciente.' }));
+      if (anterior) {
+        cuerpo.append(cuadroCambios());
+        if (seVan.length) {
+          cuerpo.append(h('p', { class: 'small', style: 'color:var(--danger);font-weight:600',
+            text: `${seVan.length} renglón(es) que hoy toma dejarían de aparecerle.` }));
+        }
+      }
+      if (!(await modal('Entregar al paciente', cuerpo, 'Entregar'))) return;
+      try {
+        const r = await api.deliverPlan(plan.id);
+        const he = r?.herencia || {};
+        toast(he.dias_reescritos > 0
+          ? `Entregado · se conservó el historial de ${he.renglones_mapeados} renglón(es)`
+          : 'Entregado');
+        load();
+      } catch (e) { toast(`Error: ${e.message}`, true); }
     }
   };
   load();
