@@ -5,7 +5,9 @@
 //    impone la RLS, aqui solo se dibuja el estado vacio con dignidad).
 //  - Nada se presenta como "firmado" si el protocolo no esta en delivered.
 import { supabase } from './supabase.js';
-import { FRANJAS, NOMBRE_FRANJA, franjaDe, tocaHoy } from './franjas.js';
+import {
+  FRANJAS, NOMBRE_FRANJA, CORTO_FRANJA, franjasDe, porFranja, llaveToma, horaDe, tocaHoy,
+} from './franjas.js';
 import { abrirSeccion, cerrarSeccion } from './secciones.js';
 import {
   DIAS as DIAS_SEMANA, hoyISO, etiquetaDias, mgDeUnidades, mlDeUnidades, concentracion,
@@ -16,9 +18,6 @@ const $ = (id) => document.getElementById(id);
 const CON_TOMA = ['supplement', 'peptide', 'medication'];
 const PALOMA = '<svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>';
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-const CORTO = { ayunas: 'En ayunas', desayuno: 'Desayuno', entreno: 'Entrenamiento',
-  comida: 'Comida', cena: 'Cena', dormir: 'Antes de dormir', semanal: 'Esta semana',
-  indefinido: 'Sin horario fijo' };
 const ENTRENO_IMG = {
   jalon: 'assets/img/entreno/dia1-jalon.webp',
   empuje: 'assets/img/entreno/dia3-empuje.webp',
@@ -29,7 +28,8 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const S = { paciente: null, plan: null, items: [], fecha: iso(new Date()),
-            registro: null, guardando: false, pendiente: false, periodico: {}, resumen: null };
+            registro: null, guardando: false, pendiente: false, periodico: {}, resumen: null,
+            horas: null };
 
 /* ---------------- pestanas ---------------- */
 export function montarTabs() {
@@ -59,10 +59,6 @@ document.addEventListener('click', (e) => {
 });
 
 /* ---------------- Hoy ---------------- */
-function franjaDeItem(i) {
-  const f = franjaDe(i);
-  return FRANJAS.some(([k]) => k === f) ? f : 'indefinido';
-}
 
 // Un renglon periodico que ya se aplico y todavia no le toca NO entra en la
 // lista del dia, ni cuenta en el anillo. Antes la Retatrutida aparecia sin
@@ -188,11 +184,24 @@ function tiraSemana(sem) {
   return `${h}</div>`;
 }
 
+// Una toma es un par (renglon, franja). Mio-inositol de manana y de noche son
+// DOS tomas, con su propia palomita: si comparten una, marcar la de la manana
+// da por hecha la de la noche y el paciente se salta una dosis.
+function tomasDelDia() {
+  const mapa = porFranja(delDia());
+  const fuera = [];
+  FRANJAS.forEach(([clave]) => {
+    (mapa.get(clave) || []).forEach((i) => fuera.push({ i, franja: clave, llave: llaveToma(i, clave) }));
+  });
+  return fuera;
+}
+
 function pintarHoy() {
   const caja = $('hoy-contenido');
+  const tomas = tomasDelDia();
   const items = delDia();
-  const hechos = items.filter((i) => S.registro.supplements_taken?.[i.id]).length;
-  const pct = items.length ? hechos / items.length : 0;
+  const hechos = tomas.filter((t) => S.registro.supplements_taken?.[t.llave]).length;
+  const pct = tomas.length ? hechos / tomas.length : 0;
   const R = 44, C = 2 * Math.PI * R;
 
   let html = `
@@ -204,30 +213,32 @@ function pintarHoy() {
                   stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}"
                   stroke-dashoffset="${(C * (1 - pct)).toFixed(1)}"/>
         </svg>
-        <div class="ctr"><div class="n">${hechos}<small>/${items.length}</small></div><div class="u">HOY</div></div>
+        <div class="ctr"><div class="n">${hechos}<small>/${tomas.length}</small></div><div class="u">HOY</div></div>
       </div>
       <div>
-        <strong style="font-size:16.5px">${hechos === items.length && items.length ? '¡Día completo!' : hechos ? 'Vas avanzando' : 'Empecemos'}</strong>
-        <p class="muted small" style="margin:3px 0 0">${items.length - hechos > 0
-          ? `Te faltan ${items.length - hechos} de ${items.length} tomas.`
+        <strong style="font-size:16.5px">${hechos === tomas.length && tomas.length ? '¡Día completo!' : hechos ? 'Vas avanzando' : 'Empecemos'}</strong>
+        <p class="muted small" style="margin:3px 0 0">${tomas.length - hechos > 0
+          ? `Te faltan ${tomas.length - hechos} de ${tomas.length} tomas.`
           : 'Palomeaste todo lo de hoy.'}</p>
       </div>
     </div>` + tarjetasResumen(S.resumen);
 
-  const porFranja = new Map();
-  items.forEach((i) => {
-    const f = franjaDeItem(i);
-    if (!porFranja.has(f)) porFranja.set(f, []);
-    porFranja.get(f).push(i);
+  const grupos = new Map();
+  tomas.forEach((t) => {
+    if (!grupos.has(t.franja)) grupos.set(t.franja, []);
+    grupos.get(t.franja).push(t);
   });
 
   FRANJAS.forEach(([clave, nombre]) => {
-    const lista = porFranja.get(clave);
+    const lista = grupos.get(clave);
     if (!lista?.length) return;
-    const n = lista.filter((i) => S.registro.supplements_taken?.[i.id]).length;
-    html += `<div class="fr"><h3>${esc(CORTO[clave] || nombre)} <em>· ${n} de ${lista.length}</em></h3><div class="lista">`;
-    lista.forEach((i) => {
-      const on = S.registro.supplements_taken?.[i.id] ? ' on' : '';
+    const n = lista.filter((t) => S.registro.supplements_taken?.[t.llave]).length;
+    // La hora es la QUE EL PACIENTE configuro para sus recordatorios, no una
+    // inventada por el sistema.
+    const hora = horaDe(clave, S.horas);
+    html += `<div class="fr"><h3>${esc(CORTO_FRANJA[clave] || nombre)}${hora ? ` <b class="hr">${esc(hora)}</b>` : ''} <em>· ${n} de ${lista.length}</em></h3><div class="lista">`;
+    lista.forEach(({ i, llave }) => {
+      const on = S.registro.supplements_taken?.[llave] ? ' on' : '';
       const per = S.periodico[i.id];
       // Un atraso en una inyeccion semanal no es lo mismo que olvidar una
       // capsula: se dice con numero, no con un regano generico.
@@ -235,7 +246,7 @@ function pintarHoy() {
         ? `<span class="tarde">Van ${per.atraso} ${per.atraso === 1 ? 'día' : 'días'} de retraso</span>`
         : '';
       const sub = atraso || (i.reconstitution ? `<span>${esc(i.reconstitution)}</span>` : '');
-      html += `<button class="it${on}" type="button" data-id="${esc(i.id)}" aria-pressed="${on ? 'true' : 'false'}">
+      html += `<button class="it${on}" type="button" data-id="${esc(llave)}" aria-pressed="${on ? 'true' : 'false'}">
         <span class="cb">${PALOMA}</span>
         <span class="nm"><b>${esc(i.title)}${etiquetas(i)}</b>${sub}</span>
         ${i.dose ? `<span class="ds">${esc(i.dose)}</span>` : ''}</button>`;
@@ -524,9 +535,15 @@ export async function pintarPaciente(patient, extras = {}) {
     $('hoy-sub').textContent = 'Esto es lo que te toca hoy.';
 
     const { data: items } = await supabase.from('protocol_items')
-      .select('id,category,title,dose,reconstitution,timing,frequency,instructions,sort_order,dose_un,vial_mg,vial_ml,syringe,days_of_week')
+      .select('id,category,title,dose,reconstitution,timing,frequency,instructions,sort_order,dose_un,vial_mg,vial_ml,syringe,days_of_week,slots')
       .eq('protocol_id', S.plan.id).eq('is_active', true).order('sort_order');
     S.items = (items || []).filter((i) => CON_TOMA.includes(i.category));
+
+    // Las horas de cada franja viven en los recordatorios del paciente: son
+    // las suyas, las que ya configuro. Si falla, la pantalla se dibuja sin hora.
+    const { data: rec } = await supabase.from('patient_reminders').select('horas')
+      .eq('patient_id', patient.id).maybeSingle();
+    S.horas = rec?.horas || null;
 
     const { data: reg } = await supabase.from('daily_checkins').select('*')
       .eq('patient_id', patient.id).eq('checkin_date', S.fecha).maybeSingle();

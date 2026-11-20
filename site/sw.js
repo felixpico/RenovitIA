@@ -3,7 +3,7 @@
 // 2) que si el paciente abre el icono sin senal, vea la pantalla y un aviso,
 //    en lugar del dinosaurio del navegador.
 // NUNCA cachea datos del paciente: todo lo que sale de Supabase va a la red.
-const CACHE = 'renovitia-v31';
+const CACHE = 'renovitia-v33';
 const SHELL = [
   './',
   './index.html',
@@ -43,7 +43,22 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Archivos de la app: cache primero, y se refresca en segundo plano.
+  // CODIGO de la app: red primero, cache solo como red de emergencia.
+  //
+  // Antes era al reves —cache primero y refresco en segundo plano— y eso hacia
+  // que un despliegue nuevo se viera hasta la SEGUNDA carga: la primera servia
+  // el archivo de ayer. En el panel medico eso es inaceptable: no tiene ningun
+  // uso sin conexion y quien lo abre espera ver lo que se acaba de desplegar.
+  const esCodigo = /\.(js|css|html)$/.test(url.pathname) || url.pathname.endsWith('/');
+  if (esCodigo) {
+    e.respondWith(fetch(req).then((res) => {
+      if (res && res.ok) { const copia = res.clone(); caches.open(CACHE).then((c) => c.put(req, copia)); }
+      return res;
+    }).catch(() => caches.match(req).then((hit) => hit || caches.match('./offline.html'))));
+    return;
+  }
+
+  // Lo demas (iconos, logos, tipografias): cache primero, que no cambia.
   e.respondWith(caches.match(req).then((hit) => {
     const red = fetch(req).then((res) => {
       if (res && res.ok) { const copia = res.clone(); caches.open(CACHE).then((c) => c.put(req, copia)); }

@@ -1,5 +1,6 @@
 // Pestaña "Plan": genera el borrador desde el semáforo, deja que el médico capture
 // las indicaciones y lo firma. Sin dosis concreta no se puede firmar: lo bloquea la base.
+import { FRANJAS } from './franjas.js';
 import {
   JERINGAS, DIAS, mgDeUnidades, mlDeUnidades, concentracion,
   textoMg, textoMl, textoConc, etiquetaDias, jeringaHorizontal, faltaParaAuditar,
@@ -395,6 +396,13 @@ export function renderPlanTab(root, ctx) {
         dosis.value = c.default_dose || c.typical_dose || '';
         recon.value = c.reconstitution_hint || '';
         horario.value = c.default_timing || c.sets_reps_hint || '';
+        // La franja sugerida del catalogo: elegir Magnesio ya trae "antes de
+        // dormir". La medica la puede cambiar para este paciente.
+        if (Array.isArray(c.default_slots) && c.default_slots.length) {
+          franjas.clear();
+          c.default_slots.forEach((f) => franjas.add(f));
+          pintarFranjas();
+        }
         frec.value = c.frequency || '';
         motivo.value = c.purpose || '';
         instr.value = [c.cautions ? `Precauciones: ${c.cautions}` : null,
@@ -406,6 +414,38 @@ export function renderPlanTab(root, ctx) {
         }
       });
       llenarPicker();
+
+      /* ---------- franja horaria ----------
+         Se elige de una lista fija. Antes se derivaba del texto de Horario, y
+         eso mandaba "Tesamorelina, noche" a la cena en vez de antes de dormir,
+         y dejaba "Mañana y noche" con una sola toma visible para el paciente. */
+      const franjas = new Set(Array.isArray(item?.slots) ? item.slots : []);
+      const chipsFr = h('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' });
+      const avisoFr = h('p', { class: 'muted small', style: 'margin:4px 0 0' });
+      const pintarFranjas = () => {
+        chipsFr.innerHTML = '';
+        FRANJAS.forEach(([clave, , corto]) => {
+          const on = franjas.has(clave);
+          chipsFr.append(h('button', {
+            type: 'button', text: corto, 'aria-pressed': on ? 'true' : 'false',
+            style: 'font:inherit;font-size:12.5px;font-weight:600;padding:9px 12px;border-radius:9px;cursor:pointer;'
+              + (on ? 'border:1px solid #0f241d;background:#0f241d;color:#fff;'
+                    : 'border:1px solid #c9cfcb;background:#fff;color:#5c6660;'),
+            onclick: () => { if (franjas.has(clave)) franjas.delete(clave); else franjas.add(clave); pintarFranjas(); },
+          }));
+        });
+        avisoFr.textContent = franjas.size > 1
+          ? `Le va a aparecer ${franjas.size} veces al día, con una palomita cada vez.`
+          : (franjas.size === 1 ? '' : 'Sin franja, al paciente le aparece en "A cualquier hora".');
+      };
+      pintarFranjas();
+
+      const bloqueFranjas = h('div', { class: 'stack' },
+        h('p', { class: 'small', style: 'margin:0;font-weight:700', text: '¿Cuándo se la toma?' }),
+        chipsFr, avisoFr);
+      const verFranjas = () => { bloqueFranjas.style.display = CON_DOSIS.includes(cat.value) ? '' : 'none'; };
+      cat.addEventListener('change', verFranjas);
+      verFranjas();
 
       /* ---------- péptidos: el vial, las unidades y los días ----------
          Las unidades solas no son una dosis. Mientras falten los mg y los mL
@@ -484,8 +524,8 @@ export function renderPlanTab(root, ctx) {
       cat.addEventListener('change', verBloquePep);
       verBloquePep();
 
-      const cuerpoForm = h('div', { class: 'stack' }, campo('Categoría', cat), campo('Del catálogo', picker), avisoReg, campo('Qué', titulo), bloquePep, campo('Dosis', dosis), campo('Reconstitución del vial', recon),
-        h('div', { class: 'fields-grid' }, campo('Horario', horario), campo('Frecuencia', frec)),
+      const cuerpoForm = h('div', { class: 'stack' }, campo('Categoría', cat), campo('Del catálogo', picker), avisoReg, campo('Qué', titulo), bloqueFranjas, bloquePep, campo('Dosis', dosis), campo('Reconstitución del vial', recon),
+        h('div', { class: 'fields-grid' }, campo('Nota de horario', horario), campo('Frecuencia', frec)),
         campo('Para qué', motivo), campo('Instrucciones', instr), aviso);
 
       // El formulario se vuelve a abrir con lo que ya escribiste cuando falta un
@@ -533,6 +573,7 @@ export function renderPlanTab(root, ctx) {
           vial_ml: completo ? Number(vialMl.value) : null,
           syringe: completo ? jeringa.value : null,
           days_of_week: esPep && marcados.length ? marcados : null,
+          slots: CON_DOSIS.includes(cat.value) && franjas.size ? [...franjas] : null,
           timing: horario.value.trim() || null, frequency: frec.value.trim() || null,
           rationale: motivo.value.trim() || null, instructions: instr.value.trim() || null,
           sort_order: item?.sort_order ?? 50,

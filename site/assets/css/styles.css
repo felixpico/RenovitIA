@@ -813,3 +813,7 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
   font-size: 13px; line-height: 1.5; }
 .jer-ojo { padding: 13px 15px; border-radius: 12px; background: #fdf3ea;
   border: 1px solid #f0d6bd; color: #6b3d14; font-size: 13px; line-height: 1.5; margin-top: 14px; }
+
+/* La hora de la franja, junto a su nombre. Es la que el paciente configuro
+   para sus recordatorios: si no tiene, no se inventa ninguna. */
+.fr h3 .hr { font-weight: 700; color: var(--brand); letter-spacing: 0; margin-left: 4px; }

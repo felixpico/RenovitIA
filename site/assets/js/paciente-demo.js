@@ -39,6 +39,10 @@ const ITEMS = [
   { id: 'it-6', protocol_id: 'demo-plan', category: 'supplement', title: 'Berberina', dose: '500 mg', reconstitution: null, timing: 'En ayunas', frequency: 'Diario', instructions: 'Veinte minutos antes del desayuno.', sort_order: 6, is_active: true },
   // Un peptido en unidades, con su vial completo: es el que estrena la hoja de
   // la jeringa. Los numeros son los de un vial real de 40 mg en 3 mL.
+  // Dos franjas en un solo renglon: es el caso que antes salia una sola vez.
+  { id: 'it-inositol', protocol_id: 'demo-plan', category: 'supplement', title: 'Mio-inositol',
+    dose: '2 g', timing: 'Mañana y noche', frequency: 'Diario', slots: ['desayuno', 'dormir'],
+    instructions: 'Disuelto en agua.', sort_order: 9, is_active: true },
   { id: 'it-pep', protocol_id: 'demo-plan', category: 'peptide', title: 'MOTS-c',
     dose: '30 UN (4 mg)', reconstitution: '40 mg en 3 mL (13.33 mg/mL) · jeringa U-100',
     dose_un: 30, vial_mg: 40, vial_ml: 3, syringe: 'U-100', days_of_week: [1, 3, 5],
@@ -286,6 +290,10 @@ const ALIMENTOS = [
   { id: 'f8', name_es: 'Salmón', kcal: 208, protein_g: 20, carb_g: 0, fat_g: 13, is_active: true, grupo: 'proteina' },
 ];
 
+const RECORDATORIOS = [{ patient_id: PACIENTE.id, tz: 'America/Monterrey',
+  horas: { ayunas: '07:00', desayuno: '08:00', entreno: '18:00', comida: '14:00',
+           cena: '20:00', dormir: '22:30' } }];
+
 const CONEXIONES = [{
   patient_id: PACIENTE.id, proveedor: 'whoop', estado: 'activa',
   scopes: ['read:sleep', 'read:recovery', 'read:cycles'],
@@ -304,6 +312,7 @@ const TABLAS = {
   vital_signs: PRESION,
   body_composition: COMPO,
   conexiones_wearable: CONEXIONES,
+  patient_reminders: RECORDATORIOS,
   food_items: CATALOGO,
   food_log: RENGLONES,
   lab_results: Array.from({ length: 51 }, (_, k) => ({ id: `l${k}`, patient_id: PACIENTE.id })),

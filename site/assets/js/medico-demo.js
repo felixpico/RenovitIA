@@ -238,6 +238,14 @@ export const demoApi = {
   async catalogs() { return { supplements: [], peptides: [], exercises: [] }; },
   // Catalogos de muestra para poder ensenar la pantalla sin tocar los reales.
   // Uno de cada tabla viene SIN fuente a proposito: es el aviso que importa.
+  async renglonesSinFranja() {
+    return [
+      { titulo: 'Omega-3 (EPA + DHA)', categoria: 'supplement', textos: 'Repartido en las comidas', renglones: 10, pacientes: 9 },
+      { titulo: 'Tesamorelina', categoria: 'peptide', textos: 'noche | PM', renglones: 3, pacientes: 3 },
+      { titulo: 'Mio-inositol', categoria: 'supplement', textos: 'Manana y noche', renglones: 6, pacientes: 6 },
+    ];
+  },
+  async fijarFranja() { throw new Error('En la vista previa no se guarda'); },
   async catalogRows(tabla) {
     const muestra = {
       catalog_peptides: [

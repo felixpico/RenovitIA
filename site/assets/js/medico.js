@@ -7,6 +7,7 @@ import { renderStudiesTab } from './estudios.js';
 import { viewRanges } from './rangos.js';
 import { renderPlanTab } from './plan-tab.js';
 import { viewCatalogs } from './catalogos.js';
+import { FRANJAS } from './franjas.js';
 
 const $ = (id) => document.getElementById(id);
 const DEMO = isDemo();
@@ -268,6 +269,15 @@ const liveApi = {
   },
   // Catalogos completos: aqui SI entran los desactivados, porque esta pantalla
   // es justamente donde se vuelven a prender.
+  async renglonesSinFranja() {
+    const { data, error } = await supabase.rpc('renglones_sin_franja');
+    if (error) throw error; return data || [];
+  },
+  async fijarFranja(titulo, slots) {
+    const { data, error } = await supabase.rpc('fijar_franja_por_producto',
+      { p_titulo: titulo, p_slots: slots });
+    if (error) throw error; return data;
+  },
   async catalogRows(tabla, orden) {
     const { data, error } = await supabase.from(tabla).select('*').order(orden || 'name_es');
     if (error) throw error;
@@ -520,6 +530,62 @@ async function viewPatients(root) {
     && p.email && String(p.email).trim());
   const salidaMasiva = h('div', { style: 'display:none;margin-bottom:12px' });
 
+  // Renglones que el paciente ya tiene recetados pero sin franja horaria. Se
+  // avisa aqui porque es lo primero que se abre del dia, y porque se resuelve
+  // por PRODUCTO: una decision cubre todos los pacientes que lo traen.
+  const cajaFranjas = h('div', { style: 'margin-bottom:12px' });
+  api.renglonesSinFranja().then((filas) => {
+    if (!filas.length) return;
+    const nRen = filas.reduce((a, f) => a + Number(f.renglones || 0), 0);
+    cajaFranjas.append(h('div', { class: 'notice' },
+      h('span', { text: `${filas.length} producto(s) sin horario fijo, en ${nRen} renglón(es). Al paciente le aparecen en "A cualquier hora".` }),
+      h('button', { class: 'btn btn-primary btn-sm', type: 'button', style: 'margin-left:10px',
+        text: 'Definir horarios', onclick: () => definirFranjas(filas) })));
+  }).catch(() => {});
+
+  async function definirFranjas(filas) {
+    const elegido = new Map();
+    const cuerpo = h('div', { class: 'stack' },
+      h('p', { class: 'small', style: 'margin:0',
+        text: 'Lo que elijas aquí se aplica a todos los pacientes que traen ese producto y todavía no tienen horario. No pisa un horario que ya hayas definido para alguien en particular.' }));
+
+    filas.forEach((f) => {
+      const sel = new Set();
+      const chips = h('div', { style: 'display:flex;gap:5px;flex-wrap:wrap;margin-top:5px' });
+      const pintar = () => {
+        chips.innerHTML = '';
+        FRANJAS.forEach(([clave, , corto]) => {
+          const on = sel.has(clave);
+          chips.append(h('button', {
+            type: 'button', text: corto, 'aria-pressed': on ? 'true' : 'false',
+            style: 'font:inherit;font-size:12px;font-weight:600;padding:7px 10px;border-radius:8px;cursor:pointer;'
+              + (on ? 'border:1px solid #0f241d;background:#0f241d;color:#fff;'
+                    : 'border:1px solid #c9cfcb;background:#fff;color:#5c6660;'),
+            onclick: () => { if (sel.has(clave)) sel.delete(clave); else sel.add(clave); pintar(); },
+          }));
+        });
+      };
+      pintar();
+      elegido.set(f.titulo, sel);
+      cuerpo.append(h('div', { style: 'border-top:1px solid var(--border);padding-top:9px' },
+        h('strong', { text: f.titulo }),
+        h('div', { class: 'muted small', text: `Dice "${f.textos}" · ${f.renglones} renglón(es), ${f.pacientes} paciente(s)` }),
+        chips));
+    });
+
+    if (!(await modal('Horario de cada producto', cuerpo, 'Guardar los elegidos'))) return;
+    const pendientes = [...elegido.entries()].filter(([, sel]) => sel.size > 0);
+    if (!pendientes.length) { toast('No elegiste ningún horario', true); return; }
+    let ok = 0; let ren = 0;
+    for (const [titulo, sel] of pendientes) {
+      try { ren += await api.fijarFranja(titulo, [...sel]); ok += 1; }
+      catch (e) { toast(`${titulo}: ${e.message}`, true); }
+    }
+    toast(`${ok} producto(s) · ${ren} renglón(es) con horario`);
+    route();
+  }
+
+  root.append(cajaFranjas);
   root.append(h('div', { class: 'page-head' }, h('h1', { text: `Pacientes (${patients.filter((p) => p.status !== 'excluded').length})` }),
     h('div', { class: 'toolbar' },
       sinCuenta.length ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button',
