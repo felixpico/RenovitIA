@@ -523,11 +523,16 @@ async function ajustes(p) {
   const [estado, prefs, conex] = await Promise.all([
     Rec.estadoPush().catch(() => 'no-soportado'),
     Rec.cargarPrefs(p.id).catch(() => null),
+    // No se puede colapsar "fallo la lectura" con "no hay conexion": si se colapsa,
+    // al paciente que YA conecto su reloj se le ofrece conectarlo otra vez.
     supabase.from('conexiones_wearable').select('*').eq('patient_id', p.id)
-      .then((r) => r.data || []).catch(() => []),
+      .then((r) => (r.error ? { falla: r.error.message } : { filas: r.data || [] }))
+      .catch((e) => ({ falla: String((e && e.message) || e) })),
   ]);
-  const whoop = conex.find((c) => c.proveedor === 'whoop');
-  const google = conex.find((c) => c.proveedor === 'google');
+  const falla = conex.falla || null;
+  const filas = conex.filas || [];
+  const whoop = falla ? 'falla' : filas.find((c) => c.proveedor === 'whoop');
+  const google = falla ? 'falla' : filas.find((c) => c.proveedor === 'google');
   return cabecera('Ajustes') + `<div class="w">
     <h2 class="s">Avisos</h2>
     ${Rec.cajaHTML(estado, prefs)}
@@ -541,7 +546,15 @@ async function ajustes(p) {
 // Google Health tiene un estado que WHOOP no tiene: autorizaste, pero no tienes
 // perfil creado en la app de Google Health. Se ve igual que "conectado" y no llega
 // un solo dato. Por eso se dice aparte y con instrucciones, no como "error".
+function cajaFallaConexion(nombre) {
+  return `<div class="dato alerta"><span class="dic">\u26a0\ufe0f</span><div>
+      <b>No pudimos leer el estado de tu conexi\u00f3n.</b> Si ya hab\u00edas conectado
+      ${nombre}, sigue conectado y tus datos siguen llegando. Vuelve a entrar en un
+      momento. No lo conectes de nuevo desde aqu\u00ed.</div></div>`;
+}
+
 function cajaGoogle(c) {
+  if (c === 'falla') return cajaFallaConexion('Google Health');
   if (!c) {
     return `<div class="dato"><span class="dic">📱</span><div>
         <b>Conecta Google Health.</b> Si tu teléfono es Android, o si migraste tu
@@ -578,6 +591,7 @@ const fechaCorta = (t) => (t ? new Date(t).toLocaleDateString('es-MX',
 // Se dice exactamente qué se lee y qué no. Un permiso que el paciente no entiende
 // es un permiso que va a revocar en cuanto se arrepienta.
 function cajaWhoop(c) {
+  if (c === 'falla') return cajaFallaConexion('tu WHOOP');
   if (!c) {
     return `<div class="dato"><span class="dic">⌚</span><div>
         <b>Conecta tu WHOOP.</b> Tu médica vería tu sueño, tu actividad y tu recuperación
