@@ -246,10 +246,17 @@ tr.invalid td:first-child { color: var(--danger); }
 .pg.on { display: block; }
 body.con-tabs { padding-bottom: 86px; }
 
-.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+/* La barra de abajo del PACIENTE. Va atada a <nav> a proposito: el panel
+   medico y la pagina de instalacion usan .tabs como tira de pestanas normal, y
+   esta regla se las pegaba al fondo de la pantalla tapando el contenido. */
+nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
   background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(12px);
   border-top: 1px solid var(--border); display: grid; grid-template-columns: 1fr 1fr;
   gap: 10px; padding: 9px 12px calc(9px + env(safe-area-inset-bottom)); }
+
+/* Cualquier otra tira de pestanas: en el flujo, donde esta escrita. */
+.tabs:not(nav) { display: flex; flex-wrap: wrap; gap: 4px;
+  border-bottom: 1px solid var(--border); margin-bottom: 12px; }
 .tb { border: none; background: transparent; color: var(--muted); padding: 10px 6px;
   border-radius: 14px; font: inherit; font-size: 15px; font-weight: 700; letter-spacing: -.01em;
   display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
