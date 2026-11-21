@@ -48,6 +48,15 @@ export function montarTabs() {
       scrollTo({ top: 0 });
     });
   });
+
+  // El "+" se engancha una sola vez. pintarPaciente() vuelve a llamar aqui cada
+  // vez que el plan cambia, y sin esta bandera el boton acumularia un listener
+  // por repintado: al tercer cambio de plan abriria tres hojas encimadas.
+  const mas = $('btn-mas');
+  if (mas && !mas.dataset.listo) {
+    mas.dataset.listo = '1';
+    mas.addEventListener('click', abrirRapidas);
+  }
 }
 
 // Regresar desde una seccion tambien restaura el encabezado de Mi salud.
@@ -430,6 +439,83 @@ async function pintarEntreno() {
   $('hoy-contenido').append(div);
 }
 
+/* ---------------- Registro rápido: el botón "+" ----------------
+   Seis cosas, en una hoja que sube desde abajo. El orden no es alfabético: es
+   por cuántas veces al día se usa. La comida va primera porque se pide cuatro
+   veces; el mensaje va al final porque se usa una vez al mes.
+
+   Todas abren una sección que ya existe. El "+" no es una pantalla nueva: es
+   quitar los tres toques que había entre el paciente y la captura. */
+
+const RAPIDAS = [
+  ['comida', 'Una comida', 'Foto, código o búsqueda', 'alimentacion', { modo: 'plato' }],
+  ['presion', 'Mi presión', 'Foto del baumanómetro', 'presion', null],
+  ['bascula', 'Mi peso', 'De tu báscula de casa', 'peso', null],
+  ['animo', '¿Cómo te sientes?', 'Ánimo, energía y sueño', 'animo', null],
+  ['lab', 'Un estudio', 'Sube un PDF o una foto', 'pendientes', null],
+  ['chat', 'Una duda', 'Escríbele a tu médica', 'mensajes', null],
+];
+
+const ICO_RAPIDO = {
+  bascula: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7.5 13a4.5 4.5 0 0 1 9 0"/><path d="M12 13l2.5-2.5"/>',
+  animo: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M9 9h.01M15 9h.01"/>',
+};
+
+function cerrarRapidas() {
+  document.getElementById('hoja-rapidas')?.remove();
+  document.removeEventListener('keydown', escRapidas);
+}
+function escRapidas(e) { if (e.key === 'Escape') cerrarRapidas(); }
+
+function abrirRapidas() {
+  if (document.getElementById('hoja-rapidas')) return;
+  const fondo = document.createElement('div');
+  fondo.className = 'hoja-fondo';
+  fondo.id = 'hoja-rapidas';
+  fondo.innerHTML = `<div class="hoja" role="dialog" aria-modal="true" aria-label="Registrar algo">
+    <span class="hoja-asa"></span>
+    <h2>¿Qué quieres registrar?</h2>
+    <div class="rapidas">
+      ${RAPIDAS.map(([ic, t, sub, sec]) => `
+        <button class="rapida" type="button" data-sec="${sec}">
+          <span class="ic"><svg viewBox="0 0 24 24">${ICO_RAPIDO[ic] || ICO[ic]}</svg></span>
+          <span><b>${esc(t)}</b><span>${esc(sub)}</span></span>
+        </button>`).join('')}
+    </div>
+  </div>`;
+
+  // Tocar el fondo cierra. Tocar la hoja no: sin esto, cada toque dentro de la
+  // hoja la cerraría y el paciente nunca llegaría a elegir.
+  fondo.addEventListener('click', (e) => { if (e.target === fondo) cerrarRapidas(); });
+
+  fondo.querySelectorAll('[data-sec]').forEach((b, i) => {
+    b.addEventListener('click', () => {
+      const extra = RAPIDAS[i][4];
+      cerrarRapidas();
+      // El registro rápido vive en "Hoy", pero las secciones se dibujan en la
+      // pestaña "Mi salud". Hay que mover al paciente antes de abrirlas, o la
+      // sección se pinta en una pestaña que no está a la vista.
+      irATab('salud');
+      document.getElementById('salud-hero')?.classList.add('hidden');
+      abrirSeccion(b.dataset.sec, S.paciente, extra || undefined);
+    });
+  });
+
+  document.body.appendChild(fondo);
+  document.addEventListener('keydown', escRapidas);
+  fondo.querySelector('.rapida')?.focus();
+}
+
+function irATab(id) {
+  document.querySelectorAll('.pg').forEach((pg) => pg.classList.toggle('on', pg.id === `pg-${id}`));
+  document.querySelectorAll('#tabbar .tb').forEach((x) => {
+    const suyo = x.dataset.pg === id;
+    x.classList.toggle('on', suyo);
+    x.setAttribute('aria-pressed', suyo ? 'true' : 'false');
+  });
+  scrollTo({ top: 0 });
+}
+
 /* ---------------- Mi salud ---------------- */
 const ICO = {
   plan: '<path d="M9 3h6v3H9z"/><rect x="4" y="5" width="16" height="17" rx="2"/><path d="M8 11h8M8 15h5"/>',
@@ -441,6 +527,7 @@ const ICO = {
   grafica: '<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>',
   perfil: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   presion: '<path d="M12 21s-7-4.6-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.4-7 10-7 10z"/><path d="M8.5 12h2l1-2 1.5 4 1-2h2"/>',
+  engrane: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>',
 };
 const acceso = (icono, titulo, sub, sec, cuenta) => `
   <button class="acceso" type="button" data-sec="${sec}">
@@ -489,7 +576,7 @@ async function pintarSalud(nLab, faltantes) {
     acceso('chat', 'Dudas y mensajes', 'Escríbele a tu médica', 'mensajes'),
     acceso('grafica', 'Mi avance', 'Peso, cintura y constancia', 'avance'),
     acceso('perfil', 'Mi perfil', 'Tus datos y tu cuenta', 'perfil'),
-    acceso('perfil', 'Ajustes', 'Avisos y tu reloj', 'ajustes'),
+    acceso('engrane', 'Ajustes', 'Avisos y tu reloj', 'ajustes'),
   ].filter(Boolean).join('');
 
   nav.querySelectorAll('[data-sec]').forEach((b) => {

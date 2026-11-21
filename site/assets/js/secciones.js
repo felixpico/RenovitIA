@@ -885,7 +885,182 @@ function montarAjustes(p) {
   });
 }
 
-const SECCIONES = { alimentacion, entrenamiento, estudios, pendientes, protocolo, mensajes, avance, perfil, ajustes, presion };
+/* ---------------- Mi peso ----------------
+   La bascula de casa NO es un DEXA, y la base lo sabe: estos renglones entran
+   con method = 'bascula_casa' y la RLS no deja al paciente tocar grasa corporal
+   ni densidad osea. Si las dos cosas entraran como lo mismo, la grafica de
+   avance mezclaria una medicion de laboratorio con una bascula de bano y nadie
+   podria decir cual es cual despues. */
+
+async function peso(p) {
+  const { data: previos } = await supabase.from('body_composition')
+    .select('measured_at,weight_kg,waist_cm,method')
+    .eq('patient_id', p.id).order('measured_at', { ascending: false }).limit(12);
+
+  const ultimo = previos?.[0];
+  let html = cabecera('Mi peso', ultimo ? `Último: ${ultimo.weight_kg} kg` : 'Sin registros todavía') + `<div class="w">
+    <div class="dato"><span class="dic">⚖️</span><div><b>Pésate siempre igual.</b>
+      En ayunas, después de ir al baño y antes de desayunar. La hora importa más
+      que la báscula: el mismo cuerpo pesa distinto en la mañana y en la noche.</div></div>
+
+    <form id="pe-form" class="stack" style="margin-top:14px">
+      <label class="campo"><span>Peso en kilos</span>
+        <input id="pe-kg" class="input" type="number" inputmode="decimal" step="0.1"
+               min="25" max="400" required placeholder="82.4"></label>
+      <label class="campo"><span>Cintura en centímetros <i>(opcional)</i></span>
+        <input id="pe-cm" class="input" type="number" inputmode="decimal" step="0.5"
+               min="40" max="250" placeholder="92"></label>
+      <div id="pe-estado"></div>
+      <button class="btn btn-primary btn-block" type="submit" id="pe-guardar">Guardar</button>
+    </form>`;
+
+  if (previos?.length) {
+    html += '<h2 class="s">Lo que llevas</h2><div class="lista">';
+    previos.forEach((r) => {
+      const f = new Date(`${r.measured_at}T12:00:00`).toLocaleDateString('es-MX',
+        { day: 'numeric', month: 'short', year: 'numeric' });
+      const quien = r.method === 'bascula_casa' ? 'tu báscula' : 'en consulta';
+      html += `<div class="lv"><div class="t"><b>${r.weight_kg ?? '—'} kg</b></div>
+        <div class="m">${f} · ${quien}${r.waist_cm ? ` · cintura ${r.waist_cm} cm` : ''}</div></div>`;
+    });
+    html += '</div>';
+  }
+  return `${html}</div>`;
+}
+
+function montarPeso(p, recargar) {
+  const $$ = (id) => document.getElementById(id);
+  const estado = $$('pe-estado');
+  const aviso = (t, malo) => {
+    estado.innerHTML = t
+      ? `<div class="dato ${malo ? 'alerta' : ''}"><span class="dic">${malo ? '⚠️' : 'ℹ️'}</span><div>${esc(t)}</div></div>`
+      : '';
+  };
+
+  $$('pe-form')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const kg = Number($$('pe-kg').value);
+    const cm = $$('pe-cm').value === '' ? null : Number($$('pe-cm').value);
+    if (!(kg > 0)) { aviso('Escribe tu peso.', true); return; }
+
+    // Un dedo de más en el teclado convierte 82.4 en 824 y eso entra a la
+    // gráfica del expediente. Más vale preguntar que guardar un disparate.
+    if (kg < 30 || kg > 300) { aviso('Ese peso no parece correcto. Revísalo antes de guardar.', true); return; }
+
+    $$('pe-guardar').disabled = true;
+    aviso('Guardando…');
+    const hoy = new Date();
+    const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+    const { error } = await supabase.from('body_composition').insert({
+      patient_id: p.id, method: 'bascula_casa', measured_at: fecha,
+      weight_kg: kg, waist_cm: cm,
+    });
+    $$('pe-guardar').disabled = false;
+    if (error) { console.error(error); aviso(`No se pudo guardar: ${error.message}`, true); return; }
+    recargar();
+  });
+}
+
+/* ---------------- ¿Cómo te sientes? ----------------
+   Es el unico dato subjetivo del programa. Todo lo demas -laboratorios, reloj,
+   bascula- mide el cuerpo por fuera. Esto es lo que el paciente siente, y es lo
+   que su medica no puede ver en ningun estudio.
+
+   Cuatro escalas de 1 a 5 y las horas de sueño. Nada mas: un cuestionario de
+   diez preguntas se contesta un dia y se abandona el segundo. */
+
+const ESCALAS = [
+  ['mood', 'Ánimo', 'Cómo te has sentido hoy', 'Muy bajo', 'Muy bien'],
+  ['energy', 'Energía', 'Qué tanto te rindió el día', 'Agotado', 'Con pila'],
+  ['sleep_quality', 'Calidad del sueño', 'Cómo dormiste anoche', 'Pésimo', 'Muy bien'],
+  ['stress', 'Estrés', 'Qué tan presionado te sentiste', 'Tranquilo', 'Al tope'],
+];
+
+async function animo(p) {
+  const hoy = new Date();
+  const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  const { data: ya } = await supabase.from('daily_checkins')
+    .select('sleep_hours,sleep_quality,energy,mood,stress,notes')
+    .eq('patient_id', p.id).eq('checkin_date', fecha).maybeSingle();
+
+  const escala = (campo, titulo, ayuda, izq, der) => `
+    <div class="esc-fila" data-campo="${campo}">
+      <b>${esc(titulo)}</b><span class="ayuda">${esc(ayuda)}</span>
+      <div class="esc-ops">
+        ${[1, 2, 3, 4, 5].map((n) => `<button class="esc-op" type="button" data-v="${n}"
+            aria-pressed="${ya && ya[campo] === n ? 'true' : 'false'}">${n}</button>`).join('')}
+      </div>
+      <div class="esc-pies"><span>${esc(izq)}</span><span>${esc(der)}</span></div>
+    </div>`;
+
+  return cabecera('¿Cómo te sientes?', ya ? 'Ya contestaste hoy · puedes corregirlo' : 'Treinta segundos') + `<div class="w">
+    <form id="an-form" class="stack">
+      ${ESCALAS.map((e) => escala(...e)).join('')}
+      <label class="campo"><span>Horas que dormiste <i>(opcional)</i></span>
+        <input id="an-horas" class="input" type="number" inputmode="decimal" step="0.5"
+               min="0" max="16" placeholder="7.5" value="${ya?.sleep_hours ?? ''}"></label>
+      <label class="campo"><span>Algo que quieras contarle a tu médica <i>(opcional)</i></span>
+        <textarea id="an-nota" class="input" rows="3" placeholder="Me dolió la cabeza toda la tarde…">${esc(ya?.notes ?? '')}</textarea></label>
+      <div id="an-estado"></div>
+      <button class="btn btn-primary btn-block" type="submit" id="an-guardar">Guardar</button>
+    </form>
+  </div>`;
+}
+
+function montarAnimo(p, recargar) {
+  const $$ = (id) => document.getElementById(id);
+  const estado = $$('an-estado');
+  const aviso = (t, malo) => {
+    estado.innerHTML = t
+      ? `<div class="dato ${malo ? 'alerta' : ''}"><span class="dic">${malo ? '⚠️' : 'ℹ️'}</span><div>${esc(t)}</div></div>`
+      : '';
+  };
+
+  document.querySelectorAll('#an-form .esc-fila').forEach((fila) => {
+    fila.querySelectorAll('.esc-op').forEach((b) => {
+      b.addEventListener('click', () => {
+        // Volver a tocar el valor elegido lo borra: el paciente que se equivoca
+        // de renglon no deberia tener que inventarse un numero.
+        const ya = b.getAttribute('aria-pressed') === 'true';
+        fila.querySelectorAll('.esc-op').forEach((x) => x.setAttribute('aria-pressed', 'false'));
+        if (!ya) b.setAttribute('aria-pressed', 'true');
+      });
+    });
+  });
+
+  $$('an-form')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fila = {};
+    let alguno = false;
+    document.querySelectorAll('#an-form .esc-fila').forEach((f) => {
+      const sel = f.querySelector('.esc-op[aria-pressed="true"]');
+      fila[f.dataset.campo] = sel ? Number(sel.dataset.v) : null;
+      if (sel) alguno = true;
+    });
+    const horas = $$('an-horas').value === '' ? null : Number($$('an-horas').value);
+    const nota = ($$('an-nota').value || '').trim() || null;
+    if (!alguno && horas === null && !nota) { aviso('Marca al menos una cosa.', true); return; }
+
+    $$('an-guardar').disabled = true;
+    aviso('Guardando…');
+    const hoy = new Date();
+    const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+
+    // upsert por (patient_id, checkin_date): el renglon del dia ya puede existir
+    // porque el paciente palomeo una toma. Un insert lo tumbaria, y un update
+    // ciego borraria las tomas ya guardadas.
+    const { error } = await supabase.from('daily_checkins').upsert({
+      patient_id: p.id, checkin_date: fecha, sleep_hours: horas, notes: nota, ...fila,
+    }, { onConflict: 'patient_id,checkin_date' });
+
+    $$('an-guardar').disabled = false;
+    if (error) { console.error(error); aviso(`No se pudo guardar: ${error.message}`, true); return; }
+    aviso('Listo. Gracias.');
+    setTimeout(recargar, 900);
+  });
+}
+
+const SECCIONES = { alimentacion, entrenamiento, estudios, pendientes, protocolo, mensajes, avance, perfil, ajustes, presion, peso, animo };
 
 export async function abrirSeccion(id, p, extra) {
   const caja = document.getElementById('detalle');
@@ -907,7 +1082,14 @@ export async function abrirSeccion(id, p, extra) {
   if (f) f.addEventListener('submit', (ev) => enviarMensaje(ev, p));
   if (id === 'presion') montarPresion(p);
   if (id === 'estudios') montarEstudios();
-  if (id === 'alimentacion') montarComer(p, () => abrirSeccion('alimentacion', p));
+  if (id === 'alimentacion') {
+    montarComer(p, () => abrirSeccion('alimentacion', p));
+    // Desde el "+" se entra con un modo ya elegido, para que el paciente no
+    // tenga que tocar dos veces lo mismo que acaba de tocar.
+    if (extra?.modo) document.querySelector(`.cm-b[data-modo="${extra.modo}"]`)?.click();
+  }
+  if (id === 'peso') montarPeso(p, () => abrirSeccion('peso', p));
+  if (id === 'animo') montarAnimo(p, () => abrirSeccion('animo', p));
   if (id === 'pendientes') montarSubir(p, 'sub-general');
   if (id === 'perfil') montarPerfil(p);
   if (id === 'ajustes') montarAjustes(p);

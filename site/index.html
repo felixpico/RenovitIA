@@ -263,6 +263,10 @@
         <!-- Se llena cuando el medico ya entrego un plan -->
         <div id="hoy-contenido" class="stack"></div>
 
+        <!-- Registro rápido. Va dentro de #pg-hoy a propósito: la pestaña se
+             oculta con display:none y el botón fijo se va con ella. -->
+        <button class="mas" id="btn-mas" type="button" aria-label="Registrar algo">+</button>
+
         <!-- Mientras no hay plan entregado, esto es lo que el paciente ve -->
         <div id="onboarding" class="stack">
           <div class="card stack">
@@ -303,7 +307,7 @@
         </div>
         <div id="salud-lista">
           <div id="semaforo" class="stack"></div>
-          <div id="salud-nav" class="stack" style="margin-top:14px"></div>
+          <div id="salud-nav" class="accesos" style="margin-top:14px"></div>
         </div>
         <div id="detalle" class="hidden"></div>
       </div>
