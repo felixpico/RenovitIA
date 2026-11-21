@@ -152,11 +152,19 @@ async function loadTemplate() {
   return template;
 }
 
+// Dos hilos a proposito: Mariana ya fue contestada, Roberto no. Asi se ve en la
+// demo la diferencia entre un mensaje atendido y uno que sigue esperando.
+const MENSAJES = [
+  { id: 'm-1', patient_id: 'p-mariana', de: 'paciente', cuerpo: 'Doctora, la berberina me cae pesada si la tomo en ayunas. ¿La puedo mover a la comida?', created_at: iso(2880), leido_at: iso(2875) },
+  { id: 'm-2', patient_id: 'p-mariana', de: 'medico', cuerpo: 'Sí, muévela a la comida. Es más importante que la tomes a que sea en ayunas.', created_at: iso(2870), leido_at: null },
+  { id: 'm-3', patient_id: 'p-roberto', de: 'paciente', cuerpo: 'Ya me hice el DEXA. ¿Se los mando por aquí o lo subo a la app?', created_at: iso(45), leido_at: null },
+];
+
 export const demoApi = {
   async me() { return { id: 'doc-1', email: 'medico@demo.mx', roles: ['physician'], physician: DOC }; },
   async alerts() { return ALERTS.map((a) => ({ ...a })).sort((a, b) => ({ urgent: 0, block: 1, prioritize: 2 }[a.level] - { urgent: 0, block: 1, prioritize: 2 }[b.level]) || b.created_at.localeCompare(a.created_at)); },
   async updateAlert(id, patch) { Object.assign(ALERTS.find((a) => a.id === id), patch); },
-  async patients() { return { patients: PATIENTS, intakes: INTAKES, alerts: ALERTS }; },
+  async patients() { return { patients: PATIENTS, intakes: INTAKES, alerts: ALERTS, sinLeer: MENSAJES.filter((m) => m.de === 'paciente' && !m.leido_at).map((m) => ({ patient_id: m.patient_id })) }; },
   async physicians() { return [DOC]; },
   async invite(row) { const p = { id: uuid(), updated_at: new Date().toISOString(), ...row }; PATIENTS.unshift(p); return p; },
   async patient(id) {
@@ -168,7 +176,14 @@ export const demoApi = {
     const answers = intake ? Object.entries(ANSWERS[intake.id] || {}).map(([code, value]) => ({ question_id: byCode.get(code)?.id, value })).filter((a) => a.question_id) : [];
     const scores = intake ? (SCORES[intake.id] || []).map(([instrument, score, category]) => ({ instrument, score, category })) : [];
     const consents = intake ? ['privacy_notice', 'international_transfer', 'informed_consent', 'data_sharing'].map((c) => ({ consent_type: c, accepted: true, accepted_at: intake.started_at })) : [];
-    return { patient, intake, sections: t.sections, questions: t.questions, answers, scores, alerts: ALERTS.filter((a) => a.patient_id === id), consents };
+    return { patient, intake, sections: t.sections, questions: t.questions, answers, scores, alerts: ALERTS.filter((a) => a.patient_id === id), consents, mensajes: MENSAJES.filter((m) => m.patient_id === id) };
+  },
+  async responder(patientId, cuerpo) {
+    MENSAJES.push({ id: uuid(), patient_id: patientId, de: 'medico', cuerpo, created_at: new Date().toISOString(), leido_at: null });
+  },
+  async marcarLeidos(patientId) {
+    MENSAJES.filter((m) => m.patient_id === patientId && m.de === 'paciente' && !m.leido_at)
+      .forEach((m) => { m.leido_at = new Date().toISOString(); });
   },
   async updateIntake(id, patch) { Object.assign(INTAKES.find((i) => i.id === id), patch); },
   async reevaluate() { return { new_alerts: 0 }; },

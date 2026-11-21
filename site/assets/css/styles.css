@@ -885,3 +885,21 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
 .campo > span { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted);
   margin-bottom: 5px; }
 .campo > span i { font-style: normal; font-weight: 400; opacity: .8; }
+
+/* ---------- Mensajes con el paciente (panel médico) ---------- */
+.hilo { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.msj { max-width: min(560px, 86%); padding: 11px 13px; border-radius: 14px;
+  border: 1px solid var(--border); background: var(--surface); }
+/* Lo del paciente a la izquierda, lo de la médica a la derecha y en verde: de un
+   vistazo se ve si la última palabra fue de ella o quedó sin contestar. */
+.msj-pac { align-self: flex-start; }
+.msj-yo { align-self: flex-end; background: var(--brand-soft); border-color: color-mix(in srgb, var(--brand) 35%, transparent); }
+.msj-cab { font-size: 11.5px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+.msj-txt { font-size: 14.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.responder { display: flex; flex-direction: column; gap: 9px; align-items: flex-start;
+  border-top: 1px solid var(--border); padding-top: 14px; }
+.responder .input { width: 100%; }
+/* Punto rojo en la lista de pacientes: el único lugar donde la médica se entera
+   sin abrir expediente por expediente. */
+.punto-msj { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--danger); margin-left: 7px; vertical-align: 1px; }

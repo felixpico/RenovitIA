@@ -83,13 +83,15 @@ const liveApi = {
     if (error) throw error;
   },
   async patients() {
-    const [p, i, a] = await Promise.all([
+    const [p, i, a, m] = await Promise.all([
       supabase.from('patients').select('*').order('created_at', { ascending: false }),
       supabase.from('intakes').select('id,patient_id,status,started_at,submitted_at,reviewed_at').order('started_at', { ascending: false }),
       supabase.from('alerts').select('patient_id,level,status'),
+      // Solo lo que falta por leer: la lista no necesita el texto, solo saber quien espera.
+      supabase.from('patient_messages').select('patient_id').eq('de', 'paciente').is('leido_at', null),
     ]);
-    for (const r of [p, i, a]) if (r.error) throw r.error;
-    return { patients: p.data, intakes: i.data, alerts: a.data };
+    for (const r of [p, i, a, m]) if (r.error) throw r.error;
+    return { patients: p.data, intakes: i.data, alerts: a.data, sinLeer: m.data || [] };
   },
   async physicians() {
     const { data, error } = await supabase.from('physicians').select('user_id,full_name'); if (error) throw error; return data;
@@ -102,12 +104,13 @@ const liveApi = {
     if (error) throw error;
     const { data: intakes } = await supabase.from('intakes').select('*').eq('patient_id', id).order('started_at', { ascending: false }).limit(1);
     const intake = intakes?.[0] || null;
-    const out = { patient, intake, sections: [], questions: [], answers: [], scores: [], alerts: [], consents: [] };
-    const [al, co] = await Promise.all([
+    const out = { patient, intake, sections: [], questions: [], answers: [], scores: [], alerts: [], consents: [], mensajes: [] };
+    const [al, co, ms] = await Promise.all([
       supabase.from('v_alert_queue').select('*').eq('patient_id', id),
       supabase.from('consents').select('consent_type,accepted,accepted_at,document_version,revoked_at').eq('patient_id', id),
+      supabase.from('patient_messages').select('*').eq('patient_id', id).order('created_at'),
     ]);
-    out.alerts = al.data || []; out.consents = co.data || [];
+    out.alerts = al.data || []; out.consents = co.data || []; out.mensajes = ms.data || [];
     if (intake) {
       const [s, q, a, sc] = await Promise.all([
         supabase.from('form_sections').select('*').eq('template_id', intake.template_id).order('sort_order'),
@@ -162,6 +165,19 @@ const liveApi = {
     for (const { id, ...r } of upd) { const { error } = await supabase.from('lab_results').update(r).eq('id', id); if (error) throw error; }
   },
   async saveBodyComp(row) { const { error } = await supabase.from('body_composition').insert(row); if (error) throw error; },
+  async responder(patientId, cuerpo, autor) {
+    const { error } = await supabase.from('patient_messages')
+      .insert({ patient_id: patientId, de: 'medico', author_id: autor || null, cuerpo });
+    if (error) throw error;
+  },
+  // Se marca leido lo que escribio el PACIENTE, no lo propio: leido_at responde
+  // "¿ya lo vio la doctora?", y las respuestas de ella no necesitan esa marca.
+  async marcarLeidos(patientId) {
+    const { error } = await supabase.from('patient_messages')
+      .update({ leido_at: new Date().toISOString() })
+      .eq('patient_id', patientId).eq('de', 'paciente').is('leido_at', null);
+    if (error) throw error;
+  },
   async releaseResults(patientId) { const { data, error } = await supabase.rpc('release_results', { p_patient: patientId }); if (error) throw error; return data; },
   async holdResults(patientId) { const { data, error } = await supabase.rpc('unrelease_results', { p_patient: patientId }); if (error) throw error; return data; },
   async uploadDoc(patientId, order, file) {
@@ -522,7 +538,7 @@ async function inviteDialog(onDone) {
 
 async function viewPatients(root) {
   setNav('pacientes');
-  const [{ patients, intakes, alerts }, docs] = await Promise.all([api.patients(), isAdmin() ? api.physicians() : Promise.resolve([])]);
+  const [{ patients, intakes, alerts, sinLeer }, docs] = await Promise.all([api.patients(), isAdmin() ? api.physicians() : Promise.resolve([])]);
   const docName = Object.fromEntries(docs.map((d) => [d.user_id, d.full_name]));
   // Un paciente sin user_id NUNCA ha podido entrar a la app. Es el cuello de botella
   // mas caro del piloto y hasta hoy habia que descubrirlo paciente por paciente.
@@ -648,6 +664,11 @@ async function viewPatients(root) {
   const wrap = h('div', { class: 'table-wrap' });
   root.append(wrap);
 
+  // Cuantos mensajes sin leer tiene cada paciente. Se cuenta una vez, no dentro
+  // del bucle de renglones.
+  const pendientes = new Map();
+  (sinLeer || []).forEach((m) => pendientes.set(m.patient_id, (pendientes.get(m.patient_id) || 0) + 1));
+
   const draw = () => {
     const term = search.value.trim().toLowerCase();
     const table = h('table', { class: 'data' });
@@ -664,7 +685,9 @@ async function viewPatients(root) {
         ...['urgent', 'block', 'prioritize'].map((l) => { const n = open.filter((a) => a.level === l).length; return n ? badge(l, `${n} ${l === 'urgent' ? 'urg.' : l === 'block' ? 'consulta' : 'prior.'}`) : null; }));
       const st = it ? INTAKE_STATUS[it.status] : ['Sin iniciar', 'neutral'];
       const tr = h('tr', { class: 'clickable', tabindex: 0, onclick: () => { location.hash = `#/paciente/${p.id}`; }, onkeydown: (e) => { if (e.key === 'Enter') location.hash = `#/paciente/${p.id}`; } },
-        h('td', {}, h('strong', { text: fullName(p) }), h('div', { class: 'muted small', text: p.email || '' })),
+        h('td', {}, h('strong', { text: fullName(p) }),
+          pendientes.get(p.id) ? h('span', { class: 'punto-msj', title: `${pendientes.get(p.id)} mensaje(s) sin leer` }) : null,
+          h('div', { class: 'muted small', text: p.email || '' })),
         h('td', { text: PATIENT_STATUS[p.status] || p.status }),
         h('td', {}, badge(st[1], st[0])),
         h('td', {}, open.length ? counts : h('span', { class: 'muted', text: '—' })),
@@ -753,11 +776,77 @@ async function viewPatient(root, id) {
     d.consents.length ? h('div', { class: 'list' }, ...d.consents.map((c) => h('div', { class: 'row-top small' }, badge(c.accepted && !c.revoked_at ? 'ok' : 'urgent', c.accepted && !c.revoked_at ? 'Sí' : 'No'), h('span', { text: CONS[c.consent_type] || c.consent_type }))))
       : h('span', { class: 'muted small', text: 'Pendientes' })));
 
+/* ---------------- Mensajes del paciente ----------------
+   La tabla patient_messages existia desde el principio, con su columna leido_at
+   y sus politicas de RLS listas para que el equipo medico escribiera. Lo que
+   faltaba era la pantalla: el paciente escribia y el mensaje se quedaba en la
+   base sin que nadie pudiera verlo ni contestarlo.
+
+   No es un chat. Es correspondencia clinica: queda escrita, con hora, y con la
+   marca de cuando la leyo la medica. */
+
+function renderMensajes(panel, p, d, refresh) {
+  const mensajes = [...(d.mensajes || [])].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+  const hilo = h('div', { class: 'hilo' });
+  if (!mensajes.length) {
+    hilo.append(h('div', { class: 'empty-state',
+      text: 'Sin mensajes. Cuando el paciente escriba desde su app, el mensaje aparece aquí.' }));
+  }
+  mensajes.forEach((m) => {
+    const mio = m.de === 'medico';
+    const f = new Date(m.created_at).toLocaleString('es-MX',
+      { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    hilo.append(h('div', { class: `msj ${mio ? 'msj-yo' : 'msj-pac'}` },
+      h('div', { class: 'msj-cab', text: `${mio ? 'Tú' : (p.first_name || 'El paciente')} · ${f}` }),
+      h('div', { class: 'msj-txt', text: m.cuerpo || '' })));
+  });
+
+  const campo = h('textarea', { class: 'input', rows: 3,
+    placeholder: `Escríbele a ${p.first_name || 'tu paciente'}…` });
+  const aviso = h('div');
+  const enviar = h('button', { class: 'btn btn-primary', type: 'button', text: 'Enviar respuesta' });
+
+  enviar.onclick = async () => {
+    const texto = (campo.value || '').trim();
+    if (!texto) return;
+    enviar.disabled = true;
+    try {
+      await api.responder(p.id, texto, S.me?.user_id || null);
+      campo.value = '';
+      await refresh();
+    } catch (e) {
+      aviso.innerHTML = '';
+      aviso.append(h('div', { class: 'notice danger', text: `No se pudo enviar: ${e.message}` }));
+      enviar.disabled = false;
+    }
+  };
+
+  panel.append(hilo, h('div', { class: 'responder' }, campo, aviso, enviar));
+
+  // Se marcan como leidos al abrir la pestaña, no al cargar el expediente: abrir
+  // el expediente por otra cosa no es haber leido el mensaje.
+  const pendientes = mensajes.some((m) => m.de === 'paciente' && !m.leido_at);
+  if (pendientes && !DEMO) {
+    api.marcarLeidos(p.id).catch((e) => console.error('marcar leidos', e));
+  }
+}
+
   // Pestañas
   const openAlerts = d.alerts.filter((a) => ['open', 'acknowledged'].includes(a.status));
   const tabs = h('div', { class: 'tabs', role: 'tablist' });
   const panel = h('div');
-  const TABS = [['alertas', `Alertas (${openAlerts.length} abiertas)`], ['estudios', 'Estudios'], ['plan', 'Plan'], ['respuestas', 'Respuestas']];
+  // Mensajes del paciente sin leer. Va en la etiqueta de la pestaña porque si no
+  // se ve desde fuera, nadie la abre: hasta hoy el paciente podia escribir y el
+  // mensaje se quedaba en la base sin que existiera una pantalla que lo mostrara.
+  const sinLeer = (d.mensajes || []).filter((m) => m.de === 'paciente' && !m.leido_at).length;
+  const TABS = [
+    ['alertas', `Alertas (${openAlerts.length} abiertas)`],
+    ['estudios', 'Estudios'],
+    ['plan', 'Plan'],
+    ['respuestas', 'Respuestas'],
+    ['mensajes', sinLeer ? `Mensajes (${sinLeer} sin leer)` : 'Mensajes'],
+  ];
   const drawTab = () => {
     tabs.innerHTML = '';
     TABS.forEach(([k, t]) => tabs.append(h('button', { type: 'button', role: 'tab', class: S.patientTab === k ? 'active' : '', 'aria-selected': S.patientTab === k ? 'true' : 'false', text: t, onclick: () => { S.patientTab = k; drawTab(); } })));
@@ -766,6 +855,8 @@ async function viewPatient(root, id) {
       renderPlanTab(panel, { h, badge, modal, toast, api, patient: p, me: S.me, demo: DEMO, refresh: () => route() });
     } else if (S.patientTab === 'estudios') {
       renderStudiesTab(panel, { h, badge, modal, toast, api, patient: p, sex: sex === 'Femenino' ? 'F' : sex === 'Masculino' ? 'M' : null, me: S.me, demo: DEMO, refresh: null, isAdmin: isAdmin() });
+    } else if (S.patientTab === 'mensajes') {
+      renderMensajes(panel, p, d, () => route());
     } else if (S.patientTab === 'alertas') {
       const order = { urgent: 0, block: 1, prioritize: 2 };
       const list = h('div', { class: 'list' });
