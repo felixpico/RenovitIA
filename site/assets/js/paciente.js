@@ -10,6 +10,7 @@ import { tocaHoy } from './franjas.js';
 // la que la medica firma. Si el HTML viviera aqui, la previa seria otro dibujo
 // y acabaria mintiendo.
 import { PALOMA, etiquetas, chipsDias, botonJeringa, tomasDeItems, htmlDia } from './dia.js';
+import { montarBiblioteca } from './biblioteca.js';
 import { abrirSeccion, cerrarSeccion } from './secciones.js';
 import {
   hoyISO, etiquetaDias, mgDeUnidades, mlDeUnidades, concentracion,
@@ -58,6 +59,35 @@ export function montarTabs() {
     mas.dataset.listo = '1';
     mas.addEventListener('click', abrirRapidas);
   }
+
+  // La biblioteca se arma la PRIMERA vez que se abre la pestana, no al cargar
+  // la app: son tres catalogos y el paciente entra a ver su dia, no a leer.
+  const tbBiblio = barra.querySelector('.tb[data-pg="biblio"]');
+  if (tbBiblio && !tbBiblio.dataset.listo) {
+    tbBiblio.dataset.listo = '1';
+    tbBiblio.addEventListener('click', () => {
+      const caja = $('biblio-contenido');
+      if (!caja || caja.dataset.puesta) return;
+      caja.dataset.puesta = '1';
+      montarBiblioteca(caja, { enPlan: estaEnMiPlan });
+    });
+  }
+}
+
+// Solo 85 de 291 renglones de plan traen catalog_code, asi que el codigo se
+// intenta primero y el nombre despues. Sin acentos y sin parentesis: en el plan
+// dice "Omega-3 (EPA + DHA)" y en el catalogo "Omega 3".
+const plano = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/\(.*?\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+
+function estaEnMiPlan(f) {
+  if (f.ambito !== 'supplement' && f.ambito !== 'peptide') return false;
+  const nombre = plano(f.nombre);
+  return (S.items || []).some((i) => {
+    if (i.catalog_code && String(i.catalog_code) === String(f.code)) return true;
+    const t = plano(i.title);
+    return !!t && !!nombre && (t === nombre || t.startsWith(nombre) || nombre.startsWith(t));
+  });
 }
 
 // Regresar desde una seccion tambien restaura el encabezado de Mi salud.
@@ -551,7 +581,7 @@ export async function pintarPaciente(patient, extras = {}) {
     $('hoy-sub').textContent = 'Esto es lo que te toca hoy.';
 
     const { data: items } = await supabase.from('protocol_items')
-      .select('id,category,title,dose,reconstitution,timing,frequency,instructions,sort_order,dose_un,vial_mg,vial_ml,syringe,days_of_week,slots')
+      .select('id,category,title,dose,reconstitution,timing,frequency,instructions,sort_order,dose_un,vial_mg,vial_ml,syringe,days_of_week,slots,catalog_code')
       .eq('protocol_id', S.plan.id).eq('is_active', true).order('sort_order');
     S.items = (items || []).filter((i) => CON_TOMA.includes(i.category));
 

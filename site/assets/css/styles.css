@@ -251,8 +251,14 @@ body.con-tabs { padding-bottom: 86px; }
    esta regla se las pegaba al fondo de la pantalla tapando el contenido. */
 nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
   background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(12px);
-  border-top: 1px solid var(--border); display: grid; grid-template-columns: 1fr 1fr;
-  gap: 10px; padding: 9px 12px calc(9px + env(safe-area-inset-bottom)); }
+  border-top: 1px solid var(--border); display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px; padding: 9px 10px calc(9px + env(safe-area-inset-bottom)); }
+/* Con tres pestanas el nombre ya no cabe junto al icono en pantallas angostas:
+   se apila debajo en vez de recortarse. */
+@media (max-width: 400px) {
+  nav.tabs .tb { flex-direction: column; gap: 3px; font-size: 11.5px; padding: 7px 2px; }
+}
 
 /* Cualquier otra tira de pestanas: en el flujo, donde esta escrita. */
 .tabs:not(nav) { display: flex; flex-wrap: wrap; gap: 4px;
@@ -1002,4 +1008,72 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
   .dia-asa { display: none; }
   .it.previa { gap: 10px; }
   .dia-men { width: 26px; height: 26px; font-size: 14px; }
+}
+
+/* ============ Biblioteca ============
+   La misma en el telefono del paciente y en el panel de la medica. Lo que
+   manda visualmente son los dos sellos: el regulatorio y el de revision.
+   Si algun dia hay que elegir que se recorta, esos dos no. */
+.bib-top { position: sticky; top: 0; z-index: 3; background: var(--bg);
+  padding: 2px 0 10px; margin-bottom: 2px; }
+.bib-q { width: 100%; box-sizing: border-box; padding: 12px 14px; font: inherit; font-size: 15px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: inherit; }
+.bib-q:focus { outline: 2px solid var(--focus, var(--brand)); outline-offset: 1px; }
+.bib-chips { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
+.bib-chip { font: inherit; font-size: 12.5px; font-weight: 600; padding: 8px 13px;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--muted); cursor: pointer; }
+.bib-chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.bib-aviso { margin-bottom: 10px; }
+.bib-cuenta { margin: 0 0 8px; }
+
+.bib-lista { display: flex; flex-direction: column; gap: 8px; }
+.bib-it { display: flex; align-items: flex-start; gap: 12px; width: 100%; text-align: left;
+  padding: 13px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); color: inherit; font: inherit; cursor: pointer; }
+.bib-it:hover { border-color: var(--brand); }
+.bib-nm { flex: 1; min-width: 0; }
+.bib-nm b { display: block; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.bib-nm > span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.bib-tipo { flex: none; font-size: 11px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--muted); padding-top: 2px; }
+
+.bib-sellos { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.bib-sellos:empty { display: none; }
+.bib-sello { display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .04em;
+  text-transform: uppercase; padding: 3px 7px; border-radius: 5px; }
+.bib-sello.rojo { background: var(--danger-soft, #fbe9e7); color: var(--danger); }
+.bib-sello.amarillo { background: var(--warn-soft); color: var(--accent); }
+.bib-sello.gris { background: var(--surface-2); color: var(--muted); }
+.bib-sello.verde { background: var(--brand-soft); color: var(--brand); }
+
+.bib-hoja { max-width: 720px; }
+.bib-cuerpo { padding-bottom: 6px; }
+.bib-banda { border-radius: 12px; padding: 12px 13px; margin-bottom: 12px; }
+.bib-banda b { display: block; font-size: 13.5px; font-weight: 700; margin-bottom: 3px; }
+.bib-banda span { display: block; font-size: 12.5px; line-height: 1.5; margin-top: 3px; }
+.bib-banda.rojo { background: var(--danger-soft, #fbe9e7); color: var(--danger); }
+.bib-banda.amarillo { background: var(--warn-soft); color: var(--accent); }
+.bib-banda.gris { background: var(--surface-2); color: var(--muted); }
+.bib-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.bib-cab h2 { margin: 0; }
+.bib-cab p { margin: 2px 0 0; }
+.bib-ev { display: flex; align-items: baseline; gap: 9px; margin: 12px 0 2px;
+  padding: 9px 12px; border-radius: 10px; background: var(--surface-2); }
+.bib-ev b { font-size: 13px; font-weight: 800; color: var(--brand); white-space: nowrap; }
+.bib-ev span { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.bib-bl { margin-top: 13px; }
+.bib-bl h4 { margin: 0 0 3px; font-size: 11px; font-weight: 800; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted); }
+.bib-bl p { margin: 0; font-size: 14px; line-height: 1.5; }
+.bib-refs { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.55; }
+.bib-firma { margin: 13px 0 0; }
+.bib-pie { margin-top: 16px; padding: 11px 13px; border-radius: 11px;
+  background: var(--brand-soft); color: var(--brand); font-size: 12.5px; line-height: 1.5; }
+.bib-acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+  padding-top: 12px; border-top: 1px solid var(--border); }
+
+/* En el panel de la medica la lista cabe en dos columnas. */
+@media (min-width: 980px) {
+  .bib-lista { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 }

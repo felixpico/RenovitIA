@@ -371,6 +371,8 @@ export const demoApi = {
   async reordenarPlanItems() { throw new Error('En la vista previa no se reordena'); },
   async moverPlanItem() { throw new Error('En la vista previa no se mueve de horario'); },
   async removePlanItem() { throw new Error('En la vista previa no se edita'); },
+  async firmarFicha() { throw new Error('En la vista previa no se firman fichas'); },
+  async agregarReferencia() { throw new Error('En la vista previa no se agregan referencias'); },
   async savePlanNotes() { throw new Error('En la vista previa no se edita'); },
   async ranges() { return { biomarkers: await loadBiomarkers(), ranges: await loadRanges(), criticals: [] }; },
   async approveCriticals() { throw new Error('En la vista previa no se aprueban valores criticos'); },

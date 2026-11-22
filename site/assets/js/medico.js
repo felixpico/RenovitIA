@@ -8,6 +8,7 @@ import { viewRanges } from './rangos.js';
 import { renderPlanTab } from './plan-tab.js';
 import { viewCatalogs } from './catalogos.js';
 import { FRANJAS } from './franjas.js';
+import { montarBiblioteca, cargarBiblioteca } from './biblioteca.js';
 
 const $ = (id) => document.getElementById(id);
 const DEMO = isDemo();
@@ -354,6 +355,31 @@ const liveApi = {
   },
   async removePlanItem(itemId) {
     const { error } = await supabase.from('protocol_items').update({ is_active: false }).eq('id', itemId);
+    if (error) throw error;
+  },
+  // Firmar una ficha de la biblioteca. Es lo unico que convierte un texto que
+  // escribio el sistema en algo que un medico avala. Mientras no se firme, la
+  // ficha lo dice en la cara, y eso no se puede apagar desde la interfaz.
+  async firmarFicha(ambito, code) {
+    const TABLA = { supplement: 'catalog_supplements', peptide: 'catalog_peptides', exercise: 'catalog_exercises' };
+    const { data: { session } } = await supabase.auth.getSession();
+    const ahora = new Date().toISOString();
+    if (ambito === 'general') {
+      const { error } = await supabase.from('catalog_referencias')
+        .update({ revisado_en: ahora, updated_at: ahora }).eq('id', code);
+      if (error) throw error; return;
+    }
+    const tabla = TABLA[ambito];
+    if (!tabla) throw new Error('Esa ficha no se firma desde aquí');
+    const { error } = await supabase.from(tabla)
+      .update({ revisado_en: ahora, updated_by: session?.user?.id || null, updated_at: ahora })
+      .eq('code', code);
+    if (error) throw error;
+  },
+  async agregarReferencia(ref) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const { error } = await supabase.from('catalog_referencias')
+      .insert({ ...ref, agregado_por: session?.user?.id || null });
     if (error) throw error;
   },
   async savePlanNotes(planId, notes) {
@@ -1038,6 +1064,101 @@ function tarjetaAcceso(p) {
   return caja;
 }
 
+/* ================= Biblioteca =================
+   La MISMA que ve el paciente, con dos botones de mas: firmar la ficha y
+   citarla. No es una version para medicos: es la misma pantalla, para que
+   quien firma vea exactamente lo que se publica. */
+async function viewBiblioteca(root) {
+  setNav('biblioteca');
+  const esMedico = (S.me?.roles || []).includes('physician');
+  const datos = await cargarBiblioteca(true).catch(() => ({ fichas: [] }));
+  const sinFirmar = datos.fichas.filter((f) => !f.revisado).length;
+
+  root.append(h('div', { class: 'page-head' },
+    h('h1', { text: 'Biblioteca' }),
+    h('p', { class: 'muted small', style: 'margin:4px 0 0' },
+      'Es lo que ve el paciente, tal cual. ',
+      sinFirmar
+        ? h('b', { text: `${sinFirmar} de ${datos.fichas.length} fichas salen marcadas «sin revisar por un médico» hasta que alguien las firme.` })
+        : h('b', { text: 'Todas las fichas están firmadas.' }))));
+
+  const caja = h('div');
+
+  // El alta de un articulo suelto va aqui y no dentro de una ficha: un articulo
+  // de "grasa visceral" no cuelga de ningun suplemento. Sin este boton, la
+  // categoria Articulos no se podria llenar nunca desde la interfaz.
+  const nuevoArticulo = async () => {
+    const campo = (l, el) => h('label', { class: 'field' }, h('span', { class: 'field-label small', text: l }), el);
+    const titulo = h('input', { class: 'input', type: 'text', placeholder: 'Título del artículo' });
+    const resumen = h('textarea', { class: 'input', rows: 3, placeholder: 'En una o dos frases: qué dice y por qué importa' });
+    const pub = h('input', { class: 'input', type: 'text', placeholder: 'Revista o fuente' });
+    const anio = h('input', { class: 'input', type: 'number', min: '1900', max: '2100', placeholder: '2024' });
+    const enlace = h('input', { class: 'input', type: 'url', placeholder: 'https://…' });
+    const etiq = h('input', { class: 'input', type: 'text', placeholder: 'metabólico, sueño, entrenamiento' });
+    const cuerpo = h('div', { class: 'stack' },
+      h('p', { class: 'muted small', style: 'margin:0',
+        text: 'Aparece en la pestaña Artículos, también del lado del paciente. Sale marcado «sin revisar» hasta que lo firmes.' }),
+      campo('Título', titulo), campo('De qué trata', resumen),
+      campo('Publicación', pub), campo('Año', anio), campo('Liga', enlace),
+      campo('Etiquetas, separadas por coma', etiq));
+    if (!(await modal('Agregar un artículo', cuerpo, 'Agregar'))) return;
+    if (!titulo.value.trim()) { toast('Falta el título', true); return; }
+    try {
+      await api.agregarReferencia({
+        ambito: 'general', code: null, titulo: titulo.value.trim(),
+        resumen: resumen.value.trim() || null, publicacion: pub.value.trim() || null,
+        anio: anio.value ? Number(anio.value) : null, enlace: enlace.value.trim() || null,
+        etiquetas: etiq.value.split(',').map((x) => x.trim()).filter(Boolean),
+      });
+      toast('Artículo agregado');
+      location.hash = '#/biblioteca'; route();
+    } catch (e) { toast(`No se pudo agregar: ${e.message}`, true); }
+  };
+
+  root.append(h('div', { class: 'toolbar', style: 'margin-bottom:12px' },
+    h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: '+ Artículo', onclick: nuevoArticulo }),
+    h('span', { class: 'muted small', text: 'Un artículo suelto, no atado a una ficha. Las referencias de una sustancia se agregan desde su ficha.' })));
+  root.append(caja);
+
+  const alFirmar = async (f) => {
+    if (!esMedico) { toast('Sólo un médico puede firmar una ficha', true); return false; }
+    const cuerpo = h('div', { class: 'stack' },
+      h('p', { text: `Vas a firmar la ficha de «${f.nombre}».` }),
+      h('p', { class: 'muted small',
+        text: 'Al firmarla desaparece el sello «sin revisar» y el paciente la lee como información avalada por un médico. Queda registrado quién y cuándo.' }),
+      f.regulatorio ? h('div', { class: 'notice danger small',
+        text: `Ojo: esta ficha está marcada «${f.regulatorio[1]}». La banda regulatoria se queda puesta aunque la firmes.` }) : null,
+      !((f.bloques || []).some(([t]) => t === 'Qué hay que cuidar'))
+        ? h('div', { class: 'notice warn small', text: 'Esta ficha no tiene nada escrito en «Qué hay que cuidar». Conviene llenarlo en Catálogos antes de firmarla.' }) : null);
+    if (!(await modal('Firmar la ficha', cuerpo, 'Firmar'))) return false;
+    try { await api.firmarFicha(f.ambito, f.ambito === 'general' ? f.id : f.code); toast('Ficha firmada'); return true; }
+    catch (e) { toast(`No se pudo firmar: ${e.message}`, true); return false; }
+  };
+
+  const alCitar = async (f) => {
+    const campo = (l, el) => h('label', { class: 'field' }, h('span', { class: 'field-label small', text: l }), el);
+    const titulo = h('input', { class: 'input', type: 'text', placeholder: 'Título del artículo' });
+    const pub = h('input', { class: 'input', type: 'text', placeholder: 'Revista o fuente' });
+    const anio = h('input', { class: 'input', type: 'number', min: '1900', max: '2100', placeholder: '2024' });
+    const enlace = h('input', { class: 'input', type: 'url', placeholder: 'https://pubmed.ncbi.nlm.nih.gov/…' });
+    const cuerpo = h('div', { class: 'stack' },
+      h('p', { class: 'muted small', style: 'margin:0', text: `La referencia aparece al pie de la ficha de «${f.nombre}», con su liga.` }),
+      campo('Título', titulo), campo('Publicación', pub), campo('Año', anio), campo('Liga', enlace));
+    if (!(await modal('Agregar una referencia', cuerpo, 'Agregar'))) return false;
+    if (!titulo.value.trim()) { toast('Falta el título', true); return false; }
+    try {
+      await api.agregarReferencia({
+        ambito: f.ambito, code: f.ambito === 'general' ? f.id : f.code,
+        titulo: titulo.value.trim(), publicacion: pub.value.trim() || null,
+        anio: anio.value ? Number(anio.value) : null, enlace: enlace.value.trim() || null,
+      });
+      toast('Referencia agregada'); return true;
+    } catch (e) { toast(`No se pudo agregar: ${e.message}`, true); return false; }
+  };
+
+  await montarBiblioteca(caja, { medico: true, alFirmar, alCitar });
+}
+
 async function route() {
   const app = $('view-app');
   const hash = location.hash || '#/alertas';
@@ -1048,6 +1169,7 @@ async function route() {
     else if (name === 'pacientes') await viewPatients(fresh);
     else if (name === 'rangos') await viewRanges(fresh, { h, badge, modal, toast, api, me: S.me, setNav });
     else if (name === 'catalogos') await viewCatalogs(fresh, { h, badge, modal, toast, api, me: S.me, setNav });
+    else if (name === 'biblioteca') await viewBiblioteca(fresh);
     else await viewAlerts(fresh);
     app.innerHTML = ''; app.append(fresh);
     if (name !== 'alertas' && !(hash === '#/alertas' || !location.hash)) api.alerts().then(updateAlertCount).catch(() => {});
