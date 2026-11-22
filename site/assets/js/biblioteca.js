@@ -76,10 +76,20 @@ function base(f, ambito) {
     revisado_en: f.revisado_en || null,
     fuente: limpio(f.fuente),
     regulatorio: null,
-    bloques: [],
+    tecnica: [],      // la rejilla de datos duros de arriba
+    secciones: [],    // [[titulo|null, [[etiqueta, texto], ...]], ...]
+    bloques: [],      // la misma info, plana: la usan el buscador y las revisiones
     resumen: null,
   };
 }
+
+// Aplana las secciones para que el buscador y las comprobaciones no tengan que
+// saber como esta agrupada la ficha.
+function aplanar(x) {
+  x.bloques = x.secciones.flatMap(([, filas]) => filas).filter(([, v]) => v);
+  return x;
+}
+const seccion = (titulo, filas) => [titulo, filas.filter(([, v]) => v)];
 
 // "Pros y contras" en la ficha son dos bloques con nombre claro, no una tabla:
 // lo bueno de una sustancia y lo que hay que cuidar no son simetricos, y
@@ -87,13 +97,13 @@ function base(f, ambito) {
 function deSuplemento(f) {
   const x = base(f, 'supplement');
   x.resumen = limpio(f.purpose);
-  x.bloques = [
+  x.secciones = [seccion(null, [
     ['Para qué se usa', limpio(f.purpose)],
     ['Dosis habitual', [limpio(f.default_dose), limpio(f.default_timing), limpio(f.frequency)].filter(Boolean).join(' · ')],
     ['Qué hay que cuidar', limpio(f.cautions)],
     ['Interacciones', limpio(f.interactions)],
-  ].filter(([, v]) => v);
-  return x;
+  ])].filter(([, filas]) => filas.length);
+  return aplanar(x);
 }
 
 function dePeptido(f) {
@@ -101,28 +111,63 @@ function dePeptido(f) {
   x.resumen = limpio(f.purpose);
   x.regulatorio = REGULATORIO[f.regulatory_status] || null;
   x.regNota = limpio(f.regulatory_note);
-  x.bloques = [
-    ['Para qué se usa', limpio(f.purpose)],
-    ['Vía y dosis habitual', [limpio(f.route), limpio(f.typical_dose), limpio(f.frequency)].filter(Boolean).join(' · ')],
-    ['Reconstitución', limpio(f.reconstitution_hint)],
-    ['Qué hay que cuidar', limpio(f.cautions)],
-    ['Qué se vigila', limpio(f.monitoring)],
+
+  x.tecnica = [
+    ['Clase', limpio(f.clase)],
+    ['También se le llama', (f.alias || []).join(' · ') || null],
+    ['Vía', limpio(f.route)],
+    ['Vida media', limpio(f.vida_media)],
+    ['Secuencia', limpio(f.secuencia)],
+    ['Fórmula', limpio(f.formula)],
+    ['Peso molecular', f.peso_molecular ? `${f.peso_molecular} g/mol` : null],
   ].filter(([, v]) => v);
-  return x;
+
+  x.secciones = [
+    seccion(null, [['Para qué se usa', limpio(f.purpose)]]),
+    seccion('Cómo actúa', [
+      ['Mecanismo', limpio(f.mecanismo)],
+      ['Sobre qué actúa', limpio(f.diana)],
+    ]),
+    seccion('Dosis y manejo', [
+      ['Dosis habitual', [limpio(f.typical_dose), limpio(f.frequency)].filter(Boolean).join(' · ')],
+      ['Cuánto tarda en notarse', limpio(f.tiempo_efecto)],
+      ['Duración del ciclo', limpio(f.ciclo)],
+      ['Reconstitución', limpio(f.reconstitution_hint)],
+      ['Dónde se inyecta', limpio(f.sitios_inyeccion)],
+      ['Cómo se guarda', limpio(f.almacenamiento)],
+    ]),
+    seccion('Qué dice la evidencia', [
+      ['Lo que se ha estudiado', limpio(f.evidencia_resumen)],
+    ]),
+    // Seccion propia y con ese nombre. Una ficha que solo cuenta lo que salio
+    // bien es un folleto; lo que la vuelve util es decir donde no hay datos.
+    seccion('Qué NO se ha estudiado', [
+      ['', limpio(f.evidencia_huecos)],
+    ]),
+    seccion('Seguridad', [
+      ['Efectos frecuentes', limpio(f.efectos_frecuentes)],
+      ['Efectos graves, poco frecuentes', limpio(f.efectos_graves)],
+      ['Cuándo NO se usa', limpio(f.contraindicaciones)],
+      ['Interacciones', limpio(f.interacciones)],
+      ['Qué hay que cuidar', limpio(f.cautions)],
+      ['Qué se vigila', limpio(f.monitoring)],
+    ]),
+  ].filter(([, filas]) => filas.length);
+  return aplanar(x);
 }
 
 function deEjercicio(f) {
   const x = base(f, 'exercise');
   x.resumen = limpio(f.pattern) || limpio(f.primary_muscles);
-  x.bloques = [
+  x.secciones = [seccion(null, [
     ['Cómo se hace', limpio(f.how_to)],
     ['Músculos', limpio(f.primary_muscles)],
     ['Equipo', limpio(f.equipment)],
     ['Series y repeticiones', [limpio(f.sets_reps_hint), limpio(f.rpe_hint)].filter(Boolean).join(' · ')],
     ['Errores comunes', limpio(f.common_errors)],
     ['Qué hay que cuidar', limpio(f.cautions)],
-  ].filter(([, v]) => v);
-  return x;
+  ])].filter(([, filas]) => filas.length);
+  return aplanar(x);
 }
 
 function deArticulo(r) {
@@ -131,12 +176,12 @@ function deArticulo(r) {
   x.categoria = (r.etiquetas || [])[0] || null;
   x.resumen = limpio(r.resumen);
   x.enlace = limpio(r.enlace);
-  x.bloques = [
+  x.secciones = [seccion(null, [
     ['De qué trata', limpio(r.resumen)],
     ['Publicado en', [limpio(r.publicacion), r.anio].filter(Boolean).join(' · ')],
     ['Autores', limpio(r.autores)],
-  ].filter(([, v]) => v);
-  return x;
+  ])].filter(([, filas]) => filas.length);
+  return aplanar(x);
 }
 
 export function buscar(fichas, texto, ambito) {
@@ -203,8 +248,22 @@ export function htmlFicha(f, { enPlan = false, referencias = [], medico = false 
     h += `<div class="bib-ev"><b>Evidencia ${esc(g)}</b><span>${esc(txt)}</span></div>`;
   }
 
-  f.bloques.forEach(([t, v]) => {
-    h += `<div class="bib-bl"><h4>${esc(t)}</h4><p>${esc(v)}</p></div>`;
+  if ((f.tecnica || []).length) {
+    h += '<dl class="bib-tec">' + f.tecnica.map(([k, v]) =>
+      `<dt>${esc(k)}</dt><dd${/Secuencia|Fórmula/.test(k) ? ' class="mono"' : ''}>${esc(v)}</dd>`).join('') + '</dl>';
+  }
+
+  (f.secciones || []).forEach(([titulo, filas]) => {
+    if (!filas.length) return;
+    // "Qué NO se ha estudiado" va con su propio fondo: si se ve igual que el
+    // resto, se lee como un parrafo mas y es justo el que hay que leer.
+    const hueco = titulo === 'Qué NO se ha estudiado';
+    if (titulo) h += `<h3 class="bib-sec${hueco ? ' hueco' : ''}">${esc(titulo)}</h3>`;
+    if (hueco) h += '<div class="bib-huecos">';
+    filas.forEach(([t, v]) => {
+      h += `<div class="bib-bl">${t ? `<h4>${esc(t)}</h4>` : ''}<p>${esc(v)}</p></div>`;
+    });
+    if (hueco) h += '</div>';
   });
 
   if (f.enlace) {

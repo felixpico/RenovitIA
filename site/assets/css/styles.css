@@ -1077,3 +1077,21 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
 @media (min-width: 980px) {
   .bib-lista { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 }
+
+/* Ficha tecnica de la biblioteca: los datos duros, arriba, en rejilla. */
+.bib-tec { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px;
+  margin: 13px 0 4px; padding: 11px 13px; border-radius: 11px; background: var(--surface-2); }
+.bib-tec dt { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); align-self: baseline; }
+.bib-tec dd { margin: 0; font-size: 13.5px; line-height: 1.45; word-break: break-word; }
+.bib-tec dd.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.bib-sec { margin: 20px 0 2px; font-size: 14.5px; font-weight: 700; letter-spacing: -.01em;
+  padding-bottom: 5px; border-bottom: 1px solid var(--border); }
+.bib-sec.hueco { color: var(--accent); border-bottom-color: var(--accent); }
+.bib-huecos { margin-top: 9px; padding: 11px 13px; border-radius: 11px; background: var(--warn-soft); }
+.bib-huecos .bib-bl { margin-top: 0; }
+.bib-huecos p { color: var(--accent); }
+@media (max-width: 420px) {
+  .bib-tec { grid-template-columns: 1fr; gap: 1px; }
+  .bib-tec dd { margin-bottom: 7px; }
+}
