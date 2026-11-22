@@ -1,6 +1,10 @@
 // Pestaña "Plan": genera el borrador desde el semáforo, deja que el médico capture
 // las indicaciones y lo firma. Sin dosis concreta no se puede firmar: lo bloquea la base.
-import { FRANJAS } from './franjas.js';
+import { FRANJAS, CORTO_FRANJA } from './franjas.js';
+// El dia se dibuja con el MISMO codigo que lo pinta en el telefono del
+// paciente. Dibujarlo aparte seria tener dos verdades, y la previa mentiria
+// justo en el momento de firmar.
+import { CON_TOMA, tomasDeItems, htmlDia, revisionDelDia } from './dia.js';
 import {
   JERINGAS, DIAS, mgDeUnidades, mlDeUnidades, concentracion,
   textoMg, textoMl, textoConc, etiquetaDias, jeringaHorizontal, faltaParaAuditar,
@@ -33,7 +37,7 @@ export function renderPlanTab(root, ctx) {
   const { h, modal, toast, api, patient, me, demo } = ctx;
   const esMedico = (me?.roles || []).includes('physician');
 
-  const load = async () => {
+  const load = async (abrir) => {
     root.innerHTML = '';
     root.append(h('div', { class: 'spinner' }));
     let data, catalogos = { supplements: [], peptides: [], exercises: [] };
@@ -122,7 +126,8 @@ export function renderPlanTab(root, ctx) {
         h('a', { class: 'btn btn-ghost btn-sm', href: `plan.html?id=${vigente.id}${demo ? '&demo=1' : ''}`, target: '_blank', rel: 'noopener', text: 'Ver / imprimir' }),
         !firmado ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '+ Indicación', onclick: () => editar(vigente.id, null) }) : null,
         !firmado ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Notas del médico', onclick: () => notas(vigente) }) : null,
-        !firmado && esMedico ? h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Firmar plan', onclick: () => firmar(vigente) }) : null,
+        h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Ver el día del paciente', onclick: () => previa(vigente, true) }),
+        !firmado && esMedico ? h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Revisar y firmar', onclick: () => previa(vigente) }) : null,
         !firmado && !esMedico ? h('span', { class: 'muted small', text: 'Sólo un médico puede firmarlo' }) : null,
         vigente.status === 'approved' ? h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Entregar al paciente', onclick: () => entregar(vigente) }) : null)));
 
@@ -187,6 +192,12 @@ export function renderPlanTab(root, ctx) {
       t.append(tb);
       root.append(h('h3', { class: 'block-title', style: 'margin-top:18px', text: nombre }), h('div', { class: 'table-wrap' }, t));
     });
+
+    // Volver a entrar a la firma DESPUES de recargar. Si la previa llamara a
+    // firmar() directo, firmaria contra la foto vieja del plan: la que todavia
+    // trae el renglon que la medica acaba de quitar. Mentir justo al firmar es
+    // peor que no tener previa.
+    if (abrir === 'firmar' && !firmado && esMedico) firmar(vigente);
 
     function bloqueSugerencias() {
       const ESTADO_SUG = {
@@ -332,6 +343,317 @@ export function renderPlanTab(root, ctx) {
       }
     }
 
+    /* ---------- la vista previa con la que se firma ----------
+
+       No es una pestana aparte: es la pantalla donde se firma. Una previa que
+       hay que ir a buscar no la abre nadie, y el problema que resuelve -- firmar
+       sin haber visto el dia como lo ve el paciente -- sigue igual.
+
+       Prueba de que hacia falta: el Omega-3 duplicado sobrevivio porque se firma
+       una tabla por categorias. En una tabla de veinticinco renglones, dos
+       "Omega-3" parecen una lista. En el dia armado, salta.
+
+       El dia se dibuja con htmlDia(), la MISMA funcion que pinta la pantalla del
+       paciente. Si se dibujara aparte, el dia que una cambie la otra miente, y
+       mentiria justo en el momento de firmar.
+
+       Lo que NO hace: arrastrar de una franja a otra. Se ve bien en un boceto y
+       sobre un plan clinico es una fuente de errores. Mover de horario se hace
+       desde el menu del renglon, que es explicito y dice cuantas casillas
+       quedan. */
+    function previa(plan, soloVer = false) {
+      let filas = mios.filter((i) => CON_TOMA.includes(i.category));
+      const quien = `${patient.first_name || ''} ${patient.last_name || ''}`.trim() || 'tu paciente';
+      const pl = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+
+      const fondo = h('div', { class: 'pv-fondo', role: 'dialog', 'aria-modal': 'true',
+        'aria-label': `Vista previa del día de ${quien}` });
+      const hoja = h('div', { class: 'pv-hoja' });
+      fondo.append(hoja);
+      // Si se movio algo, la pestana de atras se recarga al cerrar: no puede
+      // quedar mostrando la tabla vieja despues de reacomodar el dia.
+      let toco = false;
+      const teclas = (e) => { if (e.key === 'Escape') cerrar(); };
+      const cerrar = () => {
+        fondo.remove();
+        document.removeEventListener('keydown', teclas);
+        if (toco) load();
+      };
+      document.addEventListener('keydown', teclas);
+      fondo.addEventListener('click', (e) => { if (e.target === fondo) cerrar(); });
+
+      const refrescar = async () => {
+        try {
+          const d = await api.plans(patient.id);
+          filas = (d.items || []).filter((i) => i.protocol_id === plan.id && i.is_active
+            && CON_TOMA.includes(i.category));
+          dibujar();
+        } catch (e) { toast(`No se pudo recargar la previa: ${e.message}`, true); }
+      };
+      const tras = async () => { toco = true; await refrescar(); };
+
+      /* --- orden ---
+         El orden del dia es sort_order, el mismo numero que usa la pantalla del
+         paciente. Se renumera la lista completa con huecos de diez y se manda
+         solo lo que cambio: asi un arrastre no deja dos renglones empatados. */
+      async function reordenar(idMovido, idDestino, despues = false) {
+        const orden = [...filas].sort((a, b) => (a.sort_order ?? 50) - (b.sort_order ?? 50));
+        const from = orden.findIndex((i) => i.id === idMovido);
+        const hasta = orden.findIndex((i) => i.id === idDestino);
+        if (from < 0 || hasta < 0 || idMovido === idDestino) return;
+        const [m] = orden.splice(from, 1);
+        let to = orden.findIndex((i) => i.id === idDestino);
+        if (despues) to += 1;
+        orden.splice(to, 0, m);
+        const cambios = [];
+        orden.forEach((i, n) => {
+          const v = (n + 1) * 10;
+          if ((i.sort_order ?? 50) !== v) cambios.push({ id: i.id, sort_order: v });
+        });
+        if (!cambios.length) return;
+        try { await api.reordenarPlanItems(cambios); await tras(); }
+        catch (e) { toast(`No se pudo reordenar: ${e.message}`, true); }
+      }
+
+      // Subir o bajar DENTRO de la franja: el vecino de arriba en la tarjeta de
+      // la cena, no el vecino en la lista global. Es lo que la medica esta viendo.
+      async function mover(itemId, franja, delta) {
+        const enFranja = tomasDeItems(filas).filter((t) => t.franja === franja).map((t) => t.i);
+        const idx = enFranja.findIndex((i) => i.id === itemId);
+        const destino = idx + delta;
+        if (idx < 0 || destino < 0 || destino >= enFranja.length) return;
+        await reordenar(itemId, enFranja[destino].id, delta > 0);
+      }
+
+      function dibujar() {
+        const tomas = tomasDeItems(filas);
+        const rv = revisionDelDia(filas, tomas);
+        hoja.innerHTML = '';
+
+        hoja.append(h('div', { class: 'pv-head' },
+          h('div', { class: 'pv-tit' },
+            h('h2', { text: `Así va a ver su día ${quien}` }),
+            h('p', { text: `Plan versión ${plan.version} · ${pl(tomas.length, 'toma', 'tomas')} en ${pl(rv.momentos, 'momento', 'momentos')} del día`
+              + (soloVer ? ' · sólo lectura' : '') })),
+          h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Cerrar', onclick: cerrar }),
+          soloVer ? null : h('button', { class: 'btn btn-primary btn-sm', type: 'button',
+            text: yaTeniaPlan ? 'Firmar y entregar' : 'Firmar plan',
+            onclick: async () => {
+              const cambio = toco;
+              fondo.remove();
+              document.removeEventListener('keydown', teclas);
+              // Si se movio algo aqui, la firma tiene que leer el plan otra vez.
+              if (cambio) await load('firmar'); else firmar(plan);
+            } })));
+
+        hoja.append(h('div', { class: 'pv-banner', text: soloVer
+          ? 'Esto es exactamente lo que ve en su teléfono. Lo que es de ciertos días trae sus días marcados debajo.'
+          : 'Usa ⋯ para mover un renglón de horario o cambiarle el orden, y agrega lo que falte al pie de cada momento. En computadora también puedes arrastrarlos. Está el plan completo: lo que es de ciertos días trae sus días marcados debajo.' }));
+
+        const dia = h('div', { class: 'pv-dia' });
+        // soloVer dibuja el dia TAL CUAL lo ve el paciente: sin asas, sin menus,
+        // sin "+". Es la misma funcion, con las agregadas apagadas.
+        dia.innerHTML = htmlDia(tomas, { previa: !soloVer })
+          || '<div class="empty-state">Este plan todavía no tiene nada que el paciente deba tomar.</div>';
+
+        hoja.append(h('div', { class: 'pv-cols' }, dia,
+          h('div', { class: 'pv-rail' }, cajaRevision(rv), cajaNumeros(rv),
+            anterior ? h('div', { class: 'pv-caja' },
+              h('h4', { text: `Contra la versión ${anterior.version}` }), cuadroCambios()) : null)));
+
+        if (soloVer) return;
+
+        dia.querySelectorAll('.dia-add').forEach((b) => b.addEventListener('click', () => {
+          // Se abre el alta con la franja YA elegida: si notas que falta algo en
+          // la cena, lo pones ahi, sin salir y sin volver a decidir el horario.
+          // Entra al FINAL del dia, no en medio: sort_order 50 por omision la
+          // metia entre renglones ya numerados.
+          const ultimo = filas.reduce((m, i) => Math.max(m, i.sort_order ?? 50), 50);
+          editar(plan.id, { slots: [b.dataset.add], category: 'supplement', sort_order: ultimo + 10 }, tras);
+        }));
+        dia.querySelectorAll('.dia-men').forEach((b) => b.addEventListener('click',
+          () => menuRenglon(b.dataset.men, b.dataset.franja)));
+
+        let arrastrado = null;
+        dia.querySelectorAll('.it.previa').forEach((el) => {
+          el.addEventListener('dragstart', (e) => {
+            arrastrado = el; el.classList.add('arr');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', el.dataset.item);
+          });
+          el.addEventListener('dragend', () => {
+            el.classList.remove('arr');
+            dia.querySelectorAll('.sobre').forEach((x) => x.classList.remove('sobre'));
+            arrastrado = null;
+          });
+          el.addEventListener('dragover', (e) => {
+            if (!arrastrado || arrastrado === el) return;
+            e.preventDefault(); el.classList.add('sobre');
+          });
+          el.addEventListener('dragleave', () => el.classList.remove('sobre'));
+          el.addEventListener('drop', async (e) => {
+            e.preventDefault(); el.classList.remove('sobre');
+            const id = arrastrado?.dataset.item;
+            arrastrado = null;
+            if (!id || id === el.dataset.item) return;
+            await reordenar(id, el.dataset.item);
+          });
+        });
+      }
+
+      function cajaRevision(rv) {
+        const caja = h('div', { class: 'pv-caja' }, h('h4', { text: 'Antes de firmar' }));
+        const linea = (clase, ico, ...cuerpo) => caja.append(
+          h('div', { class: `pv-chk ${clase}` }, h('span', { class: 'pv-ico', text: ico }),
+            h('span', {}, ...cuerpo)));
+        let algo = false;
+
+        rv.repetidos.forEach((g) => {
+          algo = true;
+          const veces = g.reduce((n, i) => n + (Array.isArray(i.slots) ? Math.max(1, i.slots.length) : 1), 0);
+          linea('mal', '!', h('b', { text: `«${g[0].title}» está ${g.length} veces en el plan.` }),
+            ` Al paciente le van a aparecer ${veces} casillas al día y su constancia va a salir inflada. `,
+            soloVer ? null : h('button', { type: 'button', text: 'Quitar la repetida', onclick: async () => {
+              const sobra = g[g.length - 1];
+              if (!(await modal('Quitar la repetida', h('div', { class: 'stack' },
+                h('p', { text: `Se quita una de las dos «${sobra.title}». Queda la otra.` }),
+                h('p', { class: 'muted small', text: 'Lo que el paciente ya palomeó no se borra. Si quiere tomarlo a dos horas distintas, edita el renglón que queda y márcale las dos franjas.' })),
+                'Quitar'))) return;
+              try { await api.removePlanItem(sobra.id); toast('Quitada'); await tras(); }
+              catch (e) { toast(`Error: ${e.message}`, true); }
+            } }));
+        });
+
+        if (rv.sinSlot.length) {
+          algo = true;
+          const uno = rv.sinSlot.length === 1;
+          linea('ojo', '?', h('b', { text: `${pl(rv.sinSlot.length, 'renglón', 'renglones')} sin franja elegida.` }),
+            ` El sistema ${uno ? 'lo acomodó' : 'los acomodó'} leyendo el texto del horario, y ${uno ? 'lo marcó' : 'los marcó'} «deducido» abajo. Si la deducción no es la que querías, ${uno ? 'muévelo' : 'muévelos'} con ⋯.`);
+        }
+
+        if (rv.sinJeringa.length) {
+          algo = true;
+          linea('mal', '!', h('b', { text: `${pl(rv.sinJeringa.length, 'inyectable', 'inyectables')} sin vial completo: ` }),
+            rv.sinJeringa.map((i) => i.title).join(', '),
+            '. Sin mg, mL y jeringa no se le puede dibujar la dosis, y va a cargar la jeringa a ojo.');
+        } else if (rv.inyectables.length) {
+          linea('ok', '✓', rv.inyectables.length === 1
+            ? 'El inyectable trae vial, unidades y jeringa: el paciente ve la dosis dibujada.'
+            : `Los ${rv.inyectables.length} inyectables traen vial, unidades y jeringa: el paciente ve la dosis dibujada.`);
+        }
+
+        if (rv.pico) {
+          algo = true;
+          linea('ojo', '?', h('b', { text: `${rv.pico.n} tomas juntas en ${rv.nombreFranja(rv.pico.f).toLowerCase()}.` }),
+            ' Mira si conviene repartirlas: un momento cargado es el que primero se deja de palomear.');
+        }
+
+        if (!algo) linea('ok', '✓', 'Nada que señalar: sin repetidos, todo con horario y los inyectables completos.');
+        return caja;
+      }
+
+      function cajaNumeros(rv) {
+        const tile = (n, u) => h('div', {}, h('div', { class: 'n', text: String(n) }), h('div', { class: 'u', text: u }));
+        return h('div', { class: 'pv-caja' }, h('h4', { text: 'El día, en números' }),
+          h('div', { class: 'pv-num' },
+            tile(rv.tomas, 'tomas al día'),
+            tile(rv.momentos, rv.momentos === 1 ? 'momento' : 'momentos'),
+            rv.pico ? tile(rv.pico.n, `en ${rv.nombreFranja(rv.pico.f).toLowerCase()}`) : null,
+            rv.inyectables.length ? tile(rv.inyectables.length, 'inyectables') : null));
+      }
+
+      /* --- el menu de un renglon ---
+         Mover de franja, subir, bajar, editar y quitar. Todo en una hoja, y con
+         el numero de casillas a la vista: cambiar de dos franjas a tres no es un
+         detalle de presentacion, son tres palomitas al dia. */
+      async function menuRenglon(itemId, franja) {
+        const it = filas.find((i) => i.id === itemId);
+        if (!it) return;
+        const seleccion = new Set(Array.isArray(it.slots) ? it.slots : []);
+        let delta = 0;
+
+        const chips = h('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' });
+        const avisoFr = h('p', { class: 'small', style: 'margin:6px 0 0' });
+        const pintar = () => {
+          chips.innerHTML = '';
+          FRANJAS.forEach(([clave, , corto]) => {
+            const on = seleccion.has(clave);
+            chips.append(h('button', { type: 'button', text: corto, 'aria-pressed': on ? 'true' : 'false',
+              style: 'font:inherit;font-size:12.5px;font-weight:600;padding:9px 12px;border-radius:9px;cursor:pointer;'
+                + (on ? 'border:1px solid #0f241d;background:#0f241d;color:#fff;'
+                      : 'border:1px solid #c9cfcb;background:#fff;color:#5c6660;'),
+              onclick: () => { if (on) seleccion.delete(clave); else seleccion.add(clave); pintar(); } }));
+          });
+          avisoFr.textContent = seleccion.size > 1
+            ? `Son ${seleccion.size} casillas al día, una por momento, y cada una cuenta aparte en su constancia.`
+            : (seleccion.size === 1 ? 'Una sola toma al día.'
+              : 'Sin franja, le aparece donde el sistema deduzca del texto del horario.');
+        };
+        pintar();
+
+        const nombreFr = (CORTO_FRANJA[franja] || franja).toLowerCase();
+        const avisoOrden = h('p', { class: 'muted small', style: 'margin:6px 0 0' });
+        const pintarOrden = () => {
+          avisoOrden.textContent = delta === 0 ? 'Queda donde está.'
+            : `Va a ${delta < 0 ? 'subir' : 'bajar'} ${pl(Math.abs(delta), 'lugar', 'lugares')} en ${nombreFr}.`;
+        };
+        pintarOrden();
+
+        // Editar y quitar abren su propio dialogo, y solo cabe uno a la vez:
+        // se cierra este primero. El click programatico resuelve la promesa en
+        // "cancelar", que es exactamente lo que queremos.
+        const cerrarMenu = () => document.getElementById('modal-cancel')?.click();
+
+        const cuerpo = h('div', { class: 'stack' },
+          h('div', {}, h('strong', { text: it.title }),
+            h('div', { class: 'muted small', text: [it.dose, NOMBRE_CAT[it.category]].filter(Boolean).join(' · ') })),
+          h('div', { class: 'stack' },
+            h('p', { class: 'small', style: 'margin:0;font-weight:700', text: '¿Cuándo se la toma?' }),
+            chips, avisoFr),
+          h('div', { class: 'stack' },
+            h('p', { class: 'small', style: 'margin:0;font-weight:700', text: `Orden dentro de ${nombreFr}` }),
+            h('div', { class: 'toolbar' },
+              h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '↑ Subir',
+                onclick: () => { delta -= 1; pintarOrden(); } }),
+              h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '↓ Bajar',
+                onclick: () => { delta += 1; pintarOrden(); } })),
+            avisoOrden),
+          (Array.isArray(it.days_of_week) && it.days_of_week.length)
+            ? h('p', { class: 'muted small', style: 'margin:0',
+                text: `Sólo le toca ${etiquetaDias(it.days_of_week.map(Number))}. Los días se cambian al editar la indicación.` })
+            : null,
+          h('div', { class: 'toolbar' },
+            h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Editar la indicación',
+              onclick: () => { cerrarMenu(); editar(plan.id, it, tras); } }),
+            h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'Quitar del plan',
+              onclick: async () => {
+                cerrarMenu();
+                if (!(await modal('Quitar indicación', h('div', { class: 'stack' },
+                  h('p', { text: `Se quita «${it.title}» del plan.` }),
+                  h('p', { class: 'muted small', text: 'Deja de aparecerle mañana. Lo que ya palomeó no se borra.' })),
+                  'Quitar'))) return;
+                try { await api.removePlanItem(it.id); toast('Quitada'); await tras(); }
+                catch (e) { toast(`Error: ${e.message}`, true); }
+              } })));
+
+        if (!(await modal(`Mover ${it.title}`, cuerpo, 'Aplicar'))) return;
+
+        const antesSlots = JSON.stringify(Array.isArray(it.slots) ? [...it.slots].sort() : []);
+        const ahoraSlots = JSON.stringify([...seleccion].sort());
+        try {
+          if (antesSlots !== ahoraSlots) {
+            await api.moverPlanItem(it.id, [...seleccion]);
+            toast(seleccion.size ? `${it.title}: ${pl(seleccion.size, 'momento', 'momentos')} al día` : `${it.title} quedó sin franja`);
+            await tras();
+          }
+          if (delta !== 0) await mover(it.id, franja, delta);
+        } catch (e) { toast(`No se pudo guardar: ${e.message}`, true); }
+      }
+
+      dibujar();
+      document.body.append(fondo);
+    }
+
     async function generar() {
       const texto = vigente
         ? 'Se genera una versión nueva del borrador a partir del panel actual. La versión anterior queda marcada como reemplazada; las indicaciones que ya capturaste NO se copian.'
@@ -341,7 +663,7 @@ export function renderPlanTab(root, ctx) {
       catch (e) { toast(`Error: ${e.message}`, true); }
     }
 
-    async function editar(planId, item) {
+    async function editar(planId, item, alGuardar) {
       const campo = (l, el) => h('label', { class: 'field' }, h('span', { class: 'field-label small', text: l }), el);
       const cat = h('select', { class: 'input' }, ...CATEGORIAS.map(([v, n]) => h('option', { value: v, text: n })));
       cat.value = item?.category || 'supplement';
@@ -565,6 +887,24 @@ export function renderPlanTab(root, ctx) {
           ? `${Number(vialMg.value)} mg en ${Number(vialMl.value)} mL (${textoConc(concentracion(vialMg.value, vialMl.value))}) · jeringa ${jeringa.value}`
           : (recon.value.trim() || null);
 
+        // Avisar ANTES de duplicar. Agregar a mano algo que ya está en el plan
+        // no da ningún error: entran dos renglones idénticos y el paciente ve
+        // la misma toma dos veces, cada una con su propia palomita. Ya pasó.
+        // No se bloquea —puede haber una razón— pero no en silencio.
+        const nuevoTitulo = titulo.value.trim().toLowerCase();
+        if (!item?.id) {
+          const repe = mios.filter((i) => String(i.title || '').trim().toLowerCase() === nuevoTitulo);
+          if (repe.length) {
+            const aviso = h('div', { class: 'stack' },
+              h('p', { text: `Este plan ya tiene «${repe[0].title}».` }),
+              h('p', { class: 'muted small',
+                text: 'Si lo agregas otra vez, el paciente va a ver la misma toma repetida en su día, '
+                    + 'cada una con su propia casilla. Para tomarlo a distintas horas, edita el renglón '
+                    + 'que ya existe y márcale varias franjas.' }));
+            if (!(await modal('Ya está en el plan', aviso, 'Agregar de todas formas'))) return;
+          }
+        }
+
         await api.savePlanItem(planId, {
           id: item?.id, category: cat.value, title: titulo.value.trim(), dose: doseTexto,
           reconstitution: reconTexto,
@@ -578,7 +918,7 @@ export function renderPlanTab(root, ctx) {
           rationale: motivo.value.trim() || null, instructions: instr.value.trim() || null,
           sort_order: item?.sort_order ?? 50,
         });
-        toast('Guardado'); load();
+        toast('Guardado'); (alGuardar || load)();
       } catch (e) { toast(`Error: ${e.message}`, true); }
     }
 
@@ -592,7 +932,17 @@ export function renderPlanTab(root, ctx) {
 
     async function firmar(plan) {
       const ck = h('input', { type: 'checkbox' });
+      // Lo incomodo va PRIMERO. Un renglon repetido no lo ve nadie en una tabla
+      // por categorias, y al paciente le aparece dos veces al dia con dos
+      // palomitas: su constancia sale inflada y la dosis real se duplica.
+      const rvF = revisionDelDia(mios.filter((i) => CON_TOMA.includes(i.category)),
+        tomasDeItems(mios.filter((i) => CON_TOMA.includes(i.category))));
       const cuerpo = h('div', { class: 'stack' },
+        rvF.repetidos.length ? h('div', { class: 'notice danger' },
+          h('b', { text: rvF.repetidos.length === 1 ? 'Una indicación está repetida: ' : `${rvF.repetidos.length} indicaciones están repetidas: ` }),
+          rvF.repetidos.map((g) => `${g[0].title} (${g.length}×)`).join(', '),
+          h('p', { class: 'small', style: 'margin:8px 0 0',
+            text: 'Si firmas así, al paciente le aparecen dos casillas de lo mismo cada día y su constancia va a salir inflada. Puedes cerrar esto, quitar la repetida desde «Revisar y firmar», y volver.' })) : null,
         h('p', { text: 'Al firmar, el plan queda a tu nombre, desaparece la marca de agua y puede entregarse al paciente.' }),
         rev.length ? h('div', { class: 'notice small', text: `Quedan ${rev.length} punto(s) marcados para revisión. Revísalos antes de firmar.` }) : null,
         revSinConf.length ? h('div', { class: 'notice small', text: `${revSinConf.length} valor(es) del panel siguen sin confirmar contra el estudio original. Si firmas así, la firma avala números que nadie cotejó. Esto no se imprime en la hoja del paciente.` }) : null,

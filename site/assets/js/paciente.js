@@ -5,18 +5,19 @@
 //    impone la RLS, aqui solo se dibuja el estado vacio con dignidad).
 //  - Nada se presenta como "firmado" si el protocolo no esta en delivered.
 import { supabase } from './supabase.js';
-import {
-  FRANJAS, NOMBRE_FRANJA, CORTO_FRANJA, franjasDe, porFranja, llaveToma, horaDe, tocaHoy,
-} from './franjas.js';
+import { tocaHoy } from './franjas.js';
+// El dia se dibuja en dia.js, que comparten esta pantalla y la vista previa con
+// la que la medica firma. Si el HTML viviera aqui, la previa seria otro dibujo
+// y acabaria mintiendo.
+import { PALOMA, etiquetas, chipsDias, botonJeringa, tomasDeItems, htmlDia } from './dia.js';
 import { abrirSeccion, cerrarSeccion } from './secciones.js';
 import {
-  DIAS as DIAS_SEMANA, hoyISO, etiquetaDias, mgDeUnidades, mlDeUnidades, concentracion,
+  hoyISO, etiquetaDias, mgDeUnidades, mlDeUnidades, concentracion,
   textoMg, textoMl, textoConc, jeringaVertical,
 } from './peptido.js';
 
 const $ = (id) => document.getElementById(id);
 const CON_TOMA = ['supplement', 'peptide', 'medication'];
-const PALOMA = '<svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>';
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const ENTRENO_IMG = {
   jalon: 'assets/img/entreno/dia1-jalon.webp',
@@ -107,15 +108,6 @@ const FECHA_CORTA = (d) => {
   return `${DIAS[f.getDay()]} ${f.getDate()}`;
 };
 
-function etiquetas(it) {
-  let e = '';
-  const t = `${it.timing || ''} ${it.instructions || ''}`.toLowerCase();
-  if (/subcut|intramus|inyec/.test(t) || it.category === 'peptide') e += '<span class="et">SUBCUTÁNEO</span>';
-  const ciclo = /(\d+)\s*d[ií]as/.exec(it.frequency || '');
-  if (ciclo) e += `<span class="et ciclo">CICLO DE ${ciclo[1]} DÍAS</span>`;
-  return e;
-}
-
 /* ---------- resumen del dia ----------
    Regla dura: la tarjeta SIN dato no se dibuja. Nunca un guion, nunca un cero
    inventado. Quien no trae reloj ve una pantalla mas corta que sigue teniendo
@@ -193,17 +185,7 @@ function tiraSemana(sem) {
   return `${h}</div>`;
 }
 
-// Una toma es un par (renglon, franja). Mio-inositol de manana y de noche son
-// DOS tomas, con su propia palomita: si comparten una, marcar la de la manana
-// da por hecha la de la noche y el paciente se salta una dosis.
-function tomasDelDia() {
-  const mapa = porFranja(delDia());
-  const fuera = [];
-  FRANJAS.forEach(([clave]) => {
-    (mapa.get(clave) || []).forEach((i) => fuera.push({ i, franja: clave, llave: llaveToma(i, clave) }));
-  });
-  return fuera;
-}
+const tomasDelDia = () => tomasDeItems(delDia());
 
 function pintarHoy() {
   const caja = $('hoy-contenido');
@@ -232,36 +214,10 @@ function pintarHoy() {
       </div>
     </div>` + tarjetasResumen(S.resumen);
 
-  const grupos = new Map();
-  tomas.forEach((t) => {
-    if (!grupos.has(t.franja)) grupos.set(t.franja, []);
-    grupos.get(t.franja).push(t);
-  });
-
-  FRANJAS.forEach(([clave, nombre]) => {
-    const lista = grupos.get(clave);
-    if (!lista?.length) return;
-    const n = lista.filter((t) => S.registro.supplements_taken?.[t.llave]).length;
-    // La hora es la QUE EL PACIENTE configuro para sus recordatorios, no una
-    // inventada por el sistema.
-    const hora = horaDe(clave, S.horas);
-    html += `<div class="fr"><h3>${esc(CORTO_FRANJA[clave] || nombre)}${hora ? ` <b class="hr">${esc(hora)}</b>` : ''} <em>· ${n} de ${lista.length}</em></h3><div class="lista">`;
-    lista.forEach(({ i, llave }) => {
-      const on = S.registro.supplements_taken?.[llave] ? ' on' : '';
-      const per = S.periodico[i.id];
-      // Un atraso en una inyeccion semanal no es lo mismo que olvidar una
-      // capsula: se dice con numero, no con un regano generico.
-      const atraso = per?.atraso > 0
-        ? `<span class="tarde">Van ${per.atraso} ${per.atraso === 1 ? 'día' : 'días'} de retraso</span>`
-        : '';
-      const sub = atraso || (i.reconstitution ? `<span>${esc(i.reconstitution)}</span>` : '');
-      html += `<button class="it${on}" type="button" data-id="${esc(llave)}" aria-pressed="${on ? 'true' : 'false'}">
-        <span class="cb">${PALOMA}</span>
-        <span class="nm"><b>${esc(i.title)}${etiquetas(i)}</b>${sub}</span>
-        ${i.dose ? `<span class="ds">${esc(i.dose)}</span>` : ''}</button>`;
-      html += chipsDias(i) + botonJeringa(i);
-    });
-    html += '</div></div>';
+  html += htmlDia(tomas, {
+    hechas: S.registro.supplements_taken,
+    horas: S.horas,
+    periodico: S.periodico,
   });
 
   // Si simplemente se oculta, el paciente cree que se perdio su inyeccion.
@@ -292,33 +248,6 @@ function pintarHoy() {
 }
 
 /* ---------- péptidos en unidades ---------- */
-// Los días van en su propia fila, debajo del renglón: el renglón es un <button>
-// y meterle otro botón adentro deja el HTML inválido.
-function chipsDias(i) {
-  if (!Array.isArray(i.days_of_week) || !i.days_of_week.length) return '';
-  const hoy = hoyISO();
-  const marcados = i.days_of_week.map(Number);
-  return '<div class="pep-dias">' + DIAS_SEMANA.map(([n, corto, largo]) => {
-    const on = marcados.includes(n);
-    const clase = `${on ? 'on' : ''}${on && n === hoy ? ' hoy' : ''}`.trim();
-    return `<span class="${clase}" title="${esc(largo)}">${corto}</span>`;
-  }).join('') + '</div>';
-}
-
-// El botón sólo aparece cuando la dosis está COMPLETA. Una jeringa dibujada a
-// partir de un vial que no conocemos sería peor que no dibujar nada: el
-// paciente la seguiría al pie de la letra.
-function botonJeringa(i) {
-  if (!(Number(i.dose_un) > 0) || !i.syringe || !(Number(i.vial_mg) > 0) || !(Number(i.vial_ml) > 0)) return '';
-  return `<button class="pep-ver" type="button" data-pep="${esc(i.id)}">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
-         stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-      <path d="M19 3l2 2"/><path d="M17.5 5.5l1 1"/><path d="M20 4l-9.5 9.5"/>
-      <path d="M14.5 6.5l3 3"/><path d="M11.5 9.5l3 3"/><path d="M10.5 13.5L3 21"/><path d="M5.5 16.5l2 2"/>
-    </svg>
-    Ver la dosis en la jeringa</button>`;
-}
-
 function abrirJeringa(i) {
   const un = Number(i.dose_un);
   const mg = mgDeUnidades({ un, vial_mg: i.vial_mg, vial_ml: i.vial_ml, jeringa: i.syringe });

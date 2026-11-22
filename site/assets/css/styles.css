@@ -903,3 +903,103 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
    sin abrir expediente por expediente. */
 .punto-msj { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   background: var(--danger); margin-left: 7px; vertical-align: 1px; }
+
+/* ---------- "Lo que más comes" y "Tus combinaciones" ---------- */
+.rap { margin: 14px 0; }
+.rap-g { margin-bottom: 12px; }
+.rap-g h3 { margin: 0 0 7px; font-size: 11px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted); }
+/* Fila que se desborda en dos columnas en vez de una tira horizontal: una tira
+   esconde la mitad de los chips fuera de la pantalla y nadie la desliza. */
+.rap-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.rap-it { display: block; width: 100%; text-align: left; padding: 10px 11px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+  font: inherit; color: inherit; cursor: pointer; }
+.rap-it:active { transform: scale(.99); }
+.rap-it b { display: block; font-size: 13.5px; letter-spacing: -.01em; line-height: 1.25; }
+.rap-it span { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); }
+.rap-it.on { background: var(--brand); border-color: var(--brand); }
+.rap-it.on b, .rap-it.on span { color: #fff; }
+.rap-kit { background: var(--brand-soft); border-color: color-mix(in srgb, var(--brand) 35%, transparent); }
+.rap-armar { margin-top: 8px; }
+.rap-armado { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+/* ============ vista previa antes de firmar ============
+   La medica ve el dia con las MISMAS clases que el paciente (.fr .lista .it):
+   eso no es ahorro de CSS, es la garantia de que lo que firma es lo que el
+   paciente va a ver. Lo de aqui abajo es solo el marco y lo que se agrega
+   encima: asa, menu, y el "+" por franja. */
+/* 48, no 70: el modal de medico.html vive en 50 y tiene que quedar ENCIMA */
+.pv-fondo { position: fixed; inset: 0; z-index: 48; background: rgba(16, 24, 20, .55);
+  display: flex; align-items: flex-start; justify-content: center; padding: 18px;
+  overflow-y: auto; }
+.pv-hoja { background: var(--bg, #f6f7f4); border-radius: 16px; width: 100%; max-width: 1180px;
+  box-shadow: 0 20px 60px rgba(10, 20, 15, .35); overflow: hidden; }
+.pv-head { position: sticky; top: 0; z-index: 2; background: var(--surface);
+  border-bottom: 1px solid var(--border); padding: 14px 18px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pv-head .pv-tit { flex: 1; min-width: 200px; }
+.pv-head h2 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
+.pv-head p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+.pv-banner { margin: 14px 18px 0; padding: 11px 13px; border-radius: 11px;
+  background: var(--brand-soft); color: var(--brand); font-size: 13px; line-height: 1.45; }
+.pv-cols { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px;
+  padding: 16px 18px 20px; align-items: start; }
+.pv-rail { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 76px; }
+.pv-caja { background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 13px 14px; }
+.pv-caja h4 { margin: 0 0 9px; font-size: 11px; font-weight: 800; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted); }
+.pv-chk { display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px;
+  line-height: 1.45; padding: 7px 0; border-top: 1px solid var(--border); }
+.pv-chk:first-of-type { border-top: 0; padding-top: 0; }
+.pv-chk b { font-weight: 700; }
+.pv-chk .pv-ico { flex: none; width: 17px; height: 17px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 11px;
+  font-weight: 800; color: #fff; margin-top: 1px; }
+.pv-chk.ok .pv-ico { background: var(--brand); }
+.pv-chk.mal .pv-ico { background: var(--danger); }
+.pv-chk.ojo .pv-ico { background: var(--accent); }
+.pv-chk button { font: inherit; font-size: 12.5px; font-weight: 700; color: var(--brand);
+  background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.pv-num { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.pv-num > div { background: var(--surface-2); border-radius: 10px; padding: 9px 10px; }
+.pv-num .n { font-size: 20px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+.pv-num .u { font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+
+/* el dia, en modo previa */
+.fr-previa > h3 em.vacia { color: var(--muted); font-weight: 600; }
+.it.previa { cursor: default; }
+.it.previa .cb { opacity: .35; }
+.it.previa.arr { opacity: .4; }
+.it.previa.sobre { box-shadow: inset 0 2px 0 var(--brand); }
+.it.previa.sinslot { background: var(--warn-soft); }
+.dia-asa { flex: none; display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 26px; margin-left: -4px; padding: 0; border: 0; background: none;
+  color: var(--muted); opacity: .5; cursor: grab; }
+.it.previa:hover .dia-asa { opacity: 1; }
+.dia-men { flex: none; width: 28px; height: 28px; border-radius: 8px; padding: 0;
+  border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+  font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.dia-men:hover { color: var(--text); border-color: var(--brand); }
+.dia-veces, .dia-dedu { flex: none; font-size: 10px; font-weight: 800; letter-spacing: .04em;
+  padding: 3px 6px; border-radius: 5px; background: var(--brand-soft); color: var(--brand); }
+.dia-dedu { background: var(--warn-soft); color: var(--accent); text-transform: uppercase; }
+.dia-add { display: block; width: 100%; padding: 11px 14px; border: 0;
+  border-top: 1px dashed var(--border); background: transparent; color: var(--brand);
+  font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+.dia-add:hover { background: var(--brand-soft); }
+
+@media (max-width: 900px) {
+  .pv-fondo { padding: 0; }
+  .pv-hoja { border-radius: 0; min-height: 100%; }
+  .pv-cols { grid-template-columns: minmax(0, 1fr); padding: 14px 13px 24px; }
+  .pv-rail { position: static; }
+  .pv-banner { margin: 12px 13px 0; }
+  /* El asa no sirve con el dedo: arrastrar y soltar es de escritorio. Se
+     quita para devolverle ancho al nombre, que es lo que hay que leer. */
+  .dia-asa { display: none; }
+  .it.previa { gap: 10px; }
+  .dia-men { width: 26px; height: 26px; font-size: 14px; }
+}

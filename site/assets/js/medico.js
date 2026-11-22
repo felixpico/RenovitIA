@@ -336,6 +336,22 @@ const liveApi = {
     if (item.id) { const { error } = await supabase.from('protocol_items').update(row).eq('id', item.id); if (error) throw error; }
     else { const { error } = await supabase.from('protocol_items').insert(row); if (error) throw error; }
   },
+  // Reordenar el dia. Va por RPC y no renglon por renglon: reordenar diecinueve
+  // renglones con diecinueve llamadas deja el orden a medias si una falla, y el
+  // dia del paciente queda con dos tomas en el mismo lugar. Aqui es una sola
+  // transaccion. Corre como security invoker: la RLS sigue decidiendo.
+  async reordenarPlanItems(cambios) {
+    const { error } = await supabase.rpc('reordenar_protocolo', { p_items: cambios || [] });
+    if (error) throw error;
+  },
+  // Cambiar de franja es cambiar CUANTAS veces al dia le aparece. Se escribe
+  // solo slots: lo demas del renglon no se toca.
+  async moverPlanItem(itemId, slots) {
+    const { error } = await supabase.from('protocol_items')
+      .update({ slots: (slots || []).length ? slots : null, physician_edited: true })
+      .eq('id', itemId);
+    if (error) throw error;
+  },
   async removePlanItem(itemId) {
     const { error } = await supabase.from('protocol_items').update({ is_active: false }).eq('id', itemId);
     if (error) throw error;

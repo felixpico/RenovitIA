@@ -12,6 +12,7 @@ import {
   cajaBuscador, montarBuscador, panelBase, montarBase,
   panelPlatillo, montarPlatillo, traerBase,
 } from './buscador.js';
+import { cajaRapidos, montarRapidos } from './rapidos.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const n0 = (x) => (x === null || x === undefined ? '—' : Math.round(Number(x)).toLocaleString('es-MX'));
@@ -150,6 +151,16 @@ function formulario(datos, origen, extra) {
   </div>`;
 }
 
+// Trae un alimento por su code, con la misma forma que devuelve buscar_alimento,
+// para que las pantallas de abajo no tengan que saber de dónde vino.
+async function porCode(code) {
+  const { data, error } = await supabase.from('food_items')
+    .select('code,nombre,tipo,grupo,kcal,protein_g,carb_g,fat_g,fiber_g,medida,medida_g,fuente,componentes,verificado_por')
+    .eq('code', code).eq('is_active', true).maybeSingle();
+  if (error || !data) { console.error('porCode', error); return null; }
+  return { ...data, verificado: data.verificado_por != null };
+}
+
 // Guardar lo que vino del catálogo. Se separa de la foto porque aquí los
 // números no son una estimación: salen de una tabla, y el renglón queda
 // marcado como 'manual', no como 'foto'.
@@ -162,8 +173,16 @@ async function elegido(p, r, recargar) {
       `<option value="${k}"${k === franjaAhora() ? ' selected' : ''}>${n}</option>`).join('');
   };
   const alGuardar = async (boton, fila, code) => {
+    // Se guarda CUÁL alimento fue, no solo su nombre. Sin este id, una comida
+    // registrada es un callejón sin salida: se puede leer pero no repetir, que
+    // es justo por lo que "lo que más comes" no existía.
+    let item_id = null;
+    try {
+      const { data } = await supabase.from('food_items').select('id').eq('code', code).maybeSingle();
+      item_id = data?.id ?? null;
+    } catch (_) { /* si falla, se guarda la comida igual: el id es un extra */ }
     await guardar(boton, {
-      patient_id: p.id, origen: 'manual', ...fila,
+      patient_id: p.id, origen: 'manual', item_id, ...fila,
     }, recargar);
     // El buscador aprende qué come esta clínica, sin que nadie lo configure.
     supabase.rpc('usar_alimento', { p_code: code }).then(() => {}, () => {});
@@ -204,8 +223,27 @@ export function montarComer(p, recargar) {
       }
       if (modoActual === 'buscar') {
         aviso('');
-        $('cm-form').innerHTML = cajaBuscador();
+        // Lo de siempre va ARRIBA del buscador: la mayoría de las veces el
+        // paciente viene a registrar algo que ya comió antes, y escribirlo de
+        // nuevo era el trabajo que le estábamos cobrando.
+        $('cm-form').innerHTML = cajaRapidos() + cajaBuscador();
         montarBuscador((r) => elegido(p, r, recargar));
+        montarRapidos(p, {
+          alElegir: async (code) => {
+            const r = await porCode(code);
+            if (r) elegido(p, r, recargar);
+          },
+          // Lo escrito a mano no tiene catálogo detrás: se abre el formulario ya
+          // lleno con los mismos números y el paciente solo elige la comida.
+          alRepetir: (r) => {
+            $('cm-form').innerHTML = formulario({
+              descripcion: r.nombre, proteina_g: r.protein_g, kcal: r.kcal,
+              carbohidrato_g: r.carb_g, grasa_g: r.fat_g,
+            }, 'manual');
+            enlazar(p, 'manual', {}, recargar);
+          },
+          recargar,
+        });
         document.getElementById('bu-mano')?.addEventListener('click', () => {
           $('cm-form').innerHTML = formulario({}, 'manual');
           enlazar(p, 'manual', {}, recargar);

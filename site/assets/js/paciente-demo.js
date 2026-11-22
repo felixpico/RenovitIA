@@ -323,7 +323,34 @@ const TABLAS = {
   documents: [],
 };
 
+// Lo que ya comio este paciente ficticio y una combinacion ya armada, para que
+// la demo ensene las dos listas llenas en vez de una pantalla vacia.
+const RECIENTES = [
+  { item_id: 'i-whey', code: 'PROTEINA_WHEY', nombre: 'Proteína en polvo (whey)', tipo: 'base',
+    kcal: 114, protein_g: 23.4, carb_g: 2.1, fat_g: 1.5, fiber_g: 0, cantidad: 1, unidad: '1 scoop', veces: 9 },
+  { item_id: 'i-huevo', code: 'HUEVO', nombre: 'Huevo entero', tipo: 'base',
+    kcal: 143, protein_g: 12.6, carb_g: 0.7, fat_g: 9.5, fiber_g: 0, cantidad: 2, unidad: '1 pieza', veces: 6 },
+  { item_id: null, code: null, nombre: 'Café con leche de almendra', tipo: 'libre',
+    kcal: 45, protein_g: 1.2, carb_g: 3, fat_g: 3, fiber_g: 0.4, cantidad: 1, unidad: 'taza', veces: 4 },
+  { item_id: 'i-pollo', code: 'POLLO_PECHUGA', nombre: 'Pechuga de pollo', tipo: 'base',
+    kcal: 165, protein_g: 31, carb_g: 0, fat_g: 3.6, fiber_g: 0, cantidad: 1.5, unidad: '100 g', veces: 3 },
+];
+
+const COMBINACIONES = [
+  { id: 'k-1', code: 'KIT_DEMO_0001', nombre: 'Licuado de la mañana', medida: '1 vaso',
+    componentes: [{ code: 'PROTEINA_WHEY', g: 30 }, { code: 'FRESA', g: 100 }, { code: 'ALMENDRA', g: 15 }],
+    macros: { kcal: 251, proteina_g: 27.6, carbohidrato_g: 16.7, grasa_g: 9, fibra_g: 5.2, faltantes: [] },
+    veces_usado: 5 },
+];
+
 const RPC = {
+  alimentos_recientes: () => RECIENTES,
+  mis_combinaciones: () => COMBINACIONES,
+  guardar_combinacion: ({ p_nombre }) => {
+    COMBINACIONES.push({ id: 'k-' + Date.now(), code: 'KIT_DEMO_' + Date.now(), nombre: p_nombre,
+      medida: '1 porción', componentes: [], macros: { proteina_g: 0 }, veces_usado: 0 });
+    return COMBINACIONES.at(-1);
+  },
   claim_patient_invitation: PACIENTE,
   resumen_hoy: RESUMEN,
   estado_por_sistema: SISTEMAS,
