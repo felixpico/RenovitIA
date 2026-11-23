@@ -97,12 +97,48 @@ const seccion = (titulo, filas) => [titulo, filas.filter(([, v]) => v)];
 function deSuplemento(f) {
   const x = base(f, 'supplement');
   x.resumen = limpio(f.purpose);
-  x.secciones = [seccion(null, [
-    ['Para qué se usa', limpio(f.purpose)],
-    ['Dosis habitual', [limpio(f.default_dose), limpio(f.default_timing), limpio(f.frequency)].filter(Boolean).join(' · ')],
-    ['Qué hay que cuidar', limpio(f.cautions)],
-    ['Interacciones', limpio(f.interactions)],
-  ])].filter(([, filas]) => filas.length);
+
+  // En un suplemento la FORMA no es un detalle: oxido de magnesio y glicinato
+  // de magnesio se absorben distinto y la etiqueta casi nunca lo explica. Por
+  // eso va arriba, junto al limite superior.
+  x.tecnica = [
+    ['Qué es', limpio(f.clase)],
+    ['Forma', limpio(f.forma)],
+    ['También se le llama', (f.alias || []).join(' · ') || null],
+    ['Tope diario', limpio(f.limite_superior)],
+  ].filter(([, v]) => v);
+
+  x.secciones = [
+    seccion(null, [['Para qué se usa', limpio(f.purpose)]]),
+    seccion('Cómo actúa', [
+      ['Mecanismo', limpio(f.mecanismo)],
+      ['Sobre qué actúa', limpio(f.diana)],
+    ]),
+    seccion('Cómo se toma', [
+      ['Dosis habitual', [limpio(f.default_dose), limpio(f.default_timing), limpio(f.frequency)].filter(Boolean).join(' · ')],
+      ['Con qué tomarlo', limpio(f.con_que_tomarlo)],
+      ['Qué tanto se absorbe', limpio(f.biodisponibilidad)],
+      ['Cuánto tarda en notarse', limpio(f.tiempo_efecto)],
+      ['Por cuánto tiempo', limpio(f.ciclo)],
+    ]),
+    // Lo que nadie escribe y es lo que mas sirve parado en la farmacia.
+    seccion('Qué buscar en la etiqueta', [
+      ['', limpio(f.etiqueta)],
+    ]),
+    seccion('Qué dice la evidencia', [
+      ['Lo que se ha estudiado', limpio(f.evidencia_resumen)],
+    ]),
+    seccion('Qué NO se ha estudiado', [
+      ['', limpio(f.evidencia_huecos)],
+    ]),
+    seccion('Seguridad', [
+      ['Efectos frecuentes', limpio(f.efectos_frecuentes)],
+      ['Efectos graves, poco frecuentes', limpio(f.efectos_graves)],
+      ['Cuándo NO se usa', limpio(f.contraindicaciones)],
+      ['Interacciones', limpio(f.interactions)],
+      ['Qué hay que cuidar', limpio(f.cautions)],
+    ]),
+  ].filter(([, filas]) => filas.length);
   return aplanar(x);
 }
 
@@ -258,12 +294,14 @@ export function htmlFicha(f, { enPlan = false, referencias = [], medico = false 
     // "Qué NO se ha estudiado" va con su propio fondo: si se ve igual que el
     // resto, se lee como un parrafo mas y es justo el que hay que leer.
     const hueco = titulo === 'Qué NO se ha estudiado';
-    if (titulo) h += `<h3 class="bib-sec${hueco ? ' hueco' : ''}">${esc(titulo)}</h3>`;
+    const compra = titulo === 'Qué buscar en la etiqueta';
+    if (titulo) h += `<h3 class="bib-sec${hueco ? ' hueco' : ''}${compra ? ' compra' : ''}">${esc(titulo)}</h3>`;
     if (hueco) h += '<div class="bib-huecos">';
+    if (compra) h += '<div class="bib-compra">';
     filas.forEach(([t, v]) => {
       h += `<div class="bib-bl">${t ? `<h4>${esc(t)}</h4>` : ''}<p>${esc(v)}</p></div>`;
     });
-    if (hueco) h += '</div>';
+    if (hueco || compra) h += '</div>';
   });
 
   if (f.enlace) {

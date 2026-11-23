@@ -1095,3 +1095,9 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
   .bib-tec { grid-template-columns: 1fr; gap: 1px; }
   .bib-tec dd { margin-bottom: 7px; }
 }
+
+/* "Que buscar en la etiqueta": lo que el paciente lee parado en la farmacia. */
+.bib-sec.compra { color: var(--brand); border-bottom-color: var(--brand); }
+.bib-compra { margin-top: 9px; padding: 11px 13px; border-radius: 11px; background: var(--brand-soft); }
+.bib-compra .bib-bl { margin-top: 0; }
+.bib-compra p { color: var(--brand); }
