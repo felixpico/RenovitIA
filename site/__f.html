@@ -1,0 +1,28 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="/assets/css/styles.css"><title>fijo</title></head>
+<body class="con-tabs">
+  <main class="container stack">
+    <section id="view-patient">
+      <div class="pg on" id="pg-hoy">
+        <div id="hoy-contenido" class="stack"></div>
+      </div>
+      <button class="mas" id="btn-mas" type="button" aria-label="Registrar algo">+</button>
+    </section>
+  </main>
+  <nav class="tabs" id="tabbar" aria-label="Secciones">
+    <button class="tb on" type="button" data-pg="hoy">Hoy</button>
+    <button class="tb" type="button" data-pg="salud">Mi salud</button>
+    <button class="tb" type="button" data-pg="biblio">Biblioteca</button>
+  </nav>
+<script>
+const c = document.getElementById('hoy-contenido');
+let h = '';
+for (let i = 0; i < 12; i++) {
+  h += `<div class="fr"><h3>Franja ${i}</h3><div class="lista">`;
+  for (let j = 0; j < 4; j++) h += `<div class="it"><span class="cb"></span><span class="nm"><b>Renglón ${i}.${j}</b></span><span class="ds">500 mg</span></div>`;
+  h += '</div></div>';
+}
+c.innerHTML = h;
+window.__listo = true;
+</script></body></html>

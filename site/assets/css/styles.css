@@ -244,16 +244,32 @@ tr.invalid td:first-child { color: var(--danger); }
 /* ===== Modulo de paciente: dos pestanas ===== */
 .pg { display: none; }
 .pg.on { display: block; }
-body.con-tabs { padding-bottom: 86px; }
+/* El hueco de abajo lo manda la ALTURA REAL de la barra, que cambia con el
+   numero de pestanas y con el area segura del telefono. Un 86 fijo tapaba el
+   ultimo renglon en cuanto la barra crecia. */
+body.con-tabs { padding-bottom: var(--alto-tabs, 86px); }
 
 /* La barra de abajo del PACIENTE. Va atada a <nav> a proposito: el panel
    medico y la pagina de instalacion usan .tabs como tira de pestanas normal, y
    esta regla se las pegaba al fondo de la pantalla tapando el contenido. */
 nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
-  background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(12px);
+  /* El fondo va SOLIDO primero y el desenfoque solo donde se soporta. En iOS,
+     backdrop-filter sobre un elemento fijo es una fuente conocida de que la
+     barra se despegue durante el scroll por inercia, y ademas, si color-mix no
+     se resuelve, el fondo queda transparente y el contenido se ve debajo. */
+  background: var(--bg);
   border-top: 1px solid var(--border); display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px; padding: 9px 10px calc(9px + env(safe-area-inset-bottom)); }
+  gap: 6px; padding: 9px 10px calc(9px + env(safe-area-inset-bottom));
+  /* Capa propia de composicion: es la cura estandar para que una barra fija no
+     se quede atras mientras el dedo arrastra la pagina en iOS. */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform; }
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  nav.tabs { background: color-mix(in srgb, var(--bg) 94%, transparent);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+}
 /* Con tres pestanas el nombre ya no cabe junto al icono en pantallas angostas:
    se apila debajo en vez de recortarse. */
 @media (max-width: 400px) {
@@ -841,12 +857,13 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
    el borde inferior del iPhone. Solo existe en "Hoy": en "Mi salud" el paciente
    está leyendo, no capturando. */
 .mas { position: fixed; right: 16px; z-index: 45;
-  bottom: calc(96px + env(safe-area-inset-bottom));
+  bottom: calc(var(--alto-tabs, 86px) + 12px);
+  transform: translateZ(0); -webkit-transform: translateZ(0);
   width: 58px; height: 58px; border-radius: 50%; border: none; cursor: pointer;
   background: var(--brand); color: #fff; font-size: 30px; line-height: 1; font-weight: 300;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 6px 20px rgba(12,26,21,.28); transition: transform .12s ease; }
-.mas:active { transform: scale(.94); }
+.mas:active { transform: translateZ(0) scale(.94); }
 .mas:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 @media (min-width: 760px) { .mas { right: calc(50vw - 380px + 16px); } }
 

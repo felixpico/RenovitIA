@@ -35,11 +35,27 @@ const S = { paciente: null, plan: null, items: [], fecha: iso(new Date()),
             horas: null, programa: null, ejercicios: [] };
 
 /* ---------------- pestanas ---------------- */
+/* La altura de la barra la mide el navegador, no la adivino yo. Con tres
+   pestanas en un telefono angosto se apilan icono y texto y la barra crece;
+   un padding fijo de 86px dejaba el ultimo renglon del plan debajo de ella.
+   Tambien se vuelve a medir al girar el telefono y al cambiar el area segura. */
+function medirTabs(barra) {
+  const aplicar = () => {
+    const alto = barra.offsetHeight;
+    if (alto > 0) document.documentElement.style.setProperty('--alto-tabs', `${alto + 10}px`);
+  };
+  aplicar();
+  addEventListener('resize', aplicar);
+  addEventListener('orientationchange', () => setTimeout(aplicar, 250));
+  if (typeof ResizeObserver === 'function') new ResizeObserver(aplicar).observe(barra);
+}
+
 export function montarTabs() {
   const barra = $('tabbar');
   if (!barra) return;
   barra.classList.remove('hidden');
   document.body.classList.add('con-tabs');
+  medirTabs(barra);
   barra.querySelectorAll('.tb').forEach((b) => {
     b.addEventListener('click', () => {
       const id = b.dataset.pg;
