@@ -55,7 +55,7 @@ export function montarTabs() {
   if (!barra) return;
   barra.classList.remove('hidden');
   document.body.classList.add('con-tabs');
-  medirTabs(barra);
+  if (!barra.dataset.medida) { barra.dataset.medida = '1'; medirTabs(barra); }
   barra.querySelectorAll('.tb').forEach((b) => {
     b.addEventListener('click', () => {
       const id = b.dataset.pg;
@@ -252,6 +252,9 @@ function pintarHoy() {
   const total = tomas.length + ejs.length;
   const hechos = tomas.filter((t) => S.registro.supplements_taken?.[t.llave]).length
     + ejs.filter((i) => S.registro.supplements_taken?.[i.id]).length;
+  // Mencionar el entrenamiento solo si de verdad queda pendiente: si ya lo
+  // hizo y lo que falta son suplementos, decir "con el entrenamiento" miente.
+  const faltaEntreno = ejs.some((i) => !S.registro.supplements_taken?.[i.id]);
   const pct = total ? hechos / total : 0;
   const R = 44, C = 2 * Math.PI * R;
 
@@ -269,7 +272,7 @@ function pintarHoy() {
       <div>
         <strong style="font-size:16.5px">${hechos === total && total ? '¡Día completo!' : hechos ? 'Vas avanzando' : 'Empecemos'}</strong>
         <p class="muted small" style="margin:3px 0 0">${total - hechos > 0
-          ? `Te ${total - hechos === 1 ? 'falta' : 'faltan'} ${total - hechos} de ${total}${hayEntreno ? ', con el entrenamiento' : ''}.`
+          ? `Te ${total - hechos === 1 ? 'falta' : 'faltan'} ${total - hechos} de ${total}${faltaEntreno ? ', con el entrenamiento' : ''}.`
           : 'Palomeaste todo lo de hoy.'}</p>
       </div>
     </div>` + tarjetasResumen(S.resumen);

@@ -148,7 +148,33 @@ async function renderPatient(session) {
     faltantes = Array.isArray(ef) ? ef.length : 0;
   } catch (e) { /* sin plan o sin acceso: se queda en cero */ }
 
-  await pintarPaciente(patient, { nLab: (nLab || 0) + (nBc || 0), faltantes });
+  // Si algo de aqui adentro truena, el paciente NO se puede quedar viendo girar
+  // la rueda para siempre: eso fue justo lo que paso con un error de v0.88. Se
+  // muestra la pantalla de todos modos, con un aviso de que se ve incompleta.
+  try {
+    await pintarPaciente(patient, { nLab: (nLab || 0) + (nBc || 0), faltantes });
+  } catch (err) {
+    console.error('pintarPaciente', err);
+    const c = document.createElement('div');
+    c.className = 'notice danger';
+    c.style.cssText = 'margin:12px';
+    c.innerHTML = '<b>No pudimos dibujar todo tu día.</b><br>'
+      + '<span class="small">Tu plan está guardado y completo; lo que falla es esta pantalla. '
+      + 'Avísale a tu médica y, mientras, vuelve a intentar.</span>';
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm';
+    btn.style.marginTop = '8px';
+    btn.type = 'button';
+    btn.textContent = 'Reintentar';
+    btn.addEventListener('click', () => location.reload());
+    c.append(document.createElement('br'), btn);
+    const detalle = document.createElement('p');
+    detalle.className = 'muted small';
+    detalle.style.cssText = 'margin:8px 0 0;word-break:break-word';
+    detalle.textContent = `Detalle técnico: ${err?.message || err}`;
+    c.append(detalle);
+    document.getElementById('view-patient')?.prepend(c);
+  }
 
   show('view-patient');
 }
