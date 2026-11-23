@@ -1,11 +1,16 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.renovitia.app",
       "sha256_cert_fingerprints": [
-        "00:00:06:7F:30:69:DE:22:51:85:32:3F:EA:86:FC:1A:51:31:15:91:72:06:60:C1:A1:79:C5:25:6D:65:64:AF"
+        "00:00:06:7F:30:69:DE:22:51:85:32:3F:EA:86:FC:1A:51:31:15:91:72:06:60:C1:A1:79:C5:25:6D:65:64:AF",
+        "88:49:01:66:D7:7B:4D:F6:0B:28:5B:23:99:37:C3:27:CD:13:F3:DB:CE:3C:2D:F4:A8:00:9B:F3:6D:AB:A3:08",
+        "2F:EE:FE:B7:B7:F5:15:2D:B5:CE:CC:C8:4E:37:65:C1:DE:6E:97:55:7F:09:1A:86:A6:DC:A7:9C:12:85:DA:FB",
+        "6F:F2:94:42:E6:EC:FA:78:2C:A9:43:DB:5D:63:3D:F9:C1:51:AF:12:56:11:D0:47:5B:2F:45:4B:50:D2:D5:7F"
       ]
     }
   }
