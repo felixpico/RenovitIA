@@ -31,7 +31,7 @@ const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 
 const S = { paciente: null, plan: null, items: [], fecha: iso(new Date()),
             registro: null, guardando: false, pendiente: false, periodico: {}, resumen: null,
-            horas: null };
+            horas: null, programa: null };
 
 /* ---------------- pestanas ---------------- */
 export function montarTabs() {
@@ -104,6 +104,14 @@ document.addEventListener('click', (e) => {
 // lista del dia, ni cuenta en el anillo. Antes la Retatrutida aparecia sin
 // palomear los siete dias de la semana, aunque el paciente ya se la hubiera
 // puesto.
+// El dia de entrenamiento que toca hoy, si toca alguno. Se usa en dos lugares
+// -el anillo y la tarjeta-, asi que vive aqui y no dentro del dibujo.
+const sinAcento = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function entrenoDeHoy() {
+  const hoy = DIAS[new Date(`${S.fecha}T12:00:00`).getDay()];
+  return (S.programa?.dias || []).find((d) => sinAcento(d.dia) === sinAcento(hoy)) || null;
+}
+
 function esPeriodico(i) { return !!S.periodico[i.id]; }
 function tocaPeriodico(i) { return S.periodico[i.id]?.toca_hoy !== false; }
 
@@ -221,8 +229,13 @@ function pintarHoy() {
   const caja = $('hoy-contenido');
   const tomas = tomasDelDia();
   const items = delDia();
-  const hechos = tomas.filter((t) => S.registro.supplements_taken?.[t.llave]).length;
-  const pct = tomas.length ? hechos / tomas.length : 0;
+  // El entrenamiento cuenta en el anillo. Si no cuenta, el paciente lee que
+  // su dia esta completo con el entrenamiento sin hacer, y eso es falso.
+  const hayEntreno = !!entrenoDeHoy();
+  const total = tomas.length + (hayEntreno ? 1 : 0);
+  const hechos = tomas.filter((t) => S.registro.supplements_taken?.[t.llave]).length
+    + (hayEntreno && S.registro.trained === true ? 1 : 0);
+  const pct = total ? hechos / total : 0;
   const R = 44, C = 2 * Math.PI * R;
 
   let html = `
@@ -234,12 +247,12 @@ function pintarHoy() {
                   stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}"
                   stroke-dashoffset="${(C * (1 - pct)).toFixed(1)}"/>
         </svg>
-        <div class="ctr"><div class="n">${hechos}<small>/${tomas.length}</small></div><div class="u">HOY</div></div>
+        <div class="ctr"><div class="n">${hechos}<small>/${total}</small></div><div class="u">HOY</div></div>
       </div>
       <div>
-        <strong style="font-size:16.5px">${hechos === tomas.length && tomas.length ? '¡Día completo!' : hechos ? 'Vas avanzando' : 'Empecemos'}</strong>
-        <p class="muted small" style="margin:3px 0 0">${tomas.length - hechos > 0
-          ? `Te faltan ${tomas.length - hechos} de ${tomas.length} tomas.`
+        <strong style="font-size:16.5px">${hechos === total && total ? '¡Día completo!' : hechos ? 'Vas avanzando' : 'Empecemos'}</strong>
+        <p class="muted small" style="margin:3px 0 0">${total - hechos > 0
+          ? `Te ${total - hechos === 1 ? 'falta' : 'faltan'} ${total - hechos} de ${total}${hayEntreno ? ', con el entrenamiento' : ''}.`
           : 'Palomeaste todo lo de hoy.'}</p>
       </div>
     </div>` + tarjetasResumen(S.resumen);
@@ -364,6 +377,10 @@ async function escribir() {
       patient_id: S.paciente.id,
       checkin_date: S.fecha,
       supplements_taken: S.registro.supplements_taken || {},
+      // La columna `trained` existia desde el principio y NADIE la escribia:
+      // 0 de 11 registros la traian. El entrenamiento era la unica parte del
+      // plan sin forma de decir "ya".
+      trained: S.registro.trained ?? null,
     }, { onConflict: 'patient_id,checkin_date' });
   } catch (e) { console.error(e); }
   finally {
@@ -372,11 +389,8 @@ async function escribir() {
   }
 }
 
-async function pintarEntreno() {
-  const hoy = DIAS[new Date(`${S.fecha}T12:00:00`).getDay()];
-  const { data: prog } = await supabase.rpc('programa_entrenamiento', { p_patient: S.paciente.id });
-  const dia = prog?.dias?.find((d) => d.dia?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-    === hoy.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase());
+function pintarEntreno() {
+  const dia = entrenoDeHoy();
   if (!dia) return;
 
   const foco = (dia.foco || '').toLowerCase();
@@ -386,16 +400,37 @@ async function pintarEntreno() {
   const ejs = (dia.ejercicios || []).map((e) =>
     `<div><b>${esc(e.nombre)}</b><span>${esc(e.series || '')}</span></div>`).join('');
 
+  const hecho = S.registro?.trained === true;
   const div = document.createElement('div');
   div.className = 'fr';
+  // La casilla va con la MISMA clase .it que los suplementos: para el paciente
+  // tiene que ser el mismo gesto, no una invencion aparte. Y el entrenamiento
+  // cuenta en el anillo, porque es parte del dia y no un poster.
   div.innerHTML = `<h3>Entrenamiento de hoy</h3>
-    <div class="entreno">
+    <div class="entreno${hecho ? ' listo' : ''}">
       ${clave ? `<img src="${ENTRENO_IMG[clave]}" alt="Guía ilustrada del día de ${clave}" loading="lazy" width="822" height="900">` : ''}
       <div class="bd"><div class="nm"><b>${esc(dia.dia)} · ${esc(dia.foco)}</b>
         <div class="sub">${(dia.ejercicios || []).length} ejercicios</div></div></div>
       <div class="ejs">${ejs}</div>
+    </div>
+    <div class="lista" style="margin-top:8px">
+      <button class="it${hecho ? ' on' : ''}" type="button" id="btn-entreno"
+              aria-pressed="${hecho ? 'true' : 'false'}">
+        <span class="cb">${PALOMA}</span>
+        <span class="nm"><b>${hecho ? 'Entrenamiento hecho' : 'Marcar como hecho'}</b>
+          <span>${hecho ? '¡Bien! Ya quedó registrado.' : 'Cuando termines, pálomea aquí.'}</span></span>
+      </button>
     </div>`;
   $('hoy-contenido').append(div);
+  div.querySelector('#btn-entreno').addEventListener('click', alternarEntreno);
+}
+
+// Palomear el entrenamiento. El dato va a daily_checkins.trained, la columna
+// que llevaba meses existiendo sin que nada la escribiera.
+async function alternarEntreno() {
+  S.registro.trained = S.registro.trained === true ? false : true;
+  guardar();
+  pintarHoy();
 }
 
 /* ---------------- Registro rápido: el botón "+" ----------------
@@ -601,6 +636,14 @@ export async function pintarPaciente(patient, extras = {}) {
     // guarda por fecha, asi que marcar el martes no se ve el miercoles.
     const { data: per } = await supabase.rpc('estado_periodico', { p_patient: patient.id });
     S.periodico = per || {};
+
+    // El programa se carga ANTES de pintar. Antes se pedia dentro de
+    // pintarEntreno(), que corre despues, y por eso el anillo no podia contar
+    // el entrenamiento: ya estaba dibujado cuando llegaba la respuesta.
+    try {
+      const { data: prog } = await supabase.rpc('programa_entrenamiento', { p_patient: patient.id });
+      S.programa = prog || null;
+    } catch (_) { S.programa = null; }
 
     pintarHoy();
   } else {

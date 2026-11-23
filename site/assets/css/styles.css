@@ -1101,3 +1101,7 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
 .bib-compra { margin-top: 9px; padding: 11px 13px; border-radius: 11px; background: var(--brand-soft); }
 .bib-compra .bib-bl { margin-top: 0; }
 .bib-compra p { color: var(--brand); }
+
+/* El entrenamiento, ya hecho: se atenua igual que una toma palomeada. */
+.entreno.listo { opacity: .55; }
+.entreno.listo img { filter: grayscale(.4); }
