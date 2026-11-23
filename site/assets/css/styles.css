@@ -1151,3 +1151,5 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
 .bib-fig .f-noc { font-size: 11px; font-weight: 700; fill: var(--surface); }
 .bib-fig .f-env { font-size: 11px; font-weight: 600; fill: var(--muted); }
 .bib-fig .f-pie { font-size: 10.5px; font-weight: 600; fill: var(--muted); }
+/* La campana de la figura "normal contra optimo" va como trazo, no relleno. */
+.bib-fig .f-curva { fill: none; stroke: var(--text); stroke-width: 2; stroke-linejoin: round; }

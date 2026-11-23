@@ -182,10 +182,28 @@ const FIGURAS = {
 </svg>
 <figcaption>Un día de ejemplo con las cuatro decisiones que más mueven el sueño. Corre las horas a tu horario: lo que importa son las distancias entre ellas.</figcaption>
 </figure>`,
+  "normal-vs-optimo": `<figure class="bib-fig">
+<svg viewBox="0 0 340 196" role="img" aria-labelledby="fn-t fn-d">
+  <title id="fn-t">De dónde sale el rango normal del laboratorio</title>
+  <desc id="fn-d">La curva es cómo se reparte la glucosa en ayuno en la población. El rango normal del laboratorio, de 70 a 99, cubre casi toda esa curva, incluida la parte que ya tiene resistencia a la insulina. El rango óptimo, de 75 a 85, es una franja angosta en la parte baja.</desc>
+  <rect class="f-carb" x="70" y="48" width="116" height="84"/>
+  <rect class="f-grasa" x="90" y="48" width="40" height="84" opacity="0.28"/>
+  <polyline class="f-curva" points="30.0,129.1 35.6,128.2 41.2,127.1 46.8,125.8 52.4,124.2 58.0,122.2 63.6,119.9 69.2,117.3 74.8,114.2 80.4,110.8 86.0,106.9 91.6,102.7 97.2,98.1 102.8,93.3 108.4,88.2 114.0,82.9 119.6,77.7 125.2,72.5 130.8,67.5 136.4,62.8 142.0,58.6 147.6,54.9 153.2,52.0 158.8,49.8 164.4,48.5 170.0,48.0 175.6,48.5 181.2,49.8 186.8,52.0 192.4,54.9 198.0,58.6 203.6,62.8 209.2,67.5 214.8,72.5 220.4,77.7 226.0,82.9 231.6,88.2 237.2,93.3 242.8,98.1 248.4,102.7 254.0,106.9 259.6,110.8 265.2,114.2 270.8,117.3 276.4,119.9 282.0,122.2 287.6,124.2 293.2,125.8 298.8,127.1 304.4,128.2 310.0,129.1"/>
+  <line class="f-eje" x1="30" y1="132.5" x2="310" y2="132.5"/>
+  <line class="f-tic" x1="90.5" y1="48" x2="90.5" y2="132"/>
+  <line class="f-tic" x1="130.5" y1="48" x2="130.5" y2="132"/>
+  <text class="f-ley" x="78" y="42">Normal del laboratorio: 70 a 99</text>
+  <text class="f-nom" x="110" y="150" text-anchor="middle">75 a 85</text>
+  <text class="f-sub" x="110" y="164" text-anchor="middle">óptimo</text>
+  <text class="f-pie" x="170" y="189" text-anchor="middle">Glucosa en ayuno, mg/dL</text>
+</svg>
+<figcaption>El rango "normal" es el 95 % de la población, y esa población en buena parte ya tiene resistencia a la insulina. Por eso caber en él no es lo mismo que estar óptimo: el tramo de 85 a 99 sigue contando como normal. Los números del ejemplo son los de tu hoja.</figcaption>
+</figure>`,
 };
 
-// La figura es el TERCER elemento de la seccion. Quien no la pasa, no la tiene.
-const seccion = (titulo, filas, fig = null) => [titulo, filas.filter(([, v]) => v), fig];
+// El TERCER elemento de la seccion son sus opciones: { fig, aviso }. Es un
+// objeto y no un parametro suelto porque ya van dos y van a ir mas.
+const seccion = (titulo, filas, opts = null) => [titulo, filas.filter(([, v]) => v), opts || {}];
 
 // "Pros y contras" en la ficha son dos bloques con nombre claro, no una tabla:
 // lo bueno de una sustancia y lo que hay que cuidar no son simetricos, y
@@ -315,11 +333,19 @@ function deArticulo(r) {
   x.resumen = limpio(r.resumen);
   x.enlace = limpio(r.enlace);
 
+  // Un articulo con cuerpo Y con autor o publicacion externa es el resumen de
+  // algo de otra persona, no texto escrito aqui. La banda de arriba tiene que
+  // decir eso y no "lo redacto el sistema", porque son dos cosas distintas y
+  // el lector decide cuanto peso darle segun de donde viene.
+  x.ajeno = !!(r.cuerpo && (limpio(r.autores) || limpio(r.publicacion)));
+  // Si no hay citas colgadas, la fuente ES de donde se resumio.
+  if (x.ajeno) x.fuente = [limpio(r.autores), limpio(r.publicacion)].filter(Boolean).join(' — ');
+
   const cuerpo = Array.isArray(r.cuerpo) ? r.cuerpo : null;
   if (cuerpo) {
     x.secciones = cuerpo
       .map((s) => seccion(limpio(s.t), (Array.isArray(s.p) ? s.p : []).map((t) => [null, limpio(t)]),
-                          FIGURAS[s.fig] ? s.fig : null))
+                          { fig: FIGURAS[s.fig] ? s.fig : null, aviso: !!s.aviso }))
       .filter(([, filas]) => filas.length);
   } else {
     x.secciones = [seccion(null, [
@@ -348,8 +374,9 @@ const sello = (clase, texto, titulo) => `<span class="bib-sello ${clase}"${titul
 function sellos(f, enPlan) {
   let s = '';
   if (f.regulatorio) s += sello(f.regulatorio[0], f.regulatorio[1], f.regulatorio[2]);
-  if (!f.revisado) s += sello('gris', 'Sin revisar por un médico',
-    'La escribió el sistema. Ningún médico la ha firmado todavía.');
+  if (!f.revisado) s += sello('gris', f.ajeno ? 'Resumen de terceros' : 'Sin revisar por un médico',
+    f.ajeno ? 'Resume material de alguien más. Ningún médico de aquí lo ha firmado.'
+            : 'La escribió el sistema. Ningún médico la ha firmado todavía.');
   if (enPlan) s += sello('verde', 'Está en tu plan');
   return s;
 }
@@ -379,8 +406,10 @@ export function htmlFicha(f, { enPlan = false, referencias = [], medico = false 
   }
   if (!f.revisado) {
     h += `<div class="bib-banda gris">
-      <b>Esta ficha no la ha revisado un médico</b>
-      <span>El texto lo redactó el sistema a partir de literatura general. No es una indicación: lo que te toca a ti está en tu plan, y eso sí lo firma tu médica.</span>
+      <b>${f.ajeno ? 'Esto resume material de alguien más' : 'Esta ficha no la ha revisado un médico'}</b>
+      <span>${f.ajeno
+        ? 'No lo escribió tu médica ni el sistema: resume lo que dijo otra persona, y los criterios que menciona son suyos. Ningún médico de aquí lo ha firmado. Lo que te toca a ti está en tu plan, y eso sí lo firma tu médica.'
+        : 'El texto lo redactó el sistema a partir de literatura general. No es una indicación: lo que te toca a ti está en tu plan, y eso sí lo firma tu médica.'}</span>
     </div>`;
   }
 
@@ -400,11 +429,14 @@ export function htmlFicha(f, { enPlan = false, referencias = [], medico = false 
       `<dt>${esc(k)}</dt><dd${/Secuencia|Fórmula/.test(k) ? ' class="mono"' : ''}>${esc(v)}</dd>`).join('') + '</dl>';
   }
 
-  (f.secciones || []).forEach(([titulo, filas, fig]) => {
+  (f.secciones || []).forEach(([titulo, filas, opts]) => {
     if (!filas.length) return;
+    const { fig = null, aviso = false } = opts || {};
     // "Qué NO se ha estudiado" va con su propio fondo: si se ve igual que el
-    // resto, se lee como un parrafo mas y es justo el que hay que leer.
-    const hueco = titulo === 'Qué NO se ha estudiado';
+    // resto, se lee como un parrafo mas y es justo el que hay que leer. Un
+    // articulo puede pedir ese mismo trato con "aviso": es para la seccion
+    // que el lector NO debe saltarse.
+    const hueco = aviso || titulo === 'Qué NO se ha estudiado';
     const compra = titulo === 'Qué buscar en la etiqueta';
     if (titulo) h += `<h3 class="bib-sec${hueco ? ' hueco' : ''}${compra ? ' compra' : ''}">${esc(titulo)}</h3>`;
     if (hueco) h += '<div class="bib-huecos">';
