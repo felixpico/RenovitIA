@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.renovitia.app",
+      "sha256_cert_fingerprints": [
+        "00:00:06:7F:30:69:DE:22:51:85:32:3F:EA:86:FC:1A:51:31:15:91:72:06:60:C1:A1:79:C5:25:6D:65:64:AF"
+      ]
+    }
+  }
+]

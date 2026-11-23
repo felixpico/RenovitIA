@@ -5,3 +5,11 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://pvexfqdqrepxtnljypav.supabase.co wss://pvexfqdqrepxtnljypav.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
+# Google verifica este archivo para quitarle la barra de direcciones a la app
+# de Play (Digital Asset Links). Es estricto con el tipo de contenido: si no
+# llega como application/json, la verificacion falla sin decir por que.
+/.well-known/assetlinks.json
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=300
