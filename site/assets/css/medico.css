@@ -47,13 +47,23 @@ table.data tr.clickable:hover td { background: var(--surface-2); }
 .table-wrap { overflow-x: auto; }
 
 .detail-grid { display: grid; grid-template-columns: 340px 1fr; gap: 16px; align-items: start; }
+/* Un elemento de rejilla trae min-width:auto, o sea que NO puede encogerse por
+   debajo del ancho minimo de su contenido. Un correo largo en la columna de
+   datos (una cadena sin espacios, que no se puede partir) estiraba la tarjeta a
+   499px dentro de una pista de 340px, y como una pista fija no recorta, la
+   tarjeta blanca se pintaba ENCIMA del semaforo. Con min-width:0 la pista manda.
+   Lo mismo del lado derecho: sin esto, una tabla ancha estira la columna en vez
+   de dejar que .table-wrap haga su scroll horizontal. */
+.detail-grid > * { min-width: 0; }
 @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
-.side { position: sticky; top: 72px; display: grid; gap: 12px; }
+.side { position: sticky; top: 72px; display: grid; gap: 12px; min-width: 0; }
+.side .card { overflow-wrap: anywhere; }
 @media (max-width: 900px) { .side { position: static; } }
 .card h2.card-title { font-size: 1rem; margin: 0 0 10px; }
-.kv { display: grid; grid-template-columns: 120px 1fr; gap: 4px 10px; font-size: .9rem; }
+/* minmax(0, 1fr) y no 1fr: misma razon. El valor se parte antes que estirar. */
+.kv { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 4px 10px; font-size: .9rem; }
 .kv dt { color: var(--muted); }
-.kv dd { margin: 0; }
+.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .scores { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; font-size: .9rem; }
 .scores .cat { color: var(--muted); font-size: .8rem; }
 
