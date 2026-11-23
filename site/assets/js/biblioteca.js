@@ -101,7 +101,91 @@ function aplanar(x) {
   x.bloques = x.secciones.flatMap(([, filas]) => filas).filter(([, v]) => v);
   return x;
 }
-const seccion = (titulo, filas) => [titulo, filas.filter(([, v]) => v)];
+/* ---------------- figuras ----------------
+   Los diagramas viven AQUI, en codigo, y la base de datos solo guarda su
+   CLAVE. Es a proposito y no se negocia: todo lo que sale de la base pasa
+   por esc() antes de entrar al HTML, y permitir SVG guardado en la base
+   abriria justo el agujero que ese esc() cierra.
+
+   Los colores salen de las variables del tema via clases, no de atributos
+   fill: var() no funciona en un atributo de presentacion, solo en CSS. Por
+   eso cada figura se pinta con .f-* definidas en styles.css, y asi tambien
+   funciona en modo oscuro sin una segunda version del dibujo.
+*/
+const FIGURAS = {
+  "grasa-caminar-correr": `<figure class="bib-fig">
+<svg viewBox="0 0 340 214" role="img" aria-labelledby="fg-t fg-d">
+  <title id="fg-t">Calorías de grasa quemadas en una hora: caminando contra corriendo</title>
+  <desc id="fg-d">Caminando se queman 300 calorías y el 60 por ciento viene de grasa, o sea 180. Corriendo se queman 600 y el 40 por ciento viene de grasa, o sea 240.</desc>
+  <rect class="f-grasa" x="56" y="8" width="11" height="11" rx="2"/>
+  <text class="f-ley" x="73" y="18">De grasa</text>
+  <rect class="f-carb" x="152" y="8" width="11" height="11" rx="2"/>
+  <text class="f-ley" x="169" y="18">De carbohidrato</text>
+  <text class="f-tot" x="91" y="88" text-anchor="middle">300 kcal</text>
+  <rect class="f-carb" x="56" y="95" width="70" height="22"/>
+  <rect class="f-grasa" x="56" y="117" width="70" height="33"/>
+  <text class="f-dato f-inv" x="91" y="139" text-anchor="middle">180</text>
+  <text class="f-tot" x="235" y="33" text-anchor="middle">600 kcal</text>
+  <rect class="f-carb" x="200" y="40" width="70" height="66"/>
+  <rect class="f-grasa" x="200" y="106" width="70" height="44"/>
+  <text class="f-dato f-inv" x="235" y="134" text-anchor="middle">240</text>
+  <line class="f-eje" x1="30" y1="150.5" x2="310" y2="150.5"/>
+  <text class="f-nom" x="91" y="169" text-anchor="middle">Caminar 1 h</text>
+  <text class="f-sub" x="91" y="185" text-anchor="middle">60 % de grasa</text>
+  <text class="f-nom" x="235" y="169" text-anchor="middle">Correr 1 h</text>
+  <text class="f-sub" x="235" y="185" text-anchor="middle">40 % de grasa</text>
+  <text class="f-pie" x="170" y="207" text-anchor="middle">180 kcal de grasa contra 240 kcal de grasa</text>
+</svg>
+<figcaption>El porcentaje es mejor caminando. Los gramos de grasa son más corriendo, porque el total crece más rápido de lo que cae el porcentaje.</figcaption>
+</figure>`,
+  "proteina-longland": `<figure class="bib-fig">
+<svg viewBox="0 0 340 206" role="img" aria-labelledby="fp-t fp-d">
+  <title id="fp-t">Resultado del ensayo: masa magra y grasa según la proteína</title>
+  <desc id="fp-d">Con 2.4 gramos por kilo al día la masa magra subió 1.2 kilos y la grasa bajó 4.8 kilos. Con 1.2 gramos por kilo la masa magra subió 0.1 kilos y la grasa bajó 3.5 kilos.</desc>
+  <rect class="f-grasa" x="40" y="8" width="11" height="11" rx="2"/>
+  <text class="f-ley" x="57" y="18">2.4 g/kg al día</text>
+  <rect class="f-carb" x="172" y="8" width="11" height="11" rx="2"/>
+  <text class="f-ley" x="189" y="18">1.2 g/kg al día</text>
+  <text class="f-dato" x="68" y="62" text-anchor="middle">+1.2 kg</text>
+  <rect class="f-grasa" x="46" y="69" width="44" height="17"/>
+  <text class="f-dato" x="124" y="78" text-anchor="middle">+0.1</text>
+  <rect class="f-carb" x="102" y="84.6" width="44" height="1.4"/>
+  <text class="f-nom" x="96" y="104" text-anchor="middle">Masa magra</text>
+  <text class="f-nom" x="240" y="78" text-anchor="middle">Grasa</text>
+  <rect class="f-grasa" x="196" y="86" width="44" height="67"/>
+  <text class="f-dato" x="218" y="170" text-anchor="middle">&#8722;4.8 kg</text>
+  <rect class="f-carb" x="252" y="86" width="44" height="49"/>
+  <text class="f-dato" x="274" y="152" text-anchor="middle">&#8722;3.5</text>
+  <line class="f-eje" x1="30" y1="86" x2="310" y2="86"/>
+  <text class="f-pie" x="170" y="199" text-anchor="middle">Mismo déficit, mismo entrenamiento, 4 semanas</text>
+</svg>
+<figcaption>La única diferencia entre los dos grupos fue la proteína. El grupo de proteína alta ganó músculo mientras perdía más grasa.</figcaption>
+</figure>`,
+  "dia-del-sueno": `<figure class="bib-fig">
+<svg viewBox="0 0 340 176" role="img" aria-labelledby="fs-t fs-d">
+  <title id="fs-t">El día, de despertar a despertar</title>
+  <desc id="fs-d">Despertar a las 7 y salir a la luz. Última cafeína a las 5 de la tarde, seis horas antes de dormir. Bajar la luz de la casa a las 9. Dormir a las 11 y ocho horas de sueño hasta las 7.</desc>
+  <text class="f-nom" x="20" y="36">7:00 Despertar y luz</text>
+  <line class="f-tic" x1="20.5" y1="42" x2="20.5" y2="72"/>
+  <text class="f-nom" x="195" y="36" text-anchor="middle">21:00 Baja la luz</text>
+  <line class="f-tic" x1="195.5" y1="42" x2="195.5" y2="72"/>
+  <rect class="f-dia" x="20" y="72" width="200" height="22" rx="3"/>
+  <rect class="f-noche" x="220" y="72" width="100" height="22" rx="3"/>
+  <text class="f-env" x="120" y="87" text-anchor="middle">16 h despierto</text>
+  <text class="f-noc" x="270" y="87" text-anchor="middle">8 h de sueño</text>
+  <line class="f-tic" x1="145.5" y1="94" x2="145.5" y2="118"/>
+  <text class="f-nom" x="145" y="134" text-anchor="middle">17:00 Última cafeína</text>
+  <text class="f-sub" x="145" y="150" text-anchor="middle">6 h antes de dormir</text>
+  <line class="f-tic" x1="220.5" y1="94" x2="220.5" y2="118"/>
+  <text class="f-nom" x="262" y="134" text-anchor="middle">23:00 Dormir</text>
+  <text class="f-pie" x="170" y="170" text-anchor="middle">La hora de despertar es la única fija los siete días.</text>
+</svg>
+<figcaption>Un día de ejemplo con las cuatro decisiones que más mueven el sueño. Corre las horas a tu horario: lo que importa son las distancias entre ellas.</figcaption>
+</figure>`,
+};
+
+// La figura es el TERCER elemento de la seccion. Quien no la pasa, no la tiene.
+const seccion = (titulo, filas, fig = null) => [titulo, filas.filter(([, v]) => v), fig];
 
 // "Pros y contras" en la ficha son dos bloques con nombre claro, no una tabla:
 // lo bueno de una sustancia y lo que hay que cuidar no son simetricos, y
@@ -234,7 +318,8 @@ function deArticulo(r) {
   const cuerpo = Array.isArray(r.cuerpo) ? r.cuerpo : null;
   if (cuerpo) {
     x.secciones = cuerpo
-      .map((s) => seccion(limpio(s.t), (Array.isArray(s.p) ? s.p : []).map((t) => [null, limpio(t)])))
+      .map((s) => seccion(limpio(s.t), (Array.isArray(s.p) ? s.p : []).map((t) => [null, limpio(t)]),
+                          FIGURAS[s.fig] ? s.fig : null))
       .filter(([, filas]) => filas.length);
   } else {
     x.secciones = [seccion(null, [
@@ -315,7 +400,7 @@ export function htmlFicha(f, { enPlan = false, referencias = [], medico = false 
       `<dt>${esc(k)}</dt><dd${/Secuencia|Fórmula/.test(k) ? ' class="mono"' : ''}>${esc(v)}</dd>`).join('') + '</dl>';
   }
 
-  (f.secciones || []).forEach(([titulo, filas]) => {
+  (f.secciones || []).forEach(([titulo, filas, fig]) => {
     if (!filas.length) return;
     // "Qué NO se ha estudiado" va con su propio fondo: si se ve igual que el
     // resto, se lee como un parrafo mas y es justo el que hay que leer.
@@ -327,6 +412,10 @@ export function htmlFicha(f, { enPlan = false, referencias = [], medico = false 
     filas.forEach(([t, v]) => {
       h += `<div class="bib-bl">${t ? `<h4>${esc(t)}</h4>` : ''}<p>${esc(v)}</p></div>`;
     });
+    // La figura va DESPUES de los parrafos de su seccion, no arriba del articulo:
+    // se lee el argumento y se ve el dibujo en el mismo lugar. No lleva esc()
+    // porque no viene de la base, viene del registro de arriba.
+    if (fig && FIGURAS[fig]) h += FIGURAS[fig];
     if (hueco || compra) h += '</div>';
   });
 

@@ -1122,3 +1122,32 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
 /* El entrenamiento, ya hecho: se atenua igual que una toma palomeada. */
 .entreno.listo { opacity: .55; }
 .entreno.listo img { filter: grayscale(.4); }
+
+/* ---------- figuras de los articulos de la biblioteca ----------
+   El SVG trae viewBox y aqui se le da el ancho: asi escala solo en un telefono
+   angosto sin recortarse. Los colores salen de las variables del tema, porque
+   un diagrama con colores fijos se vuelve ilegible en modo oscuro. */
+.bib-fig { margin: 14px 0 6px; padding: 0; }
+.bib-fig svg { display: block; width: 100%; height: auto; overflow: visible; }
+.bib-fig figcaption {
+  margin-top: 8px; font-size: 12.5px; line-height: 1.45; color: var(--muted);
+  border-left: 3px solid var(--brand-soft); padding-left: 10px;
+}
+.bib-fig .f-grasa { fill: var(--brand); }
+.bib-fig .f-carb { fill: var(--surface-2); }
+.bib-fig .f-dia { fill: var(--surface-2); }
+.bib-fig .f-noche { fill: var(--brand); }
+.bib-fig .f-eje { stroke: var(--border); stroke-width: 1; }
+.bib-fig .f-tic { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 3; }
+.bib-fig text { font-family: var(--font); }
+.bib-fig .f-ley { font-size: 11px; font-weight: 600; fill: var(--muted); }
+.bib-fig .f-tot { font-size: 12.5px; font-weight: 800; fill: var(--text); }
+.bib-fig .f-dato { font-size: 12px; font-weight: 800; fill: var(--text); }
+/* Dato escrito ENCIMA de la barra de color: va en el color del fondo de la
+   tarjeta, no en el del texto, o se pierde contra el verde. */
+.bib-fig .f-inv { fill: var(--surface); }
+.bib-fig .f-nom { font-size: 11.5px; font-weight: 700; fill: var(--text); }
+.bib-fig .f-sub { font-size: 11px; font-weight: 500; fill: var(--muted); }
+.bib-fig .f-noc { font-size: 11px; font-weight: 700; fill: var(--surface); }
+.bib-fig .f-env { font-size: 11px; font-weight: 600; fill: var(--muted); }
+.bib-fig .f-pie { font-size: 10.5px; font-weight: 600; fill: var(--muted); }
