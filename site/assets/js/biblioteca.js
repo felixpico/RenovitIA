@@ -56,12 +56,24 @@ export async function cargarBiblioteca(forzar = false) {
     ...(sup.data || []).map(deSuplemento),
     ...(pep.data || []).map(dePeptido),
     ...(ejer.data || []).map(deEjercicio),
-    ...(refs.data || []).filter((r) => r.ambito === 'general').map(deArticulo),
+    ...(refs.data || []).filter(esArticulo).map(deArticulo),
   ];
   const error = [sup.error, pep.error, ejer.error, refs.error].filter(Boolean)[0] || null;
   memoria = { fichas, referencias: refs.data || [], error };
   return memoria;
 }
+
+// En catalog_referencias conviven dos cosas con ambito 'general':
+//
+//   ARTICULO  sin code (una liga suelta que agrego la medica), o CON cuerpo
+//             (un articulo escrito aqui, con secciones). Sale en la pestana.
+//   CITA      con code y sin cuerpo: se apoya en el articulo de ese code y
+//             sale en su "De donde sale", no como un articulo aparte.
+//
+// Sin esta distincion las citas aparecerian como articulos sueltos y cada
+// articulo se citaria a si mismo.
+const esArticulo = (r) => r.ambito === 'general' && (!r.code || !!r.cuerpo);
+const esCita = (r) => r.ambito === 'general' && !!r.code && !r.cuerpo;
 
 function base(f, ambito) {
   const nombre = f.name_es || f.titulo || f.code;
@@ -206,17 +218,31 @@ function deEjercicio(f) {
   return aplanar(x);
 }
 
+// Un articulo de la biblioteca tiene DOS formas posibles en la misma tabla:
+//
+//   con cuerpo  -> es un articulo escrito aqui, con sus secciones. Las citas en
+//                  las que se apoya son otras filas con el mismo code.
+//   sin cuerpo  -> es una cita: una referencia a un trabajo publicado. No sale
+//                  en la lista de articulos, sale en el "De donde sale" del suyo.
 function deArticulo(r) {
   const x = base(r, 'general');
   x.nombre = r.titulo;
   x.categoria = (r.etiquetas || [])[0] || null;
   x.resumen = limpio(r.resumen);
   x.enlace = limpio(r.enlace);
-  x.secciones = [seccion(null, [
-    ['De qué trata', limpio(r.resumen)],
-    ['Publicado en', [limpio(r.publicacion), r.anio].filter(Boolean).join(' · ')],
-    ['Autores', limpio(r.autores)],
-  ])].filter(([, filas]) => filas.length);
+
+  const cuerpo = Array.isArray(r.cuerpo) ? r.cuerpo : null;
+  if (cuerpo) {
+    x.secciones = cuerpo
+      .map((s) => seccion(limpio(s.t), (Array.isArray(s.p) ? s.p : []).map((t) => [null, limpio(t)])))
+      .filter(([, filas]) => filas.length);
+  } else {
+    x.secciones = [seccion(null, [
+      ['De qué trata', limpio(r.resumen)],
+      ['Publicado en', [limpio(r.publicacion), r.anio].filter(Boolean).join(' · ')],
+      ['Autores', limpio(r.autores)],
+    ])].filter(([, filas]) => filas.length);
+  }
   return aplanar(x);
 }
 
@@ -309,7 +335,8 @@ export function htmlFicha(f, { enPlan = false, referencias = [], medico = false 
       <p><a href="${esc(f.enlace)}" target="_blank" rel="noopener noreferrer">${esc(f.enlace)}</a></p></div>`;
   }
 
-  const refs = (referencias || []).filter((r) => r.ambito === f.ambito && r.code === f.code);
+  const refs = (referencias || []).filter((r) => r.code === f.code
+    && (f.ambito === 'general' ? esCita(r) : r.ambito === f.ambito));
   h += '<div class="bib-bl"><h4>De dónde sale</h4>';
   if (refs.length) {
     h += '<ul class="bib-refs">' + refs.map((r) => `<li>

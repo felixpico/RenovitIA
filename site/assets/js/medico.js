@@ -1097,6 +1097,33 @@ async function viewBiblioteca(root) {
 
   const caja = h('div');
 
+  // Convierte el texto plano del formulario en las secciones que dibuja la
+  // biblioteca. Convencion deliberadamente corta, para que se pueda escribir
+  // de corrido: "## " abre seccion, un renglon en blanco separa parrafos.
+  // Devuelve null si no hay texto, y entonces el articulo queda como liga.
+  const aSecciones = (txt) => {
+    const limpio = String(txt || '').replace(/\r\n/g, '\n').trim();
+    if (!limpio) return null;
+    const secciones = [];
+    let actual = null;
+    limpio.split(/\n\s*\n/).forEach((bloque) => {
+      const b = bloque.trim();
+      if (!b) return;
+      if (b.startsWith('##')) {
+        const [cabeza, ...resto] = b.split('\n');
+        actual = { t: cabeza.replace(/^#+\s*/, '').trim(), p: [] };
+        secciones.push(actual);
+        const pegado = resto.join('\n').trim();
+        if (pegado) actual.p.push(pegado);
+        return;
+      }
+      if (!actual) { actual = { t: null, p: [] }; secciones.push(actual); }
+      actual.p.push(b);
+    });
+    const utiles = secciones.filter((s) => s.t || s.p.length);
+    return utiles.length ? utiles : null;
+  };
+
   // El alta de un articulo suelto va aqui y no dentro de una ficha: un articulo
   // de "grasa visceral" no cuelga de ningun suplemento. Sin este boton, la
   // categoria Articulos no se podria llenar nunca desde la interfaz.
@@ -1108,10 +1135,15 @@ async function viewBiblioteca(root) {
     const anio = h('input', { class: 'input', type: 'number', min: '1900', max: '2100', placeholder: '2024' });
     const enlace = h('input', { class: 'input', type: 'url', placeholder: 'https://…' });
     const etiq = h('input', { class: 'input', type: 'text', placeholder: 'metabólico, sueño, entrenamiento' });
+    const texto = h('textarea', { class: 'input', rows: 10,
+      placeholder: '## Por dónde empezar\n\nPrimer párrafo.\n\nSegundo párrafo.\n\n## Lo que está sobrevalorado\n\n…' });
     const cuerpo = h('div', { class: 'stack' },
       h('p', { class: 'muted small', style: 'margin:0',
         text: 'Aparece en la pestaña Artículos, también del lado del paciente. Sale marcado «sin revisar» hasta que lo firmes.' }),
       campo('Título', titulo), campo('De qué trata', resumen),
+      campo('Texto del artículo (opcional)', texto),
+      h('p', { class: 'muted small', style: 'margin:-4px 0 0',
+        text: 'Un renglón que empieza con ## abre una sección. Los párrafos se separan con un renglón en blanco. Si lo dejas vacío, el artículo queda como una liga con su resumen.' }),
       campo('Publicación', pub), campo('Año', anio), campo('Liga', enlace),
       campo('Etiquetas, separadas por coma', etiq));
     if (!(await modal('Agregar un artículo', cuerpo, 'Agregar'))) return;
@@ -1122,6 +1154,7 @@ async function viewBiblioteca(root) {
         resumen: resumen.value.trim() || null, publicacion: pub.value.trim() || null,
         anio: anio.value ? Number(anio.value) : null, enlace: enlace.value.trim() || null,
         etiquetas: etiq.value.split(',').map((x) => x.trim()).filter(Boolean),
+        cuerpo: aSecciones(texto.value),
       });
       toast('Artículo agregado');
       location.hash = '#/biblioteca'; route();
@@ -1161,7 +1194,10 @@ async function viewBiblioteca(root) {
     if (!titulo.value.trim()) { toast('Falta el título', true); return false; }
     try {
       await api.agregarReferencia({
-        ambito: f.ambito, code: f.ambito === 'general' ? f.id : f.code,
+        // f.code ya trae el id cuando la fila no tiene code propio, asi que
+        // sirve para los dos tipos de articulo. Usar f.id aqui rompia la cita
+        // de un articulo que SI tiene code.
+        ambito: f.ambito, code: f.code,
         titulo: titulo.value.trim(), publicacion: pub.value.trim() || null,
         anio: anio.value ? Number(anio.value) : null, enlace: enlace.value.trim() || null,
       });
