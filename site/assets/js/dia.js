@@ -186,3 +186,70 @@ export function revisionDelDia(items, tomas) {
     nombreFranja: (f) => CORTO_FRANJA[f] || NOMBRE_FRANJA[f] || f,
   };
 }
+
+/* ---------------- el entrenamiento del dia ----------------
+
+   El ejercicio vive en protocol_items como cualquier suplemento, con sus
+   days_of_week y su catalog_code. El GRUPO MUSCULAR no se guarda en el
+   renglon: se hereda del catalogo por el codigo, para que no se pueda
+   contradecir. Lo que si se guarda es el nombre del dia (bloque). */
+
+export const DIAS_SEMANA_NUM = (fecha) => (fecha.getDay() === 0 ? 7 : fecha.getDay());
+
+export function ejerciciosDeHoy(items, fecha = new Date()) {
+  const n = DIAS_SEMANA_NUM(fecha);
+  return (items || []).filter((i) => {
+    if (i.category !== 'exercise' || i.is_active === false) return false;
+    const d = Array.isArray(i.days_of_week) ? i.days_of_week.map(Number) : [];
+    // Sin dias marcados se entiende "todos los dias": es lo que espera quien
+    // captura "pasos diarios" y no toca los chips.
+    return !d.length || d.includes(n);
+  });
+}
+
+// Agrupa por bloque conservando el orden de sort_order. Un ejercicio sin
+// bloque cae en "Entrenamiento", que es mejor que inventarle un nombre.
+export function bloquesDe(ejercicios) {
+  const mapa = new Map();
+  (ejercicios || []).forEach((i) => {
+    const k = limpioTexto(i.bloque) || 'Entrenamiento';
+    if (!mapa.has(k)) mapa.set(k, []);
+    mapa.get(k).push(i);
+  });
+  return [...mapa.entries()];
+}
+
+const limpioTexto = (t) => { const v = String(t ?? '').trim(); return v || null; };
+
+// La carga que se le enseña: 4 × 6-10. Si falta algo, se enseña lo que haya.
+export function cargaDe(i) {
+  const s = Number(i.series) > 0 ? String(i.series) : null;
+  const r = limpioTexto(i.reps);
+  if (s && r) return `${s} × ${r}`;
+  return s ? `${s} series` : (r || limpioTexto(i.dose) || '');
+}
+
+export function htmlEntreno(grupos, opts = {}) {
+  const { hechas = {}, previa = false } = opts;
+  let html = '';
+  (grupos || []).forEach(([bloque, lista]) => {
+    if (!lista.length) return;
+    const n = lista.filter((i) => hechas?.[i.id]).length;
+    html += `<div class="fr" data-bloque="${esc(bloque)}">`
+      + `<h3>${esc(bloque)} <em>· ${n} de ${lista.length}</em></h3><div class="lista">`;
+    lista.forEach((i) => {
+      const on = hechas?.[i.id] ? ' on' : '';
+      const sub = [limpioTexto(i.patron_es), limpioTexto(i.rpe) ? `RPE ${i.rpe}` : null]
+        .filter(Boolean).join(' · ');
+      const carga = cargaDe(i);
+      const cuerpo = `<span class="cb">${PALOMA}</span>
+        <span class="nm"><b>${esc(i.title)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</span>
+        ${carga ? `<span class="ds">${esc(carga)}</span>` : ''}`;
+      html += previa
+        ? `<div class="it previa" data-item="${esc(i.id)}">${cuerpo}</div>`
+        : `<button class="it${on}" type="button" data-ej="${esc(i.id)}" aria-pressed="${on ? 'true' : 'false'}">${cuerpo}</button>`;
+    });
+    html += '</div></div>';
+  });
+  return html;
+}

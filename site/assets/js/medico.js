@@ -382,6 +382,19 @@ const liveApi = {
       .insert({ ...ref, agregado_por: session?.user?.id || null });
     if (error) throw error;
   },
+  async trainingTemplates() {
+    const { data, error } = await supabase.from('training_templates')
+      .select('*').eq('is_active', true).order('nombre');
+    if (error) throw error; return data || [];
+  },
+  // Agrega los ejercicios de una plantilla al plan. La funcion trae su propio
+  // candado: no vuelve a meter un ejercicio que ya este en el plan. Es la
+  // leccion de los suplementos duplicados, resuelta en el origen.
+  async applyTrainingTemplate(planId, templateId) {
+    const { data, error } = await supabase.rpc('aplicar_plantilla_entrenamiento',
+      { p_protocol: planId, p_template: templateId });
+    if (error) throw error; return data || 0;
+  },
   async savePlanNotes(planId, notes) {
     const { error } = await supabase.from('protocols').update({ physician_notes: notes }).eq('id', planId);
     if (error) throw error;

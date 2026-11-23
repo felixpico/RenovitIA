@@ -206,3 +206,42 @@ table.data.rangos td, table.data.rangos th { vertical-align: middle; }
 .sug-item .det { font-size: .82rem; color: var(--muted); margin-top: 2px; }
 .sug-item .reg { font-size: .8rem; color: var(--danger); font-weight: 600; margin-top: 3px; }
 .sug-cat { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--border); border-radius: 99px; padding: 1px 7px; }
+
+/* ===== La semana de entrenamiento =====
+   Siete columnas, una por dia. Es la vista que una tabla por categorias no
+   puede dar: aqui se ve que dos dias de pierna cayeron seguidos. */
+.sem-rej { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px; margin-top: 12px; }
+.sem-col { display: flex; flex-direction: column; background: #fff;
+  border: 1px solid var(--line, #dfe4e0); border-radius: 12px; overflow: hidden; }
+.sem-col.vacia { background: #f3f5f2; border-style: dashed; }
+.sem-cab { padding: 9px 10px; background: #0f241d; color: #fff; }
+.sem-col.vacia .sem-cab { background: #e4e8e3; color: #5c6660; }
+.sem-dia { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.sem-bloque { font-size: 12.5px; font-weight: 700; margin-top: 2px; line-height: 1.25; }
+.sem-cuenta { font-size: 10.5px; margin-top: 2px; opacity: .78; }
+.sem-cuerpo { flex: 1; display: flex; flex-direction: column; gap: 5px; padding: 7px; }
+.sem-ej { font: inherit; display: block; width: 100%; text-align: left; padding: 8px 9px;
+  border: 1px solid var(--line, #e4e9e5); border-radius: 9px; background: #fff; cursor: pointer; }
+.sem-ej:hover:not(:disabled) { border-color: #0f241d; }
+.sem-ej:disabled { cursor: default; opacity: .85; }
+.sem-ej .n { display: block; font-size: 12px; font-weight: 600; line-height: 1.3; }
+.sem-ej .s { display: block; font-size: 10.5px; color: #5c6660; margin-top: 2px; }
+.sem-ej .p { display: inline-block; margin-top: 4px; font-size: 9px; font-weight: 800;
+  letter-spacing: .04em; text-transform: uppercase; padding: 2px 5px; border-radius: 4px;
+  background: #e3efe9; color: #2f6b58; }
+.sem-add { font: inherit; width: 100%; padding: 8px 6px; border: 1px dashed #c3cfc8;
+  border-radius: 9px; background: transparent; color: #2f6b58; font-size: 11.5px;
+  font-weight: 600; cursor: pointer; }
+.sem-add:hover { background: #e3efe9; }
+.sem-vol { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.sem-vol .et { flex: 0 0 130px; font-size: 12px; font-weight: 600; }
+.sem-vol .barra { flex: 1; height: 7px; border-radius: 999px; background: #eef1ec; overflow: hidden; }
+.sem-vol .barra i { display: block; height: 100%; border-radius: 999px; background: #2f6b58; }
+.sem-vol .n { flex: 0 0 34px; text-align: right; font-size: 12px; color: #5c6660; }
+@media (max-width: 900px) { .sem-rej { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.sem-diario { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+  padding: 9px 10px; border: 1px dashed var(--line, #dfe4e0); border-radius: 12px; background: #fafbf9; }
+.sem-diario .et { font-size: 10.5px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: #5c6660; margin-right: 2px; }
+.sem-diario .sem-ej { width: auto; min-width: 150px; }

@@ -22,6 +22,25 @@ const ESTADO = {
   approved: ['Firmado', 'verde'], delivered: ['Entregado', 'verde'],
   superseded: ['Reemplazado', ''], cancelled: ['Cancelado', ''],
 };
+// El nombre del dia se PROPONE desde el patron del catalogo. No se deriva a la
+// fuerza: la medica lo puede cambiar, y por eso es un campo y no una etiqueta.
+const BLOQUE_POR_PATRON = [
+  [/tir[oó]n/i, 'Jalón'], [/empuje/i, 'Empuje'], [/pierna/i, 'Pierna'],
+  [/core/i, 'Core'], [/movilidad/i, 'Movilidad'],
+  [/aer[oó]bico|alta intensidad/i, 'Cardio'],
+  [/no estructurada|posprandial/i, 'Movimiento diario'],
+];
+function nombreDeBloque(patron) {
+  const p = String(patron || '');
+  for (const [re, nombre] of BLOQUE_POR_PATRON) if (re.test(p)) return nombre;
+  return '';
+}
+
+// A nivel de modulo y no dentro de load(): semanaDeEntrenamiento() se llama
+// antes de que un const declarado mas abajo este inicializado, y eso tira un
+// ReferenceError por zona muerta temporal que el try/catch se traga entero.
+const DIAS_CORTOS = [[1, 'Lun'], [2, 'Mar'], [3, 'Mié'], [4, 'Jue'], [5, 'Vie'], [6, 'Sáb'], [7, 'Dom']];
+
 const dosisOk = (d, r) => {
   const t = String(d || '').toLowerCase();
   const re = String(r || '').toLowerCase();
@@ -165,7 +184,12 @@ export function renderPlanTab(root, ctx) {
     if (!firmado) root.append(bloqueSugerencias());
 
     // ---- indicaciones por categoría ----
+    root.append(semanaDeEntrenamiento());
+
     CATEGORIAS.forEach(([cat, nombre]) => {
+      // El ejercicio tiene su propia vista: una tabla por categoria no deja ver
+      // que dos dias de pierna cayeron seguidos.
+      if (cat === 'exercise') return;
       const propias = mios.filter((i) => i.category === cat);
       if (!propias.length) return;
       const t = h('table', { class: 'data' });
@@ -198,6 +222,132 @@ export function renderPlanTab(root, ctx) {
     // trae el renglon que la medica acaba de quitar. Mentir justo al firmar es
     // peor que no tener previa.
     if (abrir === 'firmar' && !firmado && esMedico) firmar(vigente);
+
+    /* ---------- la semana de entrenamiento ----------
+       Siete columnas, una por dia. Es la vista que una tabla por categorias no
+       puede dar: aqui se ve que el viernes y el sabado son los dos de pierna, y
+       que la movilidad quedo en cero. */
+    function semanaDeEntrenamiento() {
+      const ejs = mios.filter((i) => i.category === 'exercise');
+      const porCodigo = Object.fromEntries((catalogos.exercises || []).map((c) => [c.code, c]));
+      const caja = h('div', { class: 'row-card', style: 'margin-top:18px' },
+        h('div', { class: 'row-head' },
+          h('strong', { text: 'Entrenamiento' }),
+          h('span', { class: 'pill', text: ejs.length ? `${ejs.length} ejercicio(s)` : 'sin nada todavía' })));
+
+      if (!firmado) {
+        caja.append(h('div', { class: 'toolbar' },
+          h('button', { class: 'btn btn-primary btn-sm', type: 'button', text: 'Usar una plantilla', onclick: () => usarPlantilla(vigente.id) }),
+          h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '+ Ejercicio',
+            onclick: () => editar(vigente.id, { category: 'exercise' }) }),
+          h('span', { class: 'muted small', text: 'El grupo muscular lo hereda del catálogo: no se captura.' })));
+      }
+
+      if (!ejs.length) {
+        caja.append(h('p', { class: 'muted small', style: 'margin:8px 0 0',
+          text: 'Mientras el plan no traiga ejercicios, el paciente sigue viendo el programa de 3 días que genera el sistema. En cuanto agregues uno, manda el plan.' }));
+        return caja;
+      }
+
+      // Lo de TODOS los dias (pasos, caminata despues de comer) no se repite en
+      // las siete columnas: ensuciaba el nombre del dia -"Jalon + Movimiento
+      // diario"- y no es parte de la sesion. Va en su propia tira abajo.
+      const conDia = ejs.filter((i) => (i.days_of_week || []).length);
+      const todoDia = ejs.filter((i) => !(i.days_of_week || []).length);
+
+      const rejilla = h('div', { class: 'sem-rej' });
+      DIAS_CORTOS.forEach(([n, corto]) => {
+        const delDia = conDia.filter((i) => i.days_of_week.map(Number).includes(n));
+        const nombres = [...new Set(delDia.map((i) => i.bloque).filter(Boolean))];
+        const col = h('div', { class: `sem-col${delDia.length ? '' : ' vacia'}` },
+          h('div', { class: 'sem-cab' },
+            h('div', { class: 'sem-dia', text: corto }),
+            h('div', { class: 'sem-bloque', text: nombres.join(' + ') || (delDia.length ? 'Entrenamiento' : 'Descanso') }),
+            h('div', { class: 'sem-cuenta', text: delDia.length ? `${delDia.length} ejercicio${delDia.length === 1 ? '' : 's'}` : 'sin nada' })));
+        const cuerpo = h('div', { class: 'sem-cuerpo' });
+        delDia.forEach((i) => {
+          const c = porCodigo[i.catalog_code];
+          const carga = [i.series ? `${i.series} ×` : null, i.reps, i.rpe ? `RPE ${i.rpe}` : null].filter(Boolean).join(' ');
+          cuerpo.append(h('button', { class: 'sem-ej', type: 'button', disabled: firmado,
+            onclick: () => editar(vigente.id, i) },
+            h('span', { class: 'n', text: i.title }),
+            carga ? h('span', { class: 's', text: carga }) : null,
+            c?.pattern ? h('span', { class: 'p', text: c.pattern }) : null));
+        });
+        if (!firmado) {
+          cuerpo.append(h('button', { class: 'sem-add', type: 'button', text: '+ Ejercicio',
+            onclick: () => editar(vigente.id, { category: 'exercise', days_of_week: [n] }) }));
+        }
+        col.append(cuerpo);
+        rejilla.append(col);
+      });
+      caja.append(rejilla);
+
+      if (todoDia.length) {
+        const tira = h('div', { class: 'sem-diario' },
+          h('span', { class: 'et', text: 'Todos los días' }));
+        todoDia.forEach((i) => {
+          const carga = [i.series ? `${i.series} ×` : null, i.reps].filter(Boolean).join(' ');
+          tira.append(h('button', { class: 'sem-ej', type: 'button', disabled: firmado,
+            onclick: () => editar(vigente.id, i) },
+            h('span', { class: 'n', text: i.title }),
+            carga ? h('span', { class: 's', text: carga }) : null));
+        });
+        caja.append(tira);
+      }
+
+      // Volumen por patron. Es la lectura que solo existe cuando el patron es
+      // un dato del catalogo y no texto libre.
+      const porPatron = new Map();
+      ejs.forEach((i) => {
+        const c = porCodigo[i.catalog_code];
+        const grupo = nombreDeBloque(c?.pattern) || 'Sin clasificar';
+        const vueltas = Math.max(1, (i.days_of_week || []).length || 1);
+        porPatron.set(grupo, (porPatron.get(grupo) || 0) + (Number(i.series) || 0) * vueltas);
+      });
+      const ordenado = [...porPatron.entries()].sort((a, b) => b[1] - a[1]);
+      const tope = Math.max(1, ...ordenado.map(([, v]) => v));
+      if (ordenado.length) {
+        const vol = h('div', { style: 'margin-top:14px' },
+          h('p', { class: 'small', style: 'margin:0 0 7px;font-weight:700', text: 'Series por semana, por patrón' }));
+        ordenado.forEach(([nombre, n]) => {
+          vol.append(h('div', { class: 'sem-vol' },
+            h('span', { class: 'et', text: nombre }),
+            h('span', { class: 'barra' }, h('i', { style: `width:${Math.round((n / tope) * 100)}%` })),
+            h('span', { class: 'n', text: String(n) })));
+        });
+        caja.append(vol);
+      }
+      return caja;
+    }
+
+    async function usarPlantilla(planId) {
+      let plantillas = [];
+      try { plantillas = await api.trainingTemplates(); }
+      catch (e) { toast(`No se pudieron leer las plantillas: ${e.message}`, true); return; }
+      if (!plantillas.length) { toast('Todavía no hay plantillas de entrenamiento', true); return; }
+
+      const sel = h('select', { class: 'input' },
+        ...plantillas.map((t) => h('option', { value: t.id,
+          text: `${t.nombre}${t.dias_por_semana ? ` · ${t.dias_por_semana} días` : ''}` })));
+      const desc = h('p', { class: 'muted small', style: 'margin:6px 0 0' });
+      const pintar = () => {
+        const t = plantillas.find((x) => x.id === sel.value);
+        desc.textContent = t?.descripcion || '';
+      };
+      sel.addEventListener('change', pintar); pintar();
+
+      const cuerpo = h('div', { class: 'stack' },
+        h('p', { class: 'small', style: 'margin:0',
+          text: 'Los ejercicios entran como renglones del plan, editables uno por uno. Lo que ya esté en el plan NO se duplica.' }),
+        sel, desc);
+      if (!(await modal('Usar una plantilla', cuerpo, 'Agregar al plan'))) return;
+      try {
+        const n = await api.applyTrainingTemplate(planId, sel.value);
+        toast(n ? `${n} ejercicio(s) agregados` : 'Ya estaban todos en el plan');
+        load();
+      } catch (e) { toast(`Error: ${e.message}`, true); }
+    }
 
     function bloqueSugerencias() {
       const ESTADO_SUG = {
@@ -725,6 +875,18 @@ export function renderPlanTab(root, ctx) {
           c.default_slots.forEach((f) => franjas.add(f));
           pintarFranjas();
         }
+        if (cat.value === 'exercise') {
+          // sets_reps_hint viene como "3-4 x 6-10": se parte en series y reps.
+          const m = /^\s*([\d-]+)\s*[x×]\s*(.+)$/i.exec(String(c.sets_reps_hint || ''));
+          if (m) { series.value = parseInt(m[1], 10) || ''; reps.value = m[2].trim(); }
+          rpeEj.value = String(c.rpe_hint || '').replace(/^RPE\s*/i, '');
+          if (!bloqueTxt.value) bloqueTxt.value = nombreDeBloque(c.pattern);
+          heredado.textContent = [c.pattern ? `Patrón: ${c.pattern}` : null,
+            c.primary_muscles ? `Músculos: ${c.primary_muscles}` : null,
+            c.equipment ? `Equipo: ${c.equipment}` : null].filter(Boolean).join(' · ')
+            + '. Eso se hereda del catálogo y no se captura aquí.';
+          pintarChipsEj();
+        }
         frec.value = c.frequency || '';
         motivo.value = c.purpose || '';
         instr.value = [c.cautions ? `Precauciones: ${c.cautions}` : null,
@@ -846,7 +1008,56 @@ export function renderPlanTab(root, ctx) {
       cat.addEventListener('change', verBloquePep);
       verBloquePep();
 
-      const cuerpoForm = h('div', { class: 'stack' }, campo('Categoría', cat), campo('Del catálogo', picker), avisoReg, campo('Qué', titulo), bloqueFranjas, bloquePep, campo('Dosis', dosis), campo('Reconstitución del vial', recon),
+      /* ---------- ejercicio ----------
+         El GRUPO MUSCULAR no es un campo: se hereda del catálogo por el código.
+         Si la médica lo capturara aparte podría contradecirse —meter un press
+         de banca en el día de pierna— y el sistema le creería. Lo que sí
+         escribe es el NOMBRE del día, que se propone desde los patrones. */
+      const bloqueTxt = h('input', { class: 'input', type: 'text', placeholder: 'Jalón · Empuje · Pierna' });
+      bloqueTxt.value = item?.bloque || '';
+      const series = h('input', { class: 'input', type: 'number', min: '1', max: '20', placeholder: '4' });
+      series.value = item?.series ?? '';
+      const reps = h('input', { class: 'input', type: 'text', placeholder: '6-10' }); reps.value = item?.reps || '';
+      const rpeEj = h('input', { class: 'input', type: 'text', placeholder: '8' }); rpeEj.value = item?.rpe || '';
+      const descanso = h('input', { class: 'input', type: 'text', placeholder: '2-3 min' }); descanso.value = item?.descanso || '';
+      const heredado = h('p', { class: 'muted small', style: 'margin:0' });
+      const avisoDias = h('p', { class: 'small', style: 'margin:4px 0 0' });
+      const chipsEj = h('div', { style: 'display:flex;gap:5px' });
+
+      const pintarChipsEj = () => {
+        chipsEj.innerHTML = '';
+        DIAS.forEach(([n, corto, largo]) => {
+          const on = dias.has(n);
+          chipsEj.append(h('button', {
+            type: 'button', title: largo, text: corto, 'aria-pressed': on ? 'true' : 'false',
+            style: 'font:inherit;flex:1;text-align:center;font-size:12px;font-weight:700;padding:9px 0;border-radius:9px;cursor:pointer;'
+              + (on ? 'border:1px solid #0f241d;background:#0f241d;color:#fff;'
+                    : 'border:1px solid #c9cfcb;background:#fff;color:#5c6660;'),
+            onclick: () => { if (on) dias.delete(n); else dias.add(n); pintarChipsEj(); },
+          }));
+        });
+        avisoDias.textContent = dias.size
+          ? `${dias.size} ${dias.size === 1 ? 'día' : 'días'} por semana. Le aparece una casilla cada uno de esos días.`
+          : 'Sin días marcados se entiende TODOS los días. Es lo correcto para pasos o caminata, no para una sesión de fuerza.';
+      };
+      pintarChipsEj();
+
+      const bloqueEj = h('div', { class: 'stack', style: 'border-left:3px solid #2f6b58;padding-left:12px' },
+        heredado,
+        h('p', { class: 'small', style: 'margin:0;font-weight:700', text: '¿Qué días le toca?' }),
+        chipsEj, avisoDias,
+        campo('Nombre del día', bloqueTxt),
+        h('div', { class: 'fields-grid' }, campo('Series', series), campo('Repeticiones', reps)),
+        h('div', { class: 'fields-grid' }, campo('RPE', rpeEj), campo('Descanso', descanso)));
+
+      const verBloqueEj = () => {
+        const es = cat.value === 'exercise';
+        bloqueEj.style.display = es ? '' : 'none';
+        [dosis, recon].forEach((el) => { el.closest('.field').style.display = es ? 'none' : ''; });
+      };
+      cat.addEventListener('change', verBloqueEj);
+
+      const cuerpoForm = h('div', { class: 'stack' }, campo('Categoría', cat), campo('Del catálogo', picker), avisoReg, campo('Qué', titulo), bloqueFranjas, bloquePep, bloqueEj, campo('Dosis', dosis), campo('Reconstitución del vial', recon),
         h('div', { class: 'fields-grid' }, campo('Nota de horario', horario), campo('Frecuencia', frec)),
         campo('Para qué', motivo), campo('Instrucciones', instr), aviso);
 
@@ -854,6 +1065,7 @@ export function renderPlanTab(root, ctx) {
       // campo. Antes se cerraba y se perdía la captura: eso hacía ver el aviso
       // de dosis como un muro.
       for (;;) {
+        verBloqueEj();
         if (!(await modal(item ? 'Editar indicación' : 'Nueva indicación', cuerpoForm, 'Guardar'))) return;
         if (!titulo.value.trim()) { toast('Falta el nombre de la indicación', true); continue; }
         // Guardar no exige una dosis auditable, sólo que la casilla traiga algo:
@@ -871,6 +1083,7 @@ export function renderPlanTab(root, ctx) {
         // medias no se guardan: una dosis en unidades sin su vial es la que
         // hoy tiene un paciente puesta sin que nadie sepa cuantos mg son.
         const esPep = cat.value === 'peptide';
+        const esEjercicio = cat.value === 'exercise';
         const completo = esPep && String(unidades.value).trim() !== ''
           && faltaParaAuditar({ dose_un: unidades.value, vial_mg: vialMg.value, vial_ml: vialMl.value, syringe: jeringa.value }).length === 0;
         const mgCalc = completo
@@ -912,7 +1125,13 @@ export function renderPlanTab(root, ctx) {
           vial_mg: completo ? Number(vialMg.value) : null,
           vial_ml: completo ? Number(vialMl.value) : null,
           syringe: completo ? jeringa.value : null,
-          days_of_week: esPep && marcados.length ? marcados : null,
+          days_of_week: (esPep || esEjercicio) && marcados.length ? marcados : null,
+          series: esEjercicio && series.value ? Number(series.value) : null,
+          reps: esEjercicio ? (reps.value.trim() || null) : null,
+          rpe: esEjercicio ? (rpeEj.value.trim() || null) : null,
+          descanso: esEjercicio ? (descanso.value.trim() || null) : null,
+          bloque: esEjercicio ? (bloqueTxt.value.trim() || null) : null,
+          catalog_code: picker.value || item?.catalog_code || null,
           slots: CON_DOSIS.includes(cat.value) && franjas.size ? [...franjas] : null,
           timing: horario.value.trim() || null, frequency: frec.value.trim() || null,
           rationale: motivo.value.trim() || null, instructions: instr.value.trim() || null,

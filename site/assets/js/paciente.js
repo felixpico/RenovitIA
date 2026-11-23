@@ -9,7 +9,8 @@ import { tocaHoy } from './franjas.js';
 // El dia se dibuja en dia.js, que comparten esta pantalla y la vista previa con
 // la que la medica firma. Si el HTML viviera aqui, la previa seria otro dibujo
 // y acabaria mintiendo.
-import { PALOMA, etiquetas, chipsDias, botonJeringa, tomasDeItems, htmlDia } from './dia.js';
+import { PALOMA, etiquetas, chipsDias, botonJeringa, tomasDeItems, htmlDia,
+  ejerciciosDeHoy, bloquesDe, htmlEntreno } from './dia.js';
 import { montarBiblioteca } from './biblioteca.js';
 import { abrirSeccion, cerrarSeccion } from './secciones.js';
 import {
@@ -31,7 +32,7 @@ const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 
 const S = { paciente: null, plan: null, items: [], fecha: iso(new Date()),
             registro: null, guardando: false, pendiente: false, periodico: {}, resumen: null,
-            horas: null, programa: null };
+            horas: null, programa: null, ejercicios: [] };
 
 /* ---------------- pestanas ---------------- */
 export function montarTabs() {
@@ -229,12 +230,12 @@ function pintarHoy() {
   const caja = $('hoy-contenido');
   const tomas = tomasDelDia();
   const items = delDia();
-  // El entrenamiento cuenta en el anillo. Si no cuenta, el paciente lee que
-  // su dia esta completo con el entrenamiento sin hacer, y eso es falso.
-  const hayEntreno = !!entrenoDeHoy();
-  const total = tomas.length + (hayEntreno ? 1 : 0);
+  // El entrenamiento cuenta en el anillo, ejercicio por ejercicio. Si no
+  // contara, el paciente leeria "dia completo" con el entrenamiento sin hacer.
+  const ejs = ejerciciosDeHoy(S.ejercicios, new Date(`${S.fecha}T12:00:00`));
+  const total = tomas.length + ejs.length;
   const hechos = tomas.filter((t) => S.registro.supplements_taken?.[t.llave]).length
-    + (hayEntreno && S.registro.trained === true ? 1 : 0);
+    + ejs.filter((i) => S.registro.supplements_taken?.[i.id]).length;
   const pct = total ? hechos / total : 0;
   const R = 44, C = 2 * Math.PI * R;
 
@@ -263,6 +264,8 @@ function pintarHoy() {
     periodico: S.periodico,
   });
 
+  html += htmlEntreno(bloquesDe(ejs), { hechas: S.registro.supplements_taken });
+
   // Si simplemente se oculta, el paciente cree que se perdio su inyeccion.
   // Se muestra hecha, con la fecha de la siguiente.
   const hechos2 = periodicosHechos();
@@ -282,7 +285,10 @@ function pintarHoy() {
   html += tiraSemana(S.resumen?.semana);
 
   caja.innerHTML = html;
-  caja.querySelectorAll('.it:not(.listo)').forEach((b) => b.addEventListener('click', () => alternar(b)));
+  caja.querySelectorAll('.it:not(.listo):not([data-ej])').forEach((b) => b.addEventListener('click', () => alternar(b)));
+  // El ejercicio se palomea con el mismo gesto y se guarda en la misma llave
+  // que un suplemento: supplements_taken es "lo hecho del dia", no solo pastillas.
+  caja.querySelectorAll('.it[data-ej]').forEach((b) => b.addEventListener('click', () => alternarEjercicio(b)));
   caja.querySelectorAll('.pep-ver').forEach((b) => b.addEventListener('click', () => {
     const it = (S.items || []).find((x) => x.id === b.dataset.pep);
     if (it) abrirJeringa(it);
@@ -389,7 +395,28 @@ async function escribir() {
   }
 }
 
+// El programa CABLEADO en programa_entrenamiento sigue aqui como red: si el
+// plan todavia no trae renglones de ejercicio, el paciente ve su rutina igual
+// que antes. En cuanto la medica aplica una plantilla, los renglones del plan
+// mandan y esto deja de dibujarse. Asi nadie se queda sin rutina en la
+// migracion, que era el riesgo real de apagar la funcion de golpe.
 function pintarEntreno() {
+  const delPlan = ejerciciosDeHoy(S.ejercicios, new Date(`${S.fecha}T12:00:00`));
+  if (delPlan.length) {
+    // La guia ilustrada sigue valiendo: se dibuja arriba de los renglones.
+    const b = (delPlan[0].bloque || '').toLowerCase();
+    const k = b.includes('jal') ? 'jalon' : b.includes('empuj') ? 'empuje'
+      : b.includes('pierna') ? 'pierna' : null;
+    if (!k) return;
+    const fr = $('hoy-contenido').querySelector(`.fr[data-bloque]`);
+    if (!fr || fr.querySelector('.entreno')) return;
+    const img = document.createElement('div');
+    img.className = 'entreno';
+    img.innerHTML = `<img src="${ENTRENO_IMG[k]}" alt="Guía ilustrada del día de ${k}" loading="lazy" width="822" height="900">`;
+    fr.insertBefore(img, fr.querySelector('.lista'));
+    return;
+  }
+
   const dia = entrenoDeHoy();
   if (!dia) return;
 
@@ -403,9 +430,6 @@ function pintarEntreno() {
   const hecho = S.registro?.trained === true;
   const div = document.createElement('div');
   div.className = 'fr';
-  // La casilla va con la MISMA clase .it que los suplementos: para el paciente
-  // tiene que ser el mismo gesto, no una invencion aparte. Y el entrenamiento
-  // cuenta en el anillo, porque es parte del dia y no un poster.
   div.innerHTML = `<h3>Entrenamiento de hoy</h3>
     <div class="entreno${hecho ? ' listo' : ''}">
       ${clave ? `<img src="${ENTRENO_IMG[clave]}" alt="Guía ilustrada del día de ${clave}" loading="lazy" width="822" height="900">` : ''}
@@ -422,13 +446,27 @@ function pintarEntreno() {
       </button>
     </div>`;
   $('hoy-contenido').append(div);
-  div.querySelector('#btn-entreno').addEventListener('click', alternarEntreno);
+  div.querySelector('#btn-entreno').addEventListener('click', () => {
+    S.registro.trained = S.registro.trained === true ? false : true;
+    guardar();
+    pintarHoy();
+  });
 }
 
-// Palomear el entrenamiento. El dato va a daily_checkins.trained, la columna
-// que llevaba meses existiendo sin que nada la escribiera.
-async function alternarEntreno() {
-  S.registro.trained = S.registro.trained === true ? false : true;
+// Palomear un ejercicio. Misma llave que un suplemento, y de paso se mantiene
+// `trained` al dia: queda en true cuando TODOS los ejercicios del dia estan
+// hechos, para que el panel medico tenga una bandera simple que leer.
+function alternarEjercicio(btn) {
+  const id = btn.dataset.ej;
+  if (!S.registro.supplements_taken) S.registro.supplements_taken = {};
+  if (S.registro.supplements_taken[id]) delete S.registro.supplements_taken[id];
+  else S.registro.supplements_taken[id] = new Date().toISOString();
+
+  const ejs = ejerciciosDeHoy(S.ejercicios, new Date(`${S.fecha}T12:00:00`));
+  S.registro.trained = ejs.length
+    ? ejs.every((i) => !!S.registro.supplements_taken[i.id])
+    : null;
+
   guardar();
   pintarHoy();
 }
@@ -616,9 +654,25 @@ export async function pintarPaciente(patient, extras = {}) {
     $('hoy-sub').textContent = 'Esto es lo que te toca hoy.';
 
     const { data: items } = await supabase.from('protocol_items')
-      .select('id,category,title,dose,reconstitution,timing,frequency,instructions,sort_order,dose_un,vial_mg,vial_ml,syringe,days_of_week,slots,catalog_code')
+      .select('id,category,title,dose,reconstitution,timing,frequency,instructions,sort_order,dose_un,vial_mg,vial_ml,syringe,days_of_week,slots,catalog_code,series,reps,rpe,descanso,bloque')
       .eq('protocol_id', S.plan.id).eq('is_active', true).order('sort_order');
     S.items = (items || []).filter((i) => CON_TOMA.includes(i.category));
+    // El ejercicio es un renglon del plan como cualquier otro. Antes se
+    // filtraba y desaparecia, y la rutina venia de una funcion cableada aparte.
+    S.ejercicios = (items || []).filter((i) => i.category === 'exercise');
+    // El patron muscular se hereda del catalogo, no se guarda en el renglon:
+    // asi no puede contradecir al ejercicio.
+    const codigos = [...new Set(S.ejercicios.map((i) => i.catalog_code).filter(Boolean))];
+    if (codigos.length) {
+      const { data: cat } = await supabase.from('catalog_exercises')
+        .select('code,pattern,primary_muscles,how_to,cautions,common_errors,equipment')
+        .in('code', codigos);
+      const porCodigo = Object.fromEntries((cat || []).map((c) => [c.code, c]));
+      S.ejercicios.forEach((i) => {
+        const c = porCodigo[i.catalog_code];
+        if (c) { i.patron_es = c.pattern; i.catalogo = c; }
+      });
+    }
 
     // Las horas de cada franja viven en los recordatorios del paciente: son
     // las suyas, las que ya configuro. Si falla, la pantalla se dibuja sin hora.

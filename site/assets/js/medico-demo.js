@@ -373,6 +373,8 @@ export const demoApi = {
   async removePlanItem() { throw new Error('En la vista previa no se edita'); },
   async firmarFicha() { throw new Error('En la vista previa no se firman fichas'); },
   async agregarReferencia() { throw new Error('En la vista previa no se agregan referencias'); },
+  async trainingTemplates() { return []; },
+  async applyTrainingTemplate() { throw new Error('En la vista previa no se aplican plantillas'); },
   async savePlanNotes() { throw new Error('En la vista previa no se edita'); },
   async ranges() { return { biomarkers: await loadBiomarkers(), ranges: await loadRanges(), criticals: [] }; },
   async approveCriticals() { throw new Error('En la vista previa no se aprueban valores criticos'); },
