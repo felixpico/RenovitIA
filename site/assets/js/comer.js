@@ -191,7 +191,7 @@ async function elegido(p, r, recargar) {
   if (r.tipo === 'platillo') {
     const codes = (r.componentes || []).map((c) => c.code);
     const base = await traerBase(codes);
-    caja.innerHTML = panelPlatillo(r, base);
+    caja.innerHTML = panelPlatillo(r);
     llenarFranja();
     montarPlatillo(r, base, alGuardar);
     return;

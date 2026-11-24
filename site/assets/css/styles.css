@@ -1153,3 +1153,29 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
 .bib-fig .f-pie { font-size: 10.5px; font-weight: 600; fill: var(--muted); }
 /* La campana de la figura "normal contra optimo" va como trazo, no relleno. */
 .bib-fig .f-curva { fill: none; stroke: var(--text); stroke-width: 2; stroke-linejoin: round; }
+
+/* ---------- agregar y quitar ingredientes de un platillo ---------- */
+.ing-x {
+  flex: none; width: 28px; height: 28px; padding: 0; line-height: 1;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  color: var(--muted); font-size: 17px; font-weight: 600; cursor: pointer;
+}
+.ing-x:active { background: var(--surface-2); }
+.ing-add { margin-top: 10px; position: relative; }
+.ing-add input {
+  font: inherit; width: 100%; box-sizing: border-box; padding: 9px 11px;
+  font-size: 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--text);
+}
+.ing-res {
+  margin-top: 6px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); overflow: hidden; max-height: 210px; overflow-y: auto;
+}
+.ing-op {
+  font: inherit; display: block; width: 100%; text-align: left; cursor: pointer;
+  padding: 10px 12px; font-size: 14px; border: 0; background: transparent;
+  color: var(--text); border-bottom: 1px solid var(--border);
+}
+.ing-op:last-child { border-bottom: 0; }
+.ing-op:active { background: var(--surface-2); }
+.ing-res .bu-nada { margin: 0; padding: 10px 12px; }

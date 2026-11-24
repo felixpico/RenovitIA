@@ -128,11 +128,13 @@ export function montarBase(r, alGuardar) {
 }
 
 /* ---------- platillo: se arma con sus ingredientes ---------- */
-export function panelPlatillo(r, base) {
-  const comp = r.componentes || [];
+export function panelPlatillo(r) {
   // Pedir gramos por ingrediente es mucha friccion: la gente sabe que se comio
   // "5 tacos", no "140 g de tortilla". El multiplicador escala todo de un golpe,
-  // y quien quiera afinar un ingrediente sigue pudiendo.
+  // y quien quiera afinar, quitar o agregar un ingrediente sigue pudiendo.
+  //
+  // La lista NO se dibuja aqui: la dibuja montarPlatillo desde su estado, para
+  // que agregar y quitar usen el mismo camino que el dibujado inicial.
   return `<div class="confirma">
     <b>${esc(r.nombre)}</b>
     <p>Este platillo no tiene un número fijo: cambia mucho según quién lo prepare.
@@ -144,56 +146,144 @@ export function panelPlatillo(r, base) {
       <u>× ${esc(r.medida || 'porción')}</u>
     </div>
     <details class="afinar"><summary>Afinar los ingredientes</summary>
-    <div class="ingr-lista">
-      ${comp.map((c, i) => {
-        const b = base[c.code];
-        return `<div class="ing"><span>${esc(b?.nombre || c.code)}</span>
-          <input type="number" inputmode="decimal" step="5" min="0"
-            data-i="${i}" data-code="${esc(c.code)}" value="${c.g}"><u>g</u></div>`;
-      }).join('')}
-    </div></details>
+      <div class="ingr-lista" id="pl-ingr"></div>
+      <div class="ing-add">
+        <input type="search" id="pl-buscar" autocomplete="off"
+               placeholder="Agregar un ingrediente…">
+        <div class="ing-res hidden" id="pl-res"></div>
+      </div>
+    </details>
     <div class="cm-tot" id="pl-tot"></div>
     <label class="cmf ancho"><span>CUÁNDO</span><select id="cm-franja"></select></label>
+    <p class="bu-nada hidden" id="pl-aviso">Pon al menos un ingrediente con gramos.</p>
     <button class="btn btn-primary btn-block" type="button" id="pl-ok" style="margin-top:12px">Guardar</button>
   </div>`;
 }
 
 export function montarPlatillo(r, base, alGuardar) {
   const tot = document.getElementById('pl-tot');
-  const entradas = Array.from(document.querySelectorAll('.ing input'));
-  const original = entradas.map((i) => Number(i.value || 0));
+  const lista = document.getElementById('pl-ingr');
   const elX = document.getElementById('pl-x');
+  const aviso = document.getElementById('pl-aviso');
   let veces = 1;
+
+  // El estado son los gramos POR PORCION, no los que se ven en pantalla. Esa es
+  // la correccion de fondo: antes se guardaba una copia de los gramos iniciales
+  // y el boton de porcion reescribia todos los campos desde ella, asi que lo que
+  // el paciente tecleaba se borraba en cuanto tocaba la porcion. Y un ingrediente
+  // que venia sin gramos tenia cero de origen: se quedaba en cero para siempre.
+  const items = (r.componentes || []).map((c) => ({
+    code: c.code,
+    nombre: base[c.code]?.nombre || c.code,
+    por: Number(c.g) || 0,
+  }));
+
+  const gramos = (it) => {
+    const g = it.por * veces;
+    return g >= 10 ? Math.round(g) : Math.round(g * 10) / 10;
+  };
+
+  const pintar = () => {
+    lista.innerHTML = items.map((it, i) => `<div class="ing">
+      <span>${esc(it.nombre)}</span>
+      <input type="number" inputmode="decimal" step="5" min="0"
+        data-i="${i}" value="${it.por ? gramos(it) : ''}"><u>g</u>
+      <button type="button" class="ing-x" data-quitar="${i}"
+        aria-label="Quitar ${esc(it.nombre)}">×</button>
+    </div>`).join('')
+      || '<p class="bu-nada">Este platillo se quedó sin ingredientes. Agrega uno abajo.</p>';
+  };
+
+  const calcular = () => {
+    const m = { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fiber_g: 0, gramos: 0 };
+    items.forEach((it) => {
+      const b = base[it.code];
+      if (!b) return;
+      const g = it.por * veces;
+      const f = g / 100;
+      m.kcal += nz(b.kcal) * f; m.protein_g += nz(b.protein_g) * f;
+      m.carb_g += nz(b.carb_g) * f; m.fat_g += nz(b.fat_g) * f; m.fiber_g += nz(b.fiber_g) * f;
+      m.gramos += g;
+    });
+    tot.innerHTML = `<b>${n1(m.protein_g)} g de proteína</b> · ${n0(m.kcal)} kcal
+      · ${n1(m.carb_g)} g carbos · ${n1(m.fat_g)} g grasa`;
+    aviso.classList.toggle('hidden', m.kcal > 0);
+    return m;
+  };
 
   const aplicar = (n) => {
     veces = Math.max(0.5, Math.min(10, n));
     elX.textContent = veces % 1 === 0 ? String(veces) : veces.toFixed(1);
-    entradas.forEach((i, k) => { i.value = Math.round(original[k] * veces); });
+    pintar();
     calcular();
   };
   document.getElementById('pl-menos')?.addEventListener('click', () => aplicar(veces - 0.5));
   document.getElementById('pl-mas')?.addEventListener('click', () => aplicar(veces + 0.5));
 
-  const calcular = () => {
-    const m = { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fiber_g: 0, gramos: 0 };
-    entradas.forEach((i) => {
-      const b = base[i.dataset.code];
-      if (!b) return;
-      const f = Number(i.value || 0) / 100;
-      m.kcal += nz(b.kcal) * f; m.protein_g += nz(b.protein_g) * f;
-      m.carb_g += nz(b.carb_g) * f; m.fat_g += nz(b.fat_g) * f; m.fiber_g += nz(b.fiber_g) * f;
-      m.gramos += Number(i.value || 0);
+  // Delegacion: la lista se vuelve a dibujar al agregar, quitar y cambiar la
+  // porcion, asi que enganchar cada campo por separado dejaria renglones muertos.
+  lista.addEventListener('input', (e) => {
+    const campo = e.target.closest('input[data-i]');
+    if (!campo) return;
+    // Se guarda lo tecleado DIVIDIDO entre la porcion, para que al subirla o
+    // bajarla se escale desde lo que el paciente puso, no desde lo original.
+    items[Number(campo.dataset.i)].por = (Number(campo.value) || 0) / veces;
+    calcular();
+  });
+  lista.addEventListener('click', (e) => {
+    const x = e.target.closest('[data-quitar]');
+    if (!x) return;
+    items.splice(Number(x.dataset.quitar), 1);
+    pintar();
+    calcular();
+  });
+
+  /* ---------- agregar un ingrediente ---------- */
+  const campoB = document.getElementById('pl-buscar');
+  const res = document.getElementById('pl-res');
+  let ultima = 0;
+
+  const cerrar = () => { res.classList.add('hidden'); res.innerHTML = ''; };
+
+  campoB?.addEventListener('input', async () => {
+    const texto = campoB.value.trim();
+    if (texto.length < 2) return cerrar();
+    const mio = ++ultima;
+    const { data, error } = await supabase.rpc('buscar_alimento', { q: texto, p_limite: 8 });
+    // Si siguio tecleando, esta respuesta ya no sirve: pisar la lista buena con
+    // una vieja es peor que no contestar.
+    if (mio !== ultima) return;
+    if (error || !data?.length) {
+      res.innerHTML = '<p class="bu-nada">Nada con ese nombre.</p>';
+      res.classList.remove('hidden');
+      return;
+    }
+    res.innerHTML = data.map((x) => `<button type="button" class="ing-op"
+      data-code="${esc(x.code)}">${esc(x.nombre)}</button>`).join('');
+    res.classList.remove('hidden');
+    res.querySelectorAll('.ing-op').forEach((b) => {
+      b.addEventListener('click', () => {
+        const x = data.find((y) => y.code === b.dataset.code);
+        if (!x) return;
+        if (items.some((it) => it.code === x.code)) { cerrar(); campoB.value = ''; return; }
+        base[x.code] = x;
+        // Entra en cero: el paciente dice cuantos gramos, no lo adivinamos.
+        items.push({ code: x.code, nombre: x.nombre, por: 0 });
+        campoB.value = '';
+        cerrar();
+        pintar();
+        calcular();
+        lista.querySelector(`input[data-i="${items.length - 1}"]`)?.focus();
+      });
     });
-    tot.innerHTML = `<b>${n1(m.protein_g)} g de proteína</b> · ${n0(m.kcal)} kcal
-      · ${n1(m.carb_g)} g carbos · ${n1(m.fat_g)} g grasa`;
-    return m;
-  };
-  entradas.forEach((i) => i.addEventListener('input', calcular));
+  });
+
+  pintar();
   calcular();
 
   document.getElementById('pl-ok')?.addEventListener('click', (ev) => {
     const m = calcular();
-    if (!(m.kcal > 0)) return;
+    if (!(m.kcal > 0)) { aviso.classList.remove('hidden'); return; }
     // Si comio el doble, el renglon tiene que decirlo: guardar "Tacos al
     // pastor (3)" cuando se comio 6 le miente al paciente y a su medica.
     alGuardar(ev.currentTarget, {
