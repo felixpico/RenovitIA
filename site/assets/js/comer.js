@@ -480,6 +480,26 @@ function montarCodigo(p, recargar) {
       .invoke('buscar-producto', { body: { codigo } });
     if (error || !r) { aviso('No se pudo buscar. Intenta de nuevo.', true); return; }
     if (!r.ok) {
+      // Se anota el hueco. Un escaneo que no encuentra nada no dejaba NINGUN
+      // rastro: los logs de Supabase duran 24 horas, asi que durante meses no
+      // hubo forma de saber si el catalogo cubre el 100 % o el 40 %. Sin este
+      // numero, "hay que importar miles de productos" no se puede ni defender
+      // ni rebatir.
+      //
+      // Un codigo que no paso el digito verificador NO se anota: es una errata
+      // de lectura, no un hueco del catalogo, y mezclarlos haria que la tabla
+      // midiera dos cosas distintas.
+      if (r.motivo !== 'codigo_invalido') {
+        // OJO: supabase.rpc() no tiene .catch, solo .then. Va con try/catch.
+        // Y nunca puede tumbar el escaneo: medir no vale lo que vale registrar
+        // la comida del paciente.
+        try {
+          await supabase.rpc('anotar_escaneo_sin_resultado', {
+            p_codigo: codigo,
+            p_motivo: r.motivo === 'error' ? 'error_off' : 'no_encontrado',
+          });
+        } catch (_) { /* da igual: el paciente sigue con la foto de la etiqueta */ }
+      }
       aviso(esc(r.aviso), true);
       // Si no esta en ninguna base, el camino es la etiqueta: y al confirmarla
       // el producto queda guardado con su codigo.
