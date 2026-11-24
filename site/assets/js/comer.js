@@ -507,7 +507,16 @@ function montarCodigo(p, recargar) {
         `<option value="${k}"${k === franjaAhora() ? ' selected' : ''}>${n}</option>`).join('');
     }
     montarBase({ ...d, nombre: d.nombre }, async (boton, fila, code) => {
-      await guardar(boton, { patient_id: p.id, origen: 'etiqueta', ...fila }, recargar);
+      // El item_id NO es un extra: sin el, la comida queda suelta y nadie puede
+      // saber despues QUE comio el paciente, solo como se llamaba ese dia. Esta
+      // ruta lo omitia, asi que los 37 renglones escaneados que habia estaban
+      // todos sin ligar. La ruta del buscador si lo hacia desde el principio.
+      let item_id = null;
+      try {
+        const { data: f } = await supabase.from('food_items').select('id').eq('code', code).maybeSingle();
+        item_id = f?.id ?? null;
+      } catch (_) { /* si falla, se guarda la comida igual */ }
+      await guardar(boton, { patient_id: p.id, origen: 'etiqueta', item_id, ...fila }, recargar);
       supabase.rpc('usar_alimento', { p_code: code }).then(() => {}, () => {});
     });
 
