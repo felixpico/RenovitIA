@@ -254,7 +254,12 @@ export function montarPlatillo(r, base, alGuardar) {
     // una vieja es peor que no contestar.
     if (mio !== ultima) return;
     if (error || !data?.length) {
-      res.innerHTML = '<p class="bu-nada">Nada con ese nombre.</p>';
+      // Sin salida es peor que sin resultado: si el alimento no esta en el
+      // catalogo, el camino que SI existe es el codigo de barras, y hay que
+      // decirlo aqui, no esperar a que el paciente lo adivine.
+      res.innerHTML = error
+        ? '<p class="bu-nada">No se pudo buscar. Intenta de nuevo.</p>'
+        : '<p class="bu-nada">Nada con ese nombre. Si viene en paquete, ciérrale aquí y escanea su código de barras desde «Agregar comida»: el producto se queda guardado para la próxima.</p>';
       res.classList.remove('hidden');
       return;
     }
