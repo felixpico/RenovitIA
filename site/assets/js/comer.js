@@ -510,7 +510,52 @@ function montarCodigo(p, recargar) {
       await guardar(boton, { patient_id: p.id, origen: 'etiqueta', ...fila }, recargar);
       supabase.rpc('usar_alimento', { p_code: code }).then(() => {}, () => {});
     });
+
+    // Un producto que viene de OpenFoodFacts entra con el nombre del paquete,
+    // muchas veces en ingles: "Almond milk", "Mesquite Smoked Ham". Nadie que
+    // busque en espanol lo vuelve a encontrar, y el catalogo crece invisible.
+    // Aqui SI hay una persona mirando el producto, asi que es el momento de
+    // preguntarle como le dice. Se guarda como ALIAS, no como nombre: el nombre
+    // es lo que dice el paquete y eso no lo cambia un paciente.
+    if (d.fuente === 'openfoodfacts') ponerApodo(d);
   };
+
+  function ponerApodo(d) {
+    const caja = document.createElement('div');
+    caja.className = 'apodo';
+    caja.innerHTML = `<label for="cm-apodo">¿Cómo le llamas tú?</label>
+      <p class="muted small">Entró con el nombre del paquete. Si le pones el tuyo, lo encuentras
+        más rápido la próxima vez, y tus compañeros también.</p>
+      <div class="apodo-fila">
+        <input type="text" id="cm-apodo" maxlength="40" autocomplete="off"
+               placeholder="${esc(d.nombre || '')}">
+        <button class="btn btn-sm" type="button" id="cm-apodo-ok">Guardar</button>
+      </div>
+      <p class="muted small hidden" id="cm-apodo-msg"></p>`;
+    $('cm-form')?.append(caja);
+
+    const campo = caja.querySelector('#cm-apodo');
+    const msg = caja.querySelector('#cm-apodo-msg');
+    const decir = (t) => { msg.textContent = t; msg.classList.remove('hidden'); };
+
+    caja.querySelector('#cm-apodo-ok')?.addEventListener('click', async (ev) => {
+      const apodo = (campo.value || '').trim();
+      if (apodo.length < 2) { decir('Escribe al menos dos letras.'); return; }
+      const b = ev.currentTarget;
+      b.disabled = true;
+      try {
+        // OJO: supabase.rpc() no tiene .catch, solo .then. Va con try/catch.
+        const { data, error } = await supabase.rpc('apodar_alimento',
+          { p_code: d.code, p_apodo: apodo });
+        if (error || data !== true) { decir('No se pudo guardar el nombre.'); b.disabled = false; return; }
+        caja.innerHTML = `<p class="muted small">Listo: también lo vas a encontrar
+          buscando «${esc(apodo)}».</p>`;
+      } catch (_) {
+        decir('No se pudo guardar el nombre.');
+        b.disabled = false;
+      }
+    });
+  }
 
   $('cb-buscar')?.addEventListener('click', () => {
     const c = ($('cb-num')?.value || '').replace(/\D/g, '');

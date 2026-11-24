@@ -1179,3 +1179,18 @@ nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
 .ing-op:last-child { border-bottom: 0; }
 .ing-op:active { background: var(--surface-2); }
 .ing-res .bu-nada { margin: 0; padding: 10px 12px; }
+
+/* ---------- ponerle nombre propio a un producto escaneado ---------- */
+.apodo {
+  margin-top: 14px; padding: 12px 13px; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.apodo label { display: block; font-size: 13.5px; font-weight: 700; }
+.apodo p { margin: 4px 0 0; }
+.apodo-fila { display: flex; gap: 8px; margin-top: 9px; }
+.apodo-fila input {
+  font: inherit; flex-grow: 1; min-width: 0; padding: 9px 11px; font-size: 14px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--text);
+}
+.apodo-fila .btn { flex: none; }
